@@ -3,7 +3,7 @@
 ## Supported versions
 
 Sable Markdown Writer is pre-1.0 and ships a single rolling release. Only the
-[latest release](https://github.com/ExxtraV/Sable/releases/latest) is
+[latest release](https://github.com/ExxtraV/Sable-Markdown-Suite/releases/latest) is
 supported; please update before reporting an issue.
 
 ## Reporting a vulnerability
@@ -12,7 +12,7 @@ supported; please update before reporting an issue.
 
 Report it privately through GitHub Security Advisories:
 
-1. Go to the [Security tab](https://github.com/ExxtraV/Sable/security) of this repository.
+1. Go to the [Security tab](https://github.com/ExxtraV/Sable-Markdown-Suite/security) of this repository.
 2. Click **Report a vulnerability** to open a draft advisory.
 3. Describe the issue: what it is, where it lives (app code, a build/release
    script, or the update mechanism), and, if you can, the steps to reproduce

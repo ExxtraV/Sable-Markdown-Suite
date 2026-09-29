@@ -38,7 +38,7 @@ OG_ALT = ("The Sable logo, a sable asleep and curled nose to tail with a pen nib
 ORGANIZATION = {"@type": "Organization", "@id": SITE + "/#org", "name": "Sable Markdown Writer",
                 "url": SITE + "/", "logo": {"@type": "ImageObject", "url": SITE + "/icon-512.png",
                                             "width": 512, "height": 512},
-                "sameAs": ["https://github.com/ExxtraV/Sable"]}
+                "sameAs": ["https://github.com/ExxtraV/Sable-Markdown-Suite"]}
 BLOG_DESCRIPTION = "News and notes from the Sable Markdown Writer project."
 MONTHS = ["January", "February", "March", "April", "May", "June", "July",
           "August", "September", "October", "November", "December"]
@@ -404,7 +404,7 @@ HEADER = """<body>
 """
 
 FOOTER = """
-<footer class="site"><div class="bar"><span><a href="https://github.com/ExxtraV/Sable/blob/main/TRADEMARK.md">Sable Markdown Writer™</a> — free and open source (MIT).</span><nav aria-label="Footer"><a href="/guide">Guide</a><a href="/blog">Blog</a><a href="/privacy">Privacy</a><a href="https://github.com/ExxtraV/Sable">GitHub</a><a href="https://buymeacoffee.com/sablewriter">Support Sable</a><a href="https://github.com/ExxtraV/Sable/releases">Releases</a><a href="https://github.com/ExxtraV/Sable/issues">Report a bug</a></nav></div></footer>
+<footer class="site"><div class="bar"><span><a href="https://github.com/ExxtraV/Sable-Markdown-Suite/blob/main/TRADEMARK.md">Sable Markdown Writer™</a> — free and open source (MIT).</span><nav aria-label="Footer"><a href="/guide">Guide</a><a href="/blog">Blog</a><a href="/privacy">Privacy</a><a href="https://github.com/ExxtraV/Sable-Markdown-Suite">GitHub</a><a href="https://buymeacoffee.com/sablewriter">Support Sable</a><a href="https://github.com/ExxtraV/Sable-Markdown-Suite/releases">Releases</a><a href="https://github.com/ExxtraV/Sable-Markdown-Suite/issues">Report a bug</a></nav></div></footer>
 </body>
 </html>
 """

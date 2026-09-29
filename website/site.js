@@ -3,7 +3,7 @@
 (function () {
   var buttons = document.querySelectorAll('[data-download]');
   if (!buttons.length || !window.fetch) return;
-  fetch('https://api.github.com/repos/ExxtraV/Sable/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+  fetch('https://api.github.com/repos/ExxtraV/Sable-Markdown-Suite/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
     .then(function (response) { return response.ok ? response.json() : Promise.reject(); })
     .then(function (release) {
       var assets = release.assets || [];
