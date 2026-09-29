@@ -23,6 +23,6 @@ Other, unrelated products also use the word "Sable". This policy is only about t
 
 ## Questions
 
-If you're not sure whether a use is fine, [open a discussion or issue](https://github.com/ExxtraV/Sable/issues) and ask. Most reasonable requests will be a yes.
+If you're not sure whether a use is fine, [open a discussion or issue](https://github.com/ExxtraV/Sable-Markdown-Suite/issues) and ask. Most reasonable requests will be a yes.
 
 This policy isn't legal advice, and it doesn't limit anything the MIT License allows for the code itself.

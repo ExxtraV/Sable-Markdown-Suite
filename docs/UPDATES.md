@@ -1,6 +1,6 @@
 # Publishing Sable Markdown Writer updates
 
-Sable Markdown Writer is MIT licensed at https://github.com/ExxtraV/Sable. The default **community** release works without paid Apple membership. It is ad-hoc signed, not notarized by Apple. Sparkle separately verifies update downloads with Sable's Ed25519 signing key.
+Sable Markdown Writer is MIT licensed at https://github.com/ExxtraV/Sable-Markdown-Suite. The default **community** release works without paid Apple membership. It is ad-hoc signed, not notarized by Apple. Sparkle separately verifies update downloads with Sable's Ed25519 signing key.
 
 ## One-time setup for free-account releases
 
@@ -19,6 +19,10 @@ The Keychain copy is the only one you can read back: GitHub secrets can be used 
 
 No Apple certificate, Apple account password, notarization credentials, or paid membership is needed for community releases. The workflow reads the public key from UpdateConfig.json automatically.
 
+### The repository was renamed
+
+The repository was renamed from `ExxtraV/Sable` to `ExxtraV/Sable-Markdown-Suite`. Sable 0.10.0 and earlier have the old feed address built in and reach the new one only through GitHub's automatic redirect. **Never create a new repository named `Sable` under ExxtraV.** That would end the redirect, and those installs would stop getting updates. Builds from 0.10.1 on use the new address.
+
 ## Each release
 
 Update `docs/release-notes.md`. In GitHub Actions run **Prepare release**, select **community** and the **stable** channel, and supply a version such as `0.9.1` and a positive build number greater than all previously published builds (the current local build is 14).
@@ -27,7 +31,7 @@ The workflow builds both Apple Silicon and Intel, runs tests, packages the app, 
 
 Review and test the draft before publishing it. Mark the published release as the latest stable release so the app can reach its feed at:
 
-https://github.com/ExxtraV/Sable/releases/latest/download/appcast.xml
+https://github.com/ExxtraV/Sable-Markdown-Suite/releases/latest/download/appcast.xml
 
 Every app download in the feed points to a specific version, not a moving latest-download URL. Never reuse a version or build number or overwrite a published archive.
 
