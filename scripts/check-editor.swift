@@ -404,6 +404,7 @@ import QuillCore
         SingleDocumentCoordinator.shared.detach(document, using: releasing)
         precondition(document.fileURL == nil, "The file is released before anything else happens")
         precondition(loaded.count == 1 && loaded[0].0 == "" && loaded[0].1 == nil, "The page is emptied and untitled")
+        checkSwitchedDocumentFollowsItsFile()
         // Regression: the shared color panel must never mutate plain Markdown or
         // issue text-change notifications while SwiftUI lays out its color wells.
         let beforeColor = editor.attributedString()
@@ -431,7 +432,44 @@ import QuillCore
         precondition(FocusParagraph.range(in: "One\n\n", caret: 5) == NSRange(location: 5, length: 0))
         precondition(FocusParagraph.range(in: "", caret: 0) == NSRange(location: 0, length: 0))
         checkWheelZoom()
-        print("Passed: focus tracking/clearing, font switching, soft-line paragraphs, pinch zoom; native fonts, source preservation, centered margins, bold insertion/exit/toggle, italic newline exit, Unicode selections, Command-wheel zoom.")
+        print("Passed: focus tracking/clearing, font switching, soft-line paragraphs, pinch zoom; native fonts, source preservation, centered margins, bold insertion/exit/toggle, italic newline exit, Unicode selections, Command-wheel zoom, a switched-to file followed through renames and moves.")
+    }
+
+    /// Switching files reuses the open document. Renaming or moving the file it switched to must carry it along (not
+    /// leave it pointing at nothing), and moving the file it had before must not drag it back to that one.
+    @MainActor static func checkSwitchedDocumentFollowsItsFile() {
+        final class Page: NSDocument {
+            override func read(from data: Data, ofType typeName: String) throws {}
+            override func data(ofType typeName: String) throws -> Data { Data() }
+        }
+        func settle() { RunLoop.main.run(until: Date().addingTimeInterval(0.6)) }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("quill-follow-\(UUID())")
+        try! FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        func file(_ name: String) -> URL {
+            let url = folder.appendingPathComponent(name)
+            try! Data("\(name)\n".utf8).write(to: url)
+            return url
+        }
+        func name(_ document: NSDocument) -> String { document.fileURL?.lastPathComponent ?? "nil" }
+        let first = file("Chapter 1.md"), second = file("Chapter 2.md")
+        let page = try! Page(contentsOf: first, ofType: "net.daringfireball.markdown")
+        NSDocumentController.shared.addDocument(page)
+        defer { page.close() }
+        settle()
+        SingleDocumentCoordinator.repoint(page, to: second)
+        settle()
+        try! FolderMove.coordinatedMove(from: second, to: folder.appendingPathComponent("The Harbor.md"))
+        settle()
+        precondition(name(page) == "The Harbor.md", "Renamed in Sable, followed: \(name(page))")
+        try! FolderMove.coordinatedMove(from: first, to: folder.appendingPathComponent("Old Chapter 1.md"))
+        settle()
+        precondition(name(page) == "The Harbor.md", "The previous file moving leaves it alone: \(name(page))")
+        let drafts = folder.appendingPathComponent("Drafts", isDirectory: true)
+        try! FileManager.default.createDirectory(at: drafts, withIntermediateDirectories: true)
+        try! FileManager.default.moveItem(at: folder.appendingPathComponent("The Harbor.md"), to: drafts.appendingPathComponent("The Harbor.md"))
+        RunLoop.main.run(until: Date().addingTimeInterval(1.5))
+        precondition(page.fileURL?.deletingLastPathComponent().lastPathComponent == "Drafts", "Moved without coordination (like Finder), followed: \(page.fileURL?.path ?? "nil")")
     }
 
     /// Real wheel events through `WritingScrollView`: Command zooms its own surface a notch at a time, a fast spin is

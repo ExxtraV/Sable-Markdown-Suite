@@ -142,6 +142,10 @@ struct WritingView: View {
     @State private var showHelp = false
     @State private var choosingFolder = false
     @State private var parallelURL: URL?
+    /// The reference pane's file, so the pane follows it when it is renamed or moved.
+    @State private var parallelTrail: FileTrail?
+    /// Changes only when the reference pane shows a different file, not when its file is renamed under it.
+    @State private var parallelSession = UUID()
     @State private var pendingSwitchURL: URL?
     @State private var pendingParallelURL: URL?
     @State private var closeParallelRequest: UUID?
@@ -154,6 +158,9 @@ struct WritingView: View {
     @State private var whereabouts = FileWhereabouts.inPlace
     /// Where the open file last was in its own folder, so it can be put back if it lands in the Trash.
     @State private var lastPlacedURL: URL?
+    /// Whether the open file was gone on the last look. A renamed file is followed a moment later, so only a file
+    /// that stays gone is called deleted.
+    @State private var goneOnLastLook = false
     @State private var openCards: [OpenCard] = []
     @State private var tagSceneSignal = 0
     @State private var exportSource: ExportSource?
@@ -197,7 +204,11 @@ struct WritingView: View {
                 if !edited { edited = true }
                 if !saveFeedback.message.isEmpty { saveFeedback.message = "" }
             }
-            .onReceive(savePoll) { _ in updateSaveState() }
+            .onReceive(savePoll) { _ in updateSaveState(); followMovedFiles() }
+            .onChange(of: browser.movesMade) { _, _ in followMovedFiles() }
+            .onChange(of: parallelURL) { _, url in
+                if parallelTrail?.url != url { parallelTrail = url.map(FileTrail.init) }
+            }
             .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder], allowsMultipleSelection: false, onCompletion: handleFolderImport)
             .alert("Could not open selection", isPresented: errorPresented) {
                 Button("OK") { errorMessage = nil }
@@ -266,7 +277,7 @@ struct WritingView: View {
                 didClose: completeParallelClose,
                 hostWindow: commands.editor?.window
             )
-            .id(parallelURL)
+            .id(parallelSession)
         }
     }
 
@@ -617,8 +628,25 @@ struct WritingView: View {
         }
         LaunchBehavior.remember(native.fileURL)
         let place = native.fileURL.map(FileWhereabouts.of) ?? .inPlace
+        let gone = place == .missing
+        defer { if goneOnLastLook != gone { goneOnLastLook = gone } }
+        if gone, !goneOnLastLook { return }
         if place == .inPlace, lastPlacedURL != native.fileURL { lastPlacedURL = native.fileURL }
         if whereabouts != place { whereabouts = place }
+    }
+
+    /// Floating cards and the reference pane follow their files when they are renamed or moved, in Sable or in Finder.
+    /// (The open document follows its file by itself.)
+    private func followMovedFiles() {
+        for index in openCards.indices {
+            var file = openCards[index].file
+            _ = file.follow()
+            if file != openCards[index].file { openCards[index].file = file }
+        }
+        guard var trail = parallelTrail else { return }
+        let moved = trail.follow()
+        if trail != parallelTrail { parallelTrail = trail }
+        if moved { parallelURL = trail.url }
     }
 
     /// The open file was moved to the Trash or deleted outside Sable. The document follows its file into the Trash and
@@ -691,6 +719,7 @@ struct WritingView: View {
         }
         guard parallelURL?.standardizedFileURL != url.standardizedFileURL else { return }
         if parallelURL == nil {
+            parallelSession = UUID()
             parallelURL = url
         } else {
             pendingSwitchURL = nil
@@ -708,6 +737,7 @@ struct WritingView: View {
         closeParallelRequest = nil
         if let next = pendingParallelURL {
             pendingParallelURL = nil
+            parallelSession = UUID()
             parallelURL = next
             return
         }

@@ -468,6 +468,8 @@ final class FolderBrowser: ObservableObject {
     @Published private(set) var searching = false
     @Published private(set) var wordCounts: [URL: FileWords] = [:]
     @Published private(set) var lastTrashed: TrashBatch?
+    /// Counts renames and moves made here, so open cards and the reference pane can follow their files at once.
+    @Published private(set) var movesMade = 0
     @Published private(set) var colorLabels: [MarkColor: String] = ColorLabels.load()
     @Published var sort = FileSort(rawValue: UserDefaults.standard.string(forKey: "fileSort") ?? "") ?? .name {
         didSet { UserDefaults.standard.set(sort.rawValue, forKey: "fileSort") }
@@ -636,6 +638,7 @@ final class FolderBrowser: ObservableObject {
     func rename(_ entry: BrowserEntry, to name: String) throws -> URL {
         let target = try FolderRename.perform(entry.url, isDirectory: entry.isDirectory, name: name)
         guard target != entry.url, let root else { return target }
+        movesMade += 1
         let moves = [(from: entry.url, to: target)]
         marks = marks.remapped(moves: moves, root: root)
         FolderMarksStore.save(marks, for: root)
@@ -805,6 +808,7 @@ final class FolderBrowser: ObservableObject {
         guard let root else { throw FolderMoveError.outsideRoot }
         let moved = try FolderMove.perform(urls, into: folder, root: root)
         guard !moved.isEmpty else { return }
+        movesMade += 1
         marks = marks.remapped(moves: moved, root: root)
         FolderMarksStore.save(marks, for: root)
         categories = categories.remapped(moves: moved, root: root)
@@ -1505,7 +1509,7 @@ struct FolderBrowserSection: View {
         } catch { problem = error.localizedDescription }
     }
 
-    /// The parallel document is off limits while it's open beside the draft.
+    /// The parallel document can't go to the Trash while it's open beside the draft. Renames and moves are fine: it follows its file.
     private func parallelGuard(_ urls: [URL], action: String) -> Bool {
         guard let parallelURL, urls.contains(where: { FolderMove.isInside(parallelURL, of: $0) }) else { return true }
         problem = "Close the parallel document before \(action) it."
@@ -1514,13 +1518,11 @@ struct FolderBrowserSection: View {
 
     private func move(_ dropped: [URL], into folder: URL) {
         let urls = browser.dragSet(for: dropped)
-        guard parallelGuard(urls, action: "moving") else { return }
         do { try browser.move(urls, into: folder) } catch { problem = error.localizedDescription }
     }
 
     private func rename(_ entry: BrowserEntry, to name: String) {
         defer { browser.renaming = nil }
-        guard parallelGuard([entry.url], action: "renaming") else { return }
         do { try browser.rename(entry, to: name) } catch { problem = error.localizedDescription }
     }
 
@@ -1730,7 +1732,7 @@ private struct BrowserRowView: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            if isRenaming { renameField } else { mainButton }
+            if isRenaming { renameField } else { rowLabel }
             if entry.isDirectory, !isRenaming, hovering {
                 if let addItem {
                     Button { addToFolder(entry.url, addItem) } label: {
@@ -1764,6 +1766,11 @@ private struct BrowserRowView: View {
         .font(.system(size: 12)).padding(compact ? 4 : 7).padding(.leading, CGFloat(min(depth, 10)) * 12)
         .background(rowBackground, in: RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(dropTargeted ? Color.accentColor : .clear, lineWidth: 1.5))
+        // The whole row, padding included, answers a click and starts a drag. A tap rather than a Button, because a
+        // Button keeps the mouse-down to itself and only the edges around it could start a drag. The hover buttons
+        // still take their own clicks, and the rename field keeps its own.
+        .contentShape(RoundedRectangle(cornerRadius: 6))
+        .gesture(TapGesture().onEnded(open), including: isRenaming ? .subviews : .all)
         .onHover { hovering = $0 }
         .draggable(entry.url)
         .dropDestination(for: URL.self) { urls, _ in dropOnRow(urls, entry); return true } isTargeted: { dropTargeted = $0 }
@@ -1771,42 +1778,48 @@ private struct BrowserRowView: View {
         .contextMenu { menu }
     }
 
-    private var mainButton: some View {
-        Button {
-            // ⌘-click and ⇧-click build a selection; a plain click selects the row and opens it.
-            let flags = NSApp.currentEvent?.modifierFlags ?? []
-            browser.click(entry.url, command: flags.contains(.command), shift: flags.contains(.shift))
-            if flags.contains(.command) || flags.contains(.shift) { return }
-            if !entry.isDirectory { switchFile(entry.url) }
-            else if showPath || entry.isProject { browser.navigate(entry.url) }
-            else { browser.toggle(entry.url) }
-        } label: {
-            HStack(spacing: 8) {
-                if entry.isProject {
-                    Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary).frame(width: 10)
-                    Image(systemName: "books.vertical.fill").foregroundStyle(Color.accentColor)
-                } else if entry.isDirectory {
-                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary).frame(width: 10)
-                    if showIcons { Image(systemName: "folder.fill").foregroundStyle(mark?.color ?? Color.secondary.opacity(0.7)) }
-                } else if showIcons {
-                    Image(systemName: cardKind?.symbol ?? "doc.text").foregroundStyle(.secondary).padding(.leading, 18)
-                } else {
-                    Color.clear.frame(width: 10, height: 1)
-                }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).lineLimit(1).fontWeight(isCurrent ? .medium : .regular)
-                    if entry.isProject && detail == nil { Text("Fiction Project").font(.system(size: 10)).foregroundStyle(.tertiary) }
-                    if let detail { Text(detail).font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(1) }
-                }
-                Spacer(minLength: 0)
-                if browser.isPinned(entry.url) { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(.tertiary) }
-                if let mark, !showIcons || !entry.isDirectory {
-                    Circle().fill(mark.color).frame(width: 7, height: 7).help(browser.label(for: mark))
-                }
-                if browser.loadingFolders.contains(entry.url) { ProgressView().controlSize(.mini) }
-            }.contentShape(Rectangle())
-        }.buttonStyle(.plain)
+    /// ⌘-click and ⇧-click build a selection; a plain click selects the row and opens it. The second click of a
+    /// double-click does nothing more, so a folder opens rather than opening and closing again.
+    private func open() {
+        let event = NSApp.currentEvent
+        if let event, [.leftMouseDown, .leftMouseUp].contains(event.type), event.clickCount > 1 { return }
+        let flags = event?.modifierFlags ?? []
+        browser.click(entry.url, command: flags.contains(.command), shift: flags.contains(.shift))
+        if flags.contains(.command) || flags.contains(.shift) { return }
+        if !entry.isDirectory { switchFile(entry.url) }
+        else if showPath || entry.isProject { browser.navigate(entry.url) }
+        else { browser.toggle(entry.url) }
+    }
+
+    private var rowLabel: some View {
+        HStack(spacing: 8) {
+            if entry.isProject {
+                Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary).frame(width: 10)
+                Image(systemName: "books.vertical.fill").foregroundStyle(Color.accentColor)
+            } else if entry.isDirectory {
+                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary).frame(width: 10)
+                if showIcons { Image(systemName: "folder.fill").foregroundStyle(mark?.color ?? Color.secondary.opacity(0.7)) }
+            } else if showIcons {
+                Image(systemName: cardKind?.symbol ?? "doc.text").foregroundStyle(.secondary).padding(.leading, 18)
+            } else {
+                Color.clear.frame(width: 10, height: 1)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).lineLimit(1).fontWeight(isCurrent ? .medium : .regular)
+                if entry.isProject && detail == nil { Text("Fiction Project").font(.system(size: 10)).foregroundStyle(.tertiary) }
+                if let detail { Text(detail).font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(1) }
+            }
+            Spacer(minLength: 0)
+            if browser.isPinned(entry.url) { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(.tertiary) }
+            if let mark, !showIcons || !entry.isDirectory {
+                Circle().fill(mark.color).frame(width: 7, height: 7).help(browser.label(for: mark))
+            }
+            if browser.loadingFolders.contains(entry.url) { ProgressView().controlSize(.mini) }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { open() }
     }
 
     private var renameField: some View {
