@@ -80,6 +80,11 @@ func render(pixels size: Int) -> CGImage {
         let scale = body.width / 944
         context.draw(master, in: CGRect(x: body.minX - 40 * scale, y: body.minY - 40 * scale, width: 1024 * scale, height: 1024 * scale))
         context.restoreGState()
+        if darkTile {
+            // A faint light rim, so a dark tile keeps its edge against a dark Dock or window.
+            context.addPath(bodyPath(in: body.insetBy(dx: side / 1024, dy: side / 1024)))
+            context.setStrokeColor(CGColor(gray: 1, alpha: 0.16)); context.setLineWidth(side * 2 / 1024); context.strokePath()
+        }
     } else {
         let inset = side * 0.03
         let body = CGRect(x: inset, y: inset, width: side - 2 * inset, height: side - 2 * inset)

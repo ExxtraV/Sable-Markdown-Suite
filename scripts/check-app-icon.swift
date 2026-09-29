@@ -61,7 +61,7 @@ for index in 0..<CGImageSourceGetCount(source) {
 for needed in [16, 32, 64, 128, 256, 512, 1024] where !sizes.contains(needed) { fail("Missing the \(needed)px rendition") }
 
 // The master the icon is built from is a square 1024 tile.
-guard let masterSource = CGImageSourceCreateWithURL(URL(fileURLWithPath: "Assets/sable-icon-light-1024.png") as CFURL, nil),
+guard let masterSource = CGImageSourceCreateWithURL(URL(fileURLWithPath: "Assets/sable-icon-dark-1024.png") as CFURL, nil),
       let master = CGImageSourceCreateImageAtIndex(masterSource, 0, nil) else { fail("Can't open the icon master") }
 if master.width != 1024 || master.height != 1024 { fail("The icon master should be 1024x1024, not \(master.width)x\(master.height)") }
 print("Passed: Sable.icns has every size, follows the macOS grid (824-of-1024 body, rounded, centered), fills the canvas at small sizes, and keeps the mark readable.")

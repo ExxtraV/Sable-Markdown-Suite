@@ -12,7 +12,7 @@ Codex produced the tile, a transparent primary logo, a reverse (white body) logo
 
 | File | What it is | Used by |
 | --- | --- | --- |
-| `sable-icon-light-1024.png` | App-icon master: charcoal mark on a pale rounded tile, 1024 px. | `scripts/build-icon.sh` |
+| `sable-icon-dark-1024.png` | App-icon master: white curl on a charcoal rounded tile, 1024 px, as generated. The maintainer chose the dark tile over the light one. | `scripts/build-icon.sh` |
 | `sable-icon-small-mark.png` | The mark simplified to black and white, without the gray throat patch. 640 px. | The 16, 32, and 64 px icon sizes |
 | `Sable.icns` | The app icon, built from the two files above. | The app bundle (Dock, Finder, About panel) |
 | `sable-logo.png` | Transparent logo for light backgrounds. 640 px, downsized from the 1254 px original. | README |
@@ -27,8 +27,8 @@ sh scripts/build-icon.sh [master.png]
 `scripts/render-icon.swift` fits the master tile onto the macOS icon grid instead of scaling it as it comes, so Sable lines up with other apps in the Dock:
 
 - **Large sizes:** an 824-of-1024 body centered in the canvas (a 100 px margin), clipped to a continuous-corner rounded shape and given the standard soft shadow. The corner curve was matched against the system's own Notes icon; the outlines agree to within a few pixels. The tile as generated filled 92% of the canvas, which would have looked about 15% larger than its neighbors.
-- **16, 32, and 64 px:** the detailed mark turns to mush, so these sizes use the simplified mark, larger in the tile and centered on what it shows, on a tile that fills the canvas, with a hairline edge so a pale tile still shows against a white window. The eye and nib don't survive at 16 px; the curled silhouette and pale face do.
-- **Dark tile:** if the master's background is dark, the renderer reverses the small mark automatically.
+- **16, 32, and 64 px:** the detailed mark turns to mush, so these sizes use the simplified mark, larger in the tile and centered on what it shows, on a tile that fills the canvas, with a hairline edge so the tile keeps its outline on a white window. The eye and nib don't survive at 16 px; the curled silhouette and pale face do.
+- **Dark tile:** the master's tile is dark, so the renderer reverses the small mark to white, and adds a faint light rim at large sizes so the tile keeps its edge against a dark Dock or window. If the master is ever swapped for a light tile, both adjust on their own.
 
 Rebuild the icon whenever the master or the renderer changes. `scripts/check-app-icon.swift` fails if `Sable.icns` drifts off the grid, loses a size, or the mark becomes too faint to read.
 
