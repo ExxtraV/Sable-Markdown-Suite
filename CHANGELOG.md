@@ -2,6 +2,11 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
+## Unreleased
+
+- **Renaming an open file no longer says it was deleted.** Renaming or moving a file in the writing desk while it's open now carries it along, on the page, beside your draft, and as a card, and the next save goes to the new name. Renames and moves in Finder are followed the same way. The note still appears when a file really is deleted or moved to the Trash. Before, a file you had switched to in the desk lost track of its file when renamed, and could follow a *previously* open file instead if that one was moved. Renaming or moving the file open beside your draft is no longer blocked.
+- **Drag from anywhere on a row.** In the writing desk's file list and the Manuscript tab, pressing anywhere on a row (icon, name, padding, or word count) now starts a drag. Before, only part of a row did. A double-click on a folder now opens it instead of opening and closing it again.
+
 ## 0.10.0
 
 Instant typing in long manuscripts, smooth pinch zoom, ⌘ + mouse wheel zoom, faster theme and font changes, safer file handling after an audit of every place Sable writes, moves, or deletes your files, and an opt-in beta update channel.

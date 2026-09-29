@@ -328,22 +328,24 @@ private struct ManuscriptTab: View {
     private func chapterRow(_ chapter: ChapterStat, number: Int, longest: Int) -> some View {
         let count = words(chapter)
         let isCurrent = chapter.url.standardizedFileURL.path == currentURL?.standardizedFileURL.path
-        return Button { switchFile(chapter.url) } label: {
-            HStack(spacing: 8) {
-                Text("\(number)").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.tertiary).frame(width: 22, alignment: .trailing)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(chapter.title).font(.system(size: 12, weight: isCurrent ? .medium : .regular)).lineLimit(1)
-                    GeometryReader { proxy in
-                        Capsule().fill(Color.accentColor.opacity(0.35))
-                            .frame(width: max(2, proxy.size.width * CGFloat(count) / CGFloat(longest)), height: 3)
-                    }.frame(height: 3)
-                }
-                Spacer(minLength: 4)
-                Text(count.formatted()).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
+        // A tap rather than a Button, so the whole row starts a drag: a Button keeps the mouse-down to itself.
+        return HStack(spacing: 8) {
+            Text("\(number)").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.tertiary).frame(width: 22, alignment: .trailing)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(chapter.title).font(.system(size: 12, weight: isCurrent ? .medium : .regular)).lineLimit(1)
+                GeometryReader { proxy in
+                    Capsule().fill(Color.accentColor.opacity(0.35))
+                        .frame(width: max(2, proxy.size.width * CGFloat(count) / CGFloat(longest)), height: 3)
+                }.frame(height: 3)
             }
-            .padding(.vertical, 6).padding(.horizontal, 8).contentShape(Rectangle())
+            Spacer(minLength: 4)
+            Text(count.formatted()).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 6).padding(.horizontal, 8).contentShape(Rectangle())
+        .onTapGesture { switchFile(chapter.url) }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { switchFile(chapter.url) }
         .background(targetedID == chapter.id ? Color.accentColor.opacity(0.22) : (isCurrent ? Color.accentColor.opacity(0.14) : .clear), in: RoundedRectangle(cornerRadius: 6))
         .draggable(chapter.url)
         .dropDestination(for: URL.self) { urls, _ in reorder(urls, onto: chapter) } isTargeted: { on in

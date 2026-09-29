@@ -96,6 +96,30 @@ import Foundation
         try SafeFile.move(from: trashedURL, to: moved)
         precondition(text(moved) == "Mara woke.\n" && FileWhereabouts.of(moved) == .inPlace, "And put back")
 
-        print("Passed: coordinated reads and writes, no leftovers, tags and dates kept, write-if-unchanged, deleted files restored, failed writes leave originals whole, copies kept in the Trash, moves that never replace, and where a file has ended up (in place, missing, in the Trash).")
+        // A card's file is followed through renames and moves (in Sable or Finder), even after a save replaced it
+        func same(_ a: URL, _ b: URL) -> Bool { a.resolvingSymlinksInPath().path == b.resolvingSymlinksInPath().path }
+        let cardFile = root.appendingPathComponent("Mara.md")
+        try Data("Mara\n".utf8).write(to: cardFile)
+        var trail = FileTrail(cardFile)
+        precondition(!trail.follow() && same(trail.url, cardFile), "Still in place")
+        try SafeFile.writeText("Mara, again\n", to: cardFile)
+        precondition(!trail.follow(), "A save is not a move")
+        let renamedCard = root.appendingPathComponent("Mara Vell.md")
+        try fm.moveItem(at: cardFile, to: renamedCard)
+        precondition(trail.follow() && same(trail.url, renamedCard), "Renamed, followed: \(trail.url.path)")
+        let people = root.appendingPathComponent("People", isDirectory: true)
+        try fm.createDirectory(at: people, withIntermediateDirectories: true)
+        try SafeFile.move(from: renamedCard, to: people.appendingPathComponent("Mara Vell.md"))
+        precondition(trail.follow() && same(trail.url, people.appendingPathComponent("Mara Vell.md")), "Moved into a folder, followed")
+        try SafeFile.move(from: people, to: root.appendingPathComponent("Characters", isDirectory: true))
+        precondition(trail.follow() && same(trail.url, root.appendingPathComponent("Characters/Mara Vell.md")), "Its folder renamed, followed")
+        var cardInTrash: NSURL?
+        try fm.trashItem(at: trail.url, resultingItemURL: &cardInTrash)
+        let before = trail.url
+        precondition(!trail.follow() && trail.url == before, "Not followed into the Trash")
+        try? fm.removeItem(at: (cardInTrash as URL?)!)
+        precondition(!trail.follow() && trail.url == before, "Or when deleted")
+
+        print("Passed: coordinated reads and writes, no leftovers, tags and dates kept, write-if-unchanged, deleted files restored, failed writes leave originals whole, copies kept in the Trash, moves that never replace, where a file has ended up (in place, missing, in the Trash), and files followed through renames and moves.")
     }
 }

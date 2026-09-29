@@ -93,13 +93,31 @@ import QuillCore
         precondition(document.whereabouts == .inPlace && disk() == "Written by a replacement.\n", "Put back where it was, words intact")
         precondition((trashed as URL?).map { !FileManager.default.fileExists(atPath: $0.path) } ?? true, "Nothing is left in the Trash")
 
-        // Deleted outright: the words stay, and Save Again writes the file back
+        // Renamed in Sable: the pane follows, says nothing, and the next save goes to the new name
+        let renamed = root.appendingPathComponent("Harbor Notes.md")
+        try FolderMove.coordinatedMove(from: url, to: renamed)
+        for _ in 0..<50 where document.fileURL?.lastPathComponent != "Harbor Notes.md" { try await Task.sleep(nanoseconds: 100_000_000) }
+        document.checkWhereabouts(); document.checkWhereabouts()
+        precondition(document.whereabouts == .inPlace, "Renamed, not missing: \(String(describing: document.fileURL))")
+        document.edit("Written after the rename.\n")
+        let afterRename = await save()
+        precondition(afterRename == nil && (try? String(contentsOf: renamed, encoding: .utf8)) == "Written after the rename.\n" && !FileManager.default.fileExists(atPath: url.path), "Saved under the new name")
+        document.edit("Written by a replacement.\n")
+        try FolderMove.coordinatedMove(from: renamed, to: url)
+        for _ in 0..<50 where document.fileURL?.lastPathComponent != "Reference.md" { try await Task.sleep(nanoseconds: 100_000_000) }
+        let back = await save()
+        precondition(back == nil && disk() == "Written by a replacement.\n", "And back again")
+
+        // Deleted outright: the words stay, and Save Again writes the file back. One look could catch a rename halfway,
+        // so the file is called deleted once it is still gone on the next.
         try FileManager.default.removeItem(at: url)
+        document.checkWhereabouts()
+        precondition(document.whereabouts == .inPlace, "Not yet")
         document.checkWhereabouts()
         precondition(document.whereabouts == .missing && document.text == "Written by a replacement.\n", "Missing, words kept")
         let resaved: Error? = await withCheckedContinuation { c in document.saveAgain { c.resume(returning: $0) } }
         precondition(resaved == nil && disk() == "Written by a replacement.\n" && document.whereabouts == .inPlace, "Saved again: \(String(describing: resaved))")
         document.close()
-        print("Passed: clean reading, bold rendering, safe links, list rendering, icon decoding, parts of speech, code exclusion, tracked parallel edits/reuse, exact native save, coordinated reads/writes reaching the open copy, files trashed or deleted outside Sable (Put Back, Save Again), and outside changes never saved over (Keep Mine / Use Saved File keep the other version in the Trash).")
+        print("Passed: clean reading, bold rendering, safe links, list rendering, icon decoding, parts of speech, code exclusion, tracked parallel edits/reuse, exact native save, coordinated reads/writes reaching the open copy, files renamed in Sable followed, files trashed or deleted outside Sable (Put Back, Save Again), and outside changes never saved over (Keep Mine / Use Saved File keep the other version in the Trash).")
     }
 }

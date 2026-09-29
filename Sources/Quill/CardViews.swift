@@ -30,13 +30,20 @@ enum CardCorner: CaseIterable, Sendable {
 }
 
 struct OpenCard: Identifiable, Equatable {
-    let url: URL
+    /// The card's file, followed when it is renamed or moved.
+    var file: FileTrail
     var corner: CardCorner = .topTrailing
     /// Pinned cards stay open. Unpinned ones shrink to a small tab and open when the pointer rests on them.
     var pinned = true
     /// A size chosen by dragging the card's corner; nil lets the card size itself.
     var size: CGSize? = nil
+    var url: URL { file.url }
     var id: URL { url }
+
+    init(url: URL, corner: CardCorner = .topTrailing) {
+        file = FileTrail(url)
+        self.corner = corner
+    }
 }
 
 /// A card's color as a SwiftUI color: one of the named colors, or a hex value.

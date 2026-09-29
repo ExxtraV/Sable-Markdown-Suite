@@ -490,7 +490,7 @@ final class SingleDocumentCoordinator: NSObject {
         do { text = try String(contentsOf: target, encoding: .utf8) }
         catch { completion(error); return }
         commands.loadText?(text, target)
-        source.fileURL = target
+        Self.repoint(source, to: target)
         source.fileModificationDate = modified
         source.undoManager?.removeAllActions()
         commands.editor?.undoManager?.removeAllActions()
@@ -506,7 +506,7 @@ final class SingleDocumentCoordinator: NSObject {
     /// Lets go of the open document's file so it can be moved to the Trash: the window stays put and becomes
     /// a blank, untitled page. The file is released first, so nothing can be autosaved back over it.
     func detach(_ source: NSDocument, using commands: EditorCommands) {
-        source.fileURL = nil
+        Self.repoint(source, to: nil)
         source.fileModificationDate = nil
         commands.loadText?("", nil)
         source.undoManager?.removeAllActions()
@@ -514,6 +514,15 @@ final class SingleDocumentCoordinator: NSObject {
         source.windowControllers.first?.synchronizeWindowTitleWithDocumentName()
         source.updateChangeCount(.changeCleared)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { source.updateChangeCount(.changeCleared) }
+    }
+
+    /// Points an open document at another file. A document is known to macOS's file tracking by the file it was opened
+    /// with, and setting `fileURL` doesn't change that, so it registers again: otherwise it would miss its new file being
+    /// renamed or moved (and call it deleted) and follow its old file instead, saving the words over that one.
+    static func repoint(_ document: NSDocument, to url: URL?) {
+        document.fileURL = url
+        NSFileCoordinator.removeFilePresenter(document)
+        NSFileCoordinator.addFilePresenter(document)
     }
 
     private func open(_ target: URL, completion: @escaping (Error?) -> Void) {

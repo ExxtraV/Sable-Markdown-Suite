@@ -122,3 +122,53 @@ enum FileWhereabouts: Equatable, Sendable {
         return FileManager.default.fileExists(atPath: url.path) ? .inPlace : .missing
     }
 }
+
+/// A file remembered by what it is as well as where it is, so a card or the reference pane can find it again after it
+/// is renamed or moved, in Sable or in Finder. A file that went to the Trash or was deleted is not followed.
+struct FileTrail: Equatable, Sendable {
+    private(set) var url: URL
+    /// The file's identity on its disk (disk and file number), which survives renames and moves within that disk.
+    private var identity: Identity?
+
+    private struct Identity: Equatable, Sendable {
+        let disk: (Int32, Int32)
+        let file: UInt64
+        static func == (a: Identity, b: Identity) -> Bool { a.disk == b.disk && a.file == b.file }
+    }
+
+    init(_ url: URL) {
+        self.url = url
+        identity = Self.identity(of: url)
+    }
+
+    /// Looks for the file again. Returns true if it has moved, with `url` now saying where.
+    mutating func follow() -> Bool {
+        if FileManager.default.fileExists(atPath: url.path) {
+            // A save can put a new file in the old one's place, so remember whichever file is there now.
+            if let current = Self.identity(of: url), current != identity { identity = current }
+            return false
+        }
+        guard let identity, let path = Self.path(of: identity) else { return false }
+        var isDirectory: ObjCBool = false
+        let moved = URL(fileURLWithPath: path)
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), !isDirectory.boolValue,
+              FileWhereabouts.of(moved) == .inPlace else { return false }
+        url = moved
+        return true
+    }
+
+    private static func identity(of url: URL) -> Identity? {
+        var disk = statfs()
+        var info = stat()
+        guard statfs(url.path, &disk) == 0, stat(url.path, &info) == 0 else { return nil }
+        return Identity(disk: disk.f_fsid.val, file: UInt64(info.st_ino))
+    }
+
+    /// Where a file is now, asked of the disk by its identity.
+    private static func path(of identity: Identity) -> String? {
+        var disk = fsid_t(val: identity.disk)
+        var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+        guard fsgetpath(&buffer, buffer.count, &disk, identity.file) > 0 else { return nil }
+        return String(cString: buffer)
+    }
+}

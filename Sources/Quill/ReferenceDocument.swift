@@ -14,6 +14,9 @@ final class ParallelDocument: NSDocument, ObservableObject {
     @Published private(set) var whereabouts = FileWhereabouts.inPlace
     /// Where the file last was in its own folder, so it can be put back if it lands in the Trash.
     private(set) var lastPlacedURL: URL?
+    /// Whether the file was gone on the last look. A renamed file is followed a moment later, so only a file that stays
+    /// gone is called deleted.
+    private var goneOnLastLook = false
     weak var hostWindow: NSWindow?
     private var scopedURL: URL?
     /// The file's text when it was last read or saved here, to tell whether something else has changed it since.
@@ -115,6 +118,9 @@ final class ParallelDocument: NSDocument, ObservableObject {
     func checkWhereabouts() {
         guard let url = fileURL else { return }
         let place = FileWhereabouts.of(url)
+        let gone = place == .missing
+        defer { goneOnLastLook = gone }
+        if gone, !goneOnLastLook { return }
         if place == .inPlace { lastPlacedURL = url }
         if whereabouts != place { whereabouts = place }
     }
