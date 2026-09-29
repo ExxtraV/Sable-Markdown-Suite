@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="Assets/sable-logo-reverse.png">
+    <img src="Assets/sable-logo.png" alt="The Sable logo: a sable asleep, curled nose to tail, with a fountain-pen nib tucked into its body" width="200">
+  </picture>
+</p>
+
 # Sable Markdown Writer
 
 A small, native Markdown editor for fiction, for macOS 14 or later. Source is included so the editor can evolve with your writing habits.
@@ -53,6 +60,8 @@ swift test
 
 The build script creates a locally ad-hoc-signed app in `build/`. Community builds can be shared without Apple notarization, with a first-launch approval step on macOS. Optional Developer ID signing and notarization are supported.
 
+macOS remembers app icons. If the Dock or Finder still shows an old Sable icon after you rebuild or update, quit Sable and run `killall Dock Finder` (or log out and back in); if it still lingers, `sudo rm -rf /Library/Caches/com.apple.iconservices.store` followed by a restart clears the icon cache.
+
 `swift test` requires Xcode's XCTest framework. See [CONTRIBUTING.md](CONTRIBUTING.md) for the standalone check commands that work with Command Line Tools alone, and for the full list of regression checks.
 
 ## Scope and next steps
@@ -84,7 +93,7 @@ For an iPad edition, reuse `QuillCore` and the document model, add a UIKit text 
 - `Sources/QuillCore/IncrementalStyling.swift`: how much of the text an edit needs restyled.
 - `Sources/Quill/QuillApp.swift`: document handling, settings, and interface.
 - `Tests/QuillCoreTests`: Unicode and Markdown-protection checks.
-- `Assets/LOGO.md`: the generated logo and its prompt; the icon is packaged with the app.
+- `Assets/LOGO.md`: how the logo was made with Codex, the logo files, and how `scripts/build-icon.sh` fits the icon to the macOS grid; the icon is packaged with the app.
 
 Apple references: [document-based apps](https://developer.apple.com/documentation/swiftui/building-a-document-based-app/) and [native grammar checking](https://developer.apple.com/documentation/appkit/nstextview/isgrammarcheckingenabled).
 
