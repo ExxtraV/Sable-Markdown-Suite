@@ -48,8 +48,8 @@ Two things to know before adding or changing one:
 ```sh
 swiftc -O Sources/QuillCore/MarkdownSyntax.swift Sources/QuillCore/MarkdownEditing.swift Sources/QuillCore/MarkdownDocument.swift Sources/QuillCore/IncrementalStyling.swift Sources/QuillCore/Prose.swift Sources/QuillCore/FocusParagraph.swift Sources/QuillCore/SentenceStructure.swift scripts/check-styling-ranges.swift -o /tmp/quill-styling-range-checks && /tmp/quill-styling-range-checks
 swiftc Sources/QuillCore/MarkdownEditing.swift Sources/QuillCore/MarkdownDocument.swift scripts/check-markdown-editing.swift -o /tmp/quill-markdown-editing-checks && /tmp/quill-markdown-editing-checks
-swiftc Sources/Quill/Import.swift scripts/check-import.swift -o /tmp/quill-import-checks && /tmp/quill-import-checks
-swiftc Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift scripts/check-project-search.swift -o /tmp/quill-search-checks && /tmp/quill-search-checks
+swiftc Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-import.swift -o /tmp/quill-import-checks && /tmp/quill-import-checks
+swiftc Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-project-search.swift -o /tmp/quill-search-checks && /tmp/quill-search-checks
 swiftc Sources/Quill/ZoomSteps.swift scripts/check-zoom-steps.swift -o /tmp/quill-zoom-step-checks && /tmp/quill-zoom-step-checks
 swiftc Sources/Quill/SafeFile.swift scripts/check-file-safety.swift -o /tmp/quill-file-safety-checks && /tmp/quill-file-safety-checks
 swiftc Sources/Quill/SafeFile.swift Sources/Quill/Revisions.swift scripts/check-revisions.swift -o /tmp/quill-revision-checks && /tmp/quill-revision-checks
@@ -57,12 +57,16 @@ swiftc Sources/Quill/ToolbarTools.swift scripts/check-toolbar.swift -o /tmp/quil
 swiftc Sources/Quill/WritingHistory.swift Sources/Quill/WritingGoal.swift scripts/check-writing-history.swift -o /tmp/quill-writing-history-checks && /tmp/quill-writing-history-checks
 swiftc scripts/check-app-icon.swift -o /tmp/quill-app-icon-checks && /tmp/quill-app-icon-checks
 
-swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift scripts/check-folder.swift -o /tmp/quill-folder-checks
+swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-folder.swift -o /tmp/quill-folder-checks
 /tmp/quill-folder-checks
-swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift scripts/check-fiction.swift -o /tmp/quill-fiction-checks
+swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-fiction.swift -o /tmp/quill-fiction-checks
 /tmp/quill-fiction-checks
-swiftc -parse-as-library Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift scripts/check-project-browser.swift -o /tmp/quill-project-browser-checks
+swiftc -parse-as-library Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-project-browser.swift -o /tmp/quill-project-browser-checks
 /tmp/quill-project-browser-checks
+swiftc Sources/Quill/DefaultAppStatus.swift scripts/check-default-app.swift -o /tmp/quill-default-app-checks
+/tmp/quill-default-app-checks
+swiftc Sources/Quill/RecentFiles.swift scripts/check-recent-files.swift -o /tmp/quill-recent-files-checks
+/tmp/quill-recent-files-checks
 ```
 
 Sample manuscript and world-note files these checks read are in `Examples/`.
@@ -86,22 +90,22 @@ Build once, then run all of these against the same output directory:
 ```sh
 QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
 
-swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/WritingStyle.swift scripts/check-editor.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-editor-checks
+swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-editor.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-editor-checks
 /tmp/quill-editor-checks
 
-swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/check-incremental-styling.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-incremental-styling-checks
+swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/check-incremental-styling.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-incremental-styling-checks
 /tmp/quill-incremental-styling-checks
 
-swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/bench-typing.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-typing-bench
+swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/bench-typing.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-typing-bench
 /tmp/quill-typing-bench --smoke
 
-swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/ReadingView.swift Sources/Quill/SafeFile.swift Sources/Quill/ReferenceDocument.swift Sources/Quill/ReferencePane.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/WritingStyle.swift scripts/check-reading-reference.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-parallel-checks
+swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/ReadingView.swift Sources/Quill/SafeFile.swift Sources/Quill/ReferenceDocument.swift Sources/Quill/ReferencePane.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-reading-reference.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-parallel-checks
 /tmp/quill-parallel-checks
 
-swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/StoryTimeline.swift scripts/check-outline.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-outline-checks
+swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/StoryTimeline.swift scripts/check-outline.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-outline-checks
 /tmp/quill-outline-checks
 
-swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/Export.swift Sources/Quill/FictionProject.swift Sources/Quill/FolderBrowser.swift scripts/check-export.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-export-checks
+swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/Export.swift Sources/Quill/FictionProject.swift Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-export.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-export-checks
 /tmp/quill-export-checks
 ```
 
@@ -121,11 +125,14 @@ python3 scripts/check-release-modes.py
 python3 scripts/check-merge-appcast.py
 python3 scripts/check-blog.py
 python3 scripts/check-site.py
+python3 scripts/check-document-types.py
 ```
 
 `scripts/check-blog.py` guards the website's blog: it strips the HTML from each post page and confirms its words, links, and images match the author's Markdown in `docs/blog/` exactly. See [The blog](#the-blog) below.
 
 `scripts/check-site.py` audits every page in `website/`: one h1 and no skipped heading levels, `lang`, a canonical URL that matches the page's path, Open Graph and Twitter tags, alt text and dimensions on every image, links and `#anchors` that resolve, JSON-LD that parses, `softwareVersion` matching `Info.plist`, and a `sitemap.xml` that lists every indexable page. When you bump the app version, update `softwareVersion` in the JSON-LD in `website/index.html`; when you change a page, update its `lastmod` in `sitemap.xml`.
+
+`scripts/check-document-types.py` reads `Info.plist` and fails if Sable stops being an `Alternate` handler for Markdown and plain text, if the two are no longer separate document types, or if a Markdown extension (`md`, `markdown`, `mdown`, `mkd`, `mkdn`, `mdwn`) goes missing. Making Sable the default is the user's choice in Settings, never something the app's registration claims.
 
 `scripts/check-release-config.py` and `scripts/check-appcast.py` run only as part of an actual release (`.github/workflows/release.yml`); they need release-only environment variables and aren't part of the regular check suite. `scripts/verify-update.swift` is invoked by `check-appcast.py`, not run directly.
 

@@ -113,6 +113,17 @@ import Foundation
         Revisions.prune(in: auto)
         let remaining = Revisions.list(in: auto)
         precondition(remaining.filter { $0.kind == .automatic }.count == Revisions.automaticLimit && remaining.contains { $0.name == "Keep me" }, "Old automatic snapshots are pruned, manual ones never: \(remaining.count)")
+        // Where a snapshot goes is decided by the open file, not by what the desk happens to show
+        let project = URL(fileURLWithPath: "/tmp/Stories/Saltmarsh"), writing = URL(fileURLWithPath: "/tmp/Stories")
+        let inProject = URL(fileURLWithPath: "/tmp/Stories/Saltmarsh/Manuscript/Chapter 1.md")
+        let inWriting = URL(fileURLWithPath: "/tmp/Stories/Essays/Draft.md")
+        let elsewhere = URL(fileURLWithPath: "/tmp/Downloads/readme.md")
+        precondition(Revisions.place(forOpen: inProject, project: project, writingFolder: writing) == .project(project), "A chapter snapshots its project")
+        precondition(Revisions.place(forOpen: inWriting, project: nil, writingFolder: writing) == .writingFolder(writing), "A file in the writing folder uses it")
+        precondition(Revisions.place(forOpen: elsewhere, project: project, writingFolder: writing) == .besideFile(elsewhere.deletingLastPathComponent()), "A file from elsewhere is never taken for the project on the desk")
+        precondition(Revisions.place(forOpen: inWriting, project: project, writingFolder: writing) == .writingFolder(writing), "…nor a file in the writing folder but outside the desk's project")
+        precondition(Revisions.place(forOpen: elsewhere, project: nil, writingFolder: nil) == .besideFile(elsewhere.deletingLastPathComponent()), "With no writing folder, beside the file")
+        precondition(Revisions.place(forOpen: URL(fileURLWithPath: "/tmp/StoriesExtra/x.md"), project: nil, writingFolder: writing) == .besideFile(URL(fileURLWithPath: "/tmp/StoriesExtra/x.md").deletingLastPathComponent()), "A folder that merely starts with the same letters isn't inside")
         print("Passed: snapshots (files, words, order, unsaved text), comparison by file and by word, restore (a failed one changes nothing), safety and automatic snapshots, pruning.")
     }
 }

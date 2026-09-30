@@ -21,7 +21,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 - ~~New folders inside folders from the writing desk.~~ Done in 0.10.1.
 - Two new themes: a deep-blue fantasy theme and another light theme.
 - Export layout options: left or centered headings, title page, font, spacing, margins, and page numbers for PDF and Word.
-- Open any Markdown file without setting up a writing folder, and, if you choose, make Sable the default app for Markdown files.
+- ~~Open any Markdown file without setting up a writing folder, and, if you choose, make Sable the default app for Markdown files.~~ Done; see the changelog's Unreleased section.
 
 ## Phase 2: Story tools
 

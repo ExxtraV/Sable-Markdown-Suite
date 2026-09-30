@@ -4,7 +4,7 @@ All notable changes to Sable Markdown Writer are documented here. The app was or
 
 ## 0.11.0 (unreleased)
 
-A writing goal with a deadline, for challenges like 50,000 words in November.
+A writing goal with a deadline, for challenges like 50,000 words in November, and opening any Markdown file without a writing folder.
 
 - **A goal with a deadline**, off by default behind a **Track a goal with a deadline** switch in Settings → General, above the writing record. Turned off, nothing shows in Settings or the footer, and a stored goal is kept. When on: a **November: 50,000 words** preset or a custom word count with start and end dates (up to 366 days). One goal is active at a time. Progress shows words so far, the even pace line, today's target (what finishes on time, spread evenly over the days left), and days left, charted against the pace line.
 - **Neutral wording.** Running under an even pace reads "1,900 a day finishes on time"; there's no "behind" state, and no streaks, badges, or notifications. Only words added count, as in the writing record.
@@ -12,6 +12,14 @@ A writing goal with a deadline, for challenges like 50,000 words in November.
 - **Stored locally** in the same preferences as the record, as day keys (`yyyy-MM-dd`), so clock changes and time zones never shift a goal. **Clear Goal** keeps the writing record, and clearing the record keeps the goal.
 - **Under the hood:** pace math lives in `Sources/Quill/WritingGoal.swift` with the views in `WritingGoalView.swift`. `check-writing-history.swift` now compiles `WritingGoal.swift` too and covers mid-day starts, the end date itself, daylight-saving changes (New York, Sydney, and São Paulo's midnight-less day), leap years, New Year, presets, and damaged stored goals.
 - The roadmap marks the monthly word goal done.
+- **Open any Markdown file, with or without a writing folder.** The writing folder is now optional. First launch offers **Just Open a File** beside choosing a folder, and a window opened on a file from Finder skips setup. With no writing folder, the writing desk shows the open file's own folder. Settings → General → **Writing folder** chooses one later or stops using one (Sable only forgets the folder; no file is touched).
+- **A file outside the writing folder.** The desk stays on the writing folder and adds one quiet line with **Show Folder**, which shows the file's folder for this session only, with a **Back to** link. The saved writing folder never changes, and the desk returns by itself when the open file is back inside it.
+- **Make Sable the default for Markdown, only if you choose.** Settings → General → **Markdown files** shows which app opens Markdown now and has **Make Sable the Default for Markdown**; macOS asks you to confirm. Plain text (`.txt`) is a separate button, also off by default. Sable still registers as an alternate handler only, and never changes the default by itself. The setting updates when you come back from Finder's Get Info.
+- **An optional Recent tab.** Turn on **Recent tab** in Settings → General → Writing desk (or the desk's sliders menu) and the desk gains a **Recent** tab listing the files you have open, newest first, from any folder. It's off by default, is recorded only while on, stays on your Mac, and turning it off forgets the list; **Clear Recent Files** empties it any time.
+- **More Markdown extensions.** `.mdown`, `.mkd`, `.mkdn`, and `.mdwn` are declared in Info.plist (Markdown and plain text are now separate document types) and appear in the writing desk, search, import, and the Open panel.
+- **Open Recent and dropping a file.** File → Open Markdown File… now adds to Open Recent. Dropping one Markdown or text file on the page opens it, as File → Open does, instead of pasting its path into your text.
+- **Fixed: snapshots of the wrong files.** With a Fiction Project showing in the desk and a file from elsewhere open, Revision History and Save Snapshot used the project's chapters. The open file now decides what a snapshot covers, and the automatic daily snapshot only ever applies to a Fiction Project. Name highlights likewise follow the open file, not the desk's project.
+- **Under the hood:** new `MarkdownFileTypes.swift`, `DefaultAppStatus.swift`, and `FileHandlingSettings.swift`; new `RecentFiles.swift`; new checks `check-document-types.py`, `check-default-app.swift`, and `check-recent-files.swift`; `check-project-browser.swift`, `check-folder.swift`, `check-revisions.swift`, and `check-file-safety.swift` cover visiting a folder, no writing folder, the new extensions, where snapshots go, and files from anywhere.
 
 ## 0.10.1
 

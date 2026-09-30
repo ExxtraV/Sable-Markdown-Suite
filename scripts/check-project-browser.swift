@@ -192,6 +192,54 @@ import Foundation
         // Adopt a plain folder in place
         try browser.adoptAsProject(project, addStandardFolders: false)
         precondition(FictionProject.isProject(project))
-        print("Passed: desk project mode (scoping, entering, leaving, follow-the-file, converting, adopting).")
+        // A file from elsewhere: the desk offers its folder but never moves by itself, and a visit is never saved.
+        let elsewhere = fm.temporaryDirectory.appendingPathComponent("quill-elsewhere-\(UUID())").standardizedFileURL
+        try fm.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: elsewhere) }
+        let loose = elsewhere.appendingPathComponent("Notes.md")
+        try Data("Just some notes.\n".utf8).write(to: loose)
+        browser.navigate(project, leavingProject: true)
+        precondition(browser.isInProject(mara) && !browser.isInProject(loose) && !browser.isInProject(nil), "Project tools follow the file, not the desk")
+        precondition(browser.isOutsideWritingFolder(loose) && !browser.isOutsideWritingFolder(mara), "Knows which files are outside the writing folder")
+        let savedFolder = UserDefaults.standard.data(forKey: "writingFolder")
+        precondition(savedFolder != nil)
+        browser.follow(loose)
+        precondition(same(browser.root, root) && browser.visiting == nil, "Opening a file from elsewhere doesn't move the desk")
+        browser.visit(elsewhere)
+        precondition(same(browser.root, elsewhere) && same(browser.current, elsewhere) && same(browser.writingFolder, root) && browser.visiting != nil, "Visiting shows the file's folder")
+        precondition(UserDefaults.standard.data(forKey: "writingFolder") == savedFolder, "A visit never changes the saved writing folder")
+        precondition(browser.projectURL == nil && !browser.canManageCategories, "No project or categories in a visited folder")
+        browser.navigate(root)
+        precondition(same(browser.current, elsewhere), "The desk stays inside a visited folder")
+        let relaunchedMidVisit = FolderBrowser()
+        precondition(same(relaunchedMidVisit.root, root) && relaunchedMidVisit.visiting == nil, "A relaunch returns to the writing folder")
+        browser.follow(mara)
+        precondition(browser.visiting == nil && same(browser.root, root) && same(browser.projectURL, project), "Back in the writing folder, the visit ends and the project is entered")
+        browser.visit(elsewhere)
+        browser.endVisit()
+        precondition(browser.visiting == nil && same(browser.root, root) && same(browser.current, root), "Back to the writing folder on request")
+
+        // No writing folder at all: the desk shows the open file's own folder, and setup stops asking
+        browser.forgetWritingFolder()
+        precondition(browser.writingFolder == nil && browser.root == nil && browser.current == nil && browser.entries.isEmpty, "Forgetting empties the desk")
+        precondition(UserDefaults.standard.data(forKey: "writingFolder") == nil && browser.declinedWritingFolder, "…and is remembered")
+        precondition(FolderBrowser().writingFolder == nil && FolderBrowser().declinedWritingFolder, "A relaunch has no writing folder and doesn't ask")
+        precondition(fm.fileExists(atPath: mara.path) && fm.fileExists(atPath: loose.path), "No file is touched")
+        browser.follow(loose)
+        precondition(same(browser.root, elsewhere) && browser.visiting != nil, "With no writing folder the desk shows the file's folder")
+        let sibling = elsewhere.appendingPathComponent("Other.md")
+        browser.follow(sibling)
+        precondition(same(browser.root, elsewhere), "Another file in the same folder keeps it")
+        let other = fm.temporaryDirectory.appendingPathComponent("quill-elsewhere-b-\(UUID())").standardizedFileURL
+        try fm.createDirectory(at: other, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: other) }
+        browser.follow(other.appendingPathComponent("Third.md"))
+        precondition(same(browser.root, other), "A file in another folder moves the desk there")
+        browser.declineWritingFolder()
+        try browser.choose(root)
+        precondition(same(browser.writingFolder, root) && browser.visiting == nil && same(browser.root, root) && !browser.declinedWritingFolder, "Choosing a folder again turns it all back on")
+        precondition(UserDefaults.standard.data(forKey: "writingFolder") != nil)
+
+        print("Passed: desk project mode (scoping, entering, leaving, follow-the-file, converting, adopting), and files from elsewhere (offered not forced, never saved, no writing folder).")
     }
 }
