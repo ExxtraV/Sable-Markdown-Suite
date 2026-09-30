@@ -7,14 +7,14 @@ enum RichTextMarkdown {
     /// Reads a document Sable can import and returns Markdown. Plain text and Markdown files are returned as they are.
     static func importDocument(at url: URL) throws -> String {
         let ext = url.pathExtension.lowercased()
-        if ["md", "markdown", "txt", "text"].contains(ext) {
+        if (MarkdownFileTypes.allExtensions + ["text"]).contains(ext) {
             return try String(contentsOf: url, encoding: .utf8)
         }
         let attributed = try NSAttributedString(url: url, options: [:], documentAttributes: nil)
         return markdown(from: attributed)
     }
 
-    static let importTypes = ["docx", "doc", "rtf", "rtfd", "odt", "html", "htm", "txt", "md", "markdown"]
+    static let importTypes = ["docx", "doc", "rtf", "rtfd", "odt", "html", "htm"] + MarkdownFileTypes.allExtensions
 
     static func markdown(from attributed: NSAttributedString) -> String {
         let text = attributed.string as NSString

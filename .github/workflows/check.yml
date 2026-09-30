@@ -25,22 +25,22 @@ jobs:
       - name: Native editor regression checks
         run: |
           QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
-          swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/WritingStyle.swift scripts/check-editor.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-editor-checks
+          swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-editor.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-editor-checks
           /tmp/quill-editor-checks
       - name: Incremental styling random-edit check
         run: |
           QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
-          swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/check-incremental-styling.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-incremental-styling-checks
+          swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/check-incremental-styling.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-incremental-styling-checks
           /tmp/quill-incremental-styling-checks
       - name: Typing benchmark (smoke run, no thresholds)
         run: |
           QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
-          swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/bench-typing.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-typing-bench
+          swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/bench-typing.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-typing-bench
           /tmp/quill-typing-bench --smoke
       - name: Parallel document regression checks
         run: |
           QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
-          swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/ReadingView.swift Sources/Quill/SafeFile.swift Sources/Quill/ReferenceDocument.swift Sources/Quill/ReferencePane.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/WritingStyle.swift scripts/check-reading-reference.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-parallel-checks
+          swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/ReadingView.swift Sources/Quill/SafeFile.swift Sources/Quill/ReferenceDocument.swift Sources/Quill/ReferencePane.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-reading-reference.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-parallel-checks
           /tmp/quill-parallel-checks
       - name: Styling range checks
         run: |
@@ -52,7 +52,7 @@ jobs:
           /tmp/quill-markdown-editing-checks
       - name: Import checks
         run: |
-          swiftc Sources/Quill/Import.swift scripts/check-import.swift -o /tmp/quill-import-checks
+          swiftc Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-import.swift -o /tmp/quill-import-checks
           /tmp/quill-import-checks
       - name: Toolbar checks
         run: |
@@ -77,33 +77,43 @@ jobs:
       - name: Story Timeline checks
         run: |
           QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
-          swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/StoryTimeline.swift scripts/check-outline.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-outline-checks
+          swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/StoryTimeline.swift scripts/check-outline.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-outline-checks
           /tmp/quill-outline-checks
       - name: Project search checks
         run: |
-          swiftc Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift scripts/check-project-search.swift -o /tmp/quill-search-checks
+          swiftc Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-project-search.swift -o /tmp/quill-search-checks
           /tmp/quill-search-checks
       - name: Export checks
         run: |
           QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
-          swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/Export.swift Sources/Quill/FictionProject.swift Sources/Quill/FolderBrowser.swift scripts/check-export.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-export-checks
+          swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/Export.swift Sources/Quill/FictionProject.swift Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-export.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-export-checks
           /tmp/quill-export-checks
       - name: Folder browser checks
         run: |
-          swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift scripts/check-folder.swift -o /tmp/quill-folder-checks
+          swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-folder.swift -o /tmp/quill-folder-checks
           /tmp/quill-folder-checks
       - name: Fiction project checks
         run: |
-          swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift scripts/check-fiction.swift -o /tmp/quill-fiction-checks
+          swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-fiction.swift -o /tmp/quill-fiction-checks
           /tmp/quill-fiction-checks
       - name: Desk project-mode checks
         run: |
-          swiftc -parse-as-library Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift scripts/check-project-browser.swift -o /tmp/quill-project-browser-checks
+          swiftc -parse-as-library Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-project-browser.swift -o /tmp/quill-project-browser-checks
           /tmp/quill-project-browser-checks
+      - name: Default app checks
+        run: |
+          swiftc Sources/Quill/DefaultAppStatus.swift scripts/check-default-app.swift -o /tmp/quill-default-app-checks
+          /tmp/quill-default-app-checks
+      - name: Recent files checks
+        run: |
+          swiftc Sources/Quill/RecentFiles.swift scripts/check-recent-files.swift -o /tmp/quill-recent-files-checks
+          /tmp/quill-recent-files-checks
       - name: App icon checks
         run: |
           swiftc scripts/check-app-icon.swift -o /tmp/quill-app-icon-checks
           /tmp/quill-app-icon-checks
+      - name: Document type checks
+        run: python3 scripts/check-document-types.py
       - name: Core tests
         run: swift test --disable-sandbox
       - name: Verify update signature rejection

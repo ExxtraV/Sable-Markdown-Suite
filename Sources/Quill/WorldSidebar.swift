@@ -33,10 +33,12 @@ struct WritingSidebar: View {
         let trimmed = outlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Outline" : trimmed
     }
-    private enum Section: String { case files, outline, manuscript }
-    /// Manuscript is a tab only inside a Fiction Project.
+    private enum Section: String { case files, outline, manuscript, recent }
+    @AppStorage(RecentFiles.enabledKey) private var showRecent = false
+    /// Manuscript is a tab only inside a Fiction Project; Recent only when it has been turned on.
     private var section: Section {
         if tab == "manuscript", browser.projectURL != nil { return .manuscript }
+        if tab == "recent", showRecent { return .recent }
         return tab == "outline" ? .outline : .files
     }
     private var showingFiles: Bool { section == .files }
@@ -63,15 +65,46 @@ struct WritingSidebar: View {
         .padding(.horizontal, 14).padding(.vertical, 9)
     }
 
+    private var searchPrompt: String {
+        switch section {
+        case .files: return "Search “\(browser.current?.lastPathComponent ?? "files")”"
+        case .outline: return "Search headings"
+        case .manuscript: return "Search chapters"
+        case .recent: return "Search recent files"
+        }
+    }
+
+    /// The tabs this desk has right now: Manuscript only inside a Fiction Project, Recent only when turned on.
+    private var tabs: [(section: Section, title: String, icon: String)] {
+        var list: [(Section, String, String)] = [(.files, "Files", "doc.text"), (.outline, outlineName, "list.bullet")]
+        if browser.projectURL != nil { list.append((.manuscript, "Manuscript", "books.vertical")) }
+        if showRecent { list.append((.recent, "Recent", "clock")) }
+        return list
+    }
+
+    private var tabSelection: Binding<String> { Binding(get: { section.rawValue }, set: { tab = $0 }) }
+
+    /// Names if they fit, then icons alone, then a dropdown, so the tabs never spill past the desk's edge however
+    /// narrow it is dragged or however many tabs there are (Files, Outline, Manuscript, Recent).
+    private var tabStrip: some View {
+        ViewThatFits(in: .horizontal) {
+            Picker("Writing desk section", selection: tabSelection) {
+                ForEach(tabs, id: \.section) { Text($0.title).lineLimit(1).tag($0.section.rawValue) }
+            }.pickerStyle(.segmented).labelsHidden().fixedSize(horizontal: true, vertical: false).frame(maxWidth: .infinity)
+            Picker("Writing desk section", selection: tabSelection) {
+                ForEach(tabs, id: \.section) { Label($0.title, systemImage: $0.icon).labelStyle(.iconOnly).help($0.title).tag($0.section.rawValue) }
+            }.pickerStyle(.segmented).labelsHidden().fixedSize(horizontal: true, vertical: false).frame(maxWidth: .infinity)
+            Picker("Writing desk section", selection: tabSelection) {
+                ForEach(tabs, id: \.section) { Text($0.title).tag($0.section.rawValue) }
+            }.pickerStyle(.menu).labelsHidden().frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
-                Picker("Writing desk section", selection: Binding(get: { section.rawValue }, set: { tab = $0 })) {
-                    Text("Files").tag(Section.files.rawValue)
-                    Text(outlineName).lineLimit(1).tag(Section.outline.rawValue)
-                    if browser.projectURL != nil { Text("Manuscript").lineLimit(1).tag(Section.manuscript.rawValue) }
-                }.pickerStyle(.segmented).labelsHidden()
-                if section != .manuscript {
+                tabStrip
+                if section == .files || section == .outline {
                     Button {
                         if showingFiles { showViewOptions.toggle() } else { showOutlineOptions.toggle() }
                     } label: { Image(systemName: "slider.horizontal.3").frame(width: 24, height: 24) }
@@ -82,7 +115,7 @@ struct WritingSidebar: View {
                 }
             }.padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 10)
 
-            TextField(section == .files ? "Search “\(browser.current?.lastPathComponent ?? "files")”" : (section == .outline ? "Search headings" : "Search chapters"), text: $search)
+            TextField(searchPrompt, text: $search)
                 .textFieldStyle(.roundedBorder).padding(.horizontal, 14).padding(.bottom, 10)
 
             ScrollViewReader { proxy in
@@ -94,6 +127,7 @@ struct WritingSidebar: View {
                                 switchFile: switchFile, showParallel: showParallel, parallelURL: parallelURL, showCard: showCard,
                                 releaseCurrentDocument: releaseCurrentDocument)
                         case .outline: outline
+                        case .recent: RecentTab(currentURL: currentURL, search: search, switchFile: switchFile)
                         case .manuscript: ManuscriptTab(currentURL: currentURL, liveText: text, search: search, switchFile: switchFile, exportManuscript: exportManuscript)
                         }
                     }.padding(.horizontal, 12).padding(.bottom, 16)
@@ -158,6 +192,7 @@ struct SidebarOptions: View {
                 Toggle("Last modified", isOn: $showModified)
                 Toggle("Word count", isOn: $showWords)
                 Toggle("Compact rows", isOn: $compact)
+                RecentTabToggle()
             }
             Divider()
             VStack(alignment: .leading, spacing: 8) {
@@ -390,5 +425,58 @@ private struct ManuscriptTab: View {
             reload()
             switchFile(url)
         } catch { problem = error.localizedDescription }
+    }
+}
+
+/// The optional Recent tab: files you have had open, newest first. Off until you turn it on, and turning it off forgets the list.
+struct RecentTab: View {
+    let currentURL: URL?
+    let search: String
+    let switchFile: (URL) -> Void
+    @AppStorage(RecentFiles.storageKey) private var stored = ""
+
+    private var files: [URL] {
+        RecentFiles.existing(in: stored).filter { search.isEmpty || $0.deletingPathExtension().lastPathComponent.localizedCaseInsensitiveContains(search) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if files.isEmpty {
+                Text(search.isEmpty ? "Files you open appear here, newest first." : "No recent files match.")
+                    .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 4)
+            }
+            ForEach(files, id: \.self) { url in
+                let name = url.deletingPathExtension().lastPathComponent, folder = url.deletingLastPathComponent().lastPathComponent
+                let isCurrent = currentURL?.standardizedFileURL == url.standardizedFileURL
+                Button { switchFile(url) } label: {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(name).font(.system(size: 13, weight: isCurrent ? .medium : .regular)).lineLimit(1)
+                        Text(folder).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
+                    }
+                    .padding(.vertical, 4).padding(.horizontal, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(isCurrent ? Color.primary.opacity(0.07) : .clear, in: RoundedRectangle(cornerRadius: 6))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).help(url.path)
+                .accessibilityLabel("\(name), in \(folder)")
+                .accessibilityAddTraits(isCurrent ? .isSelected : [])
+            }
+            if !stored.isEmpty {
+                Button("Clear Recent Files") { stored = "" }
+                    .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 6).padding(.top, 8)
+            }
+        }
+    }
+}
+
+/// One switch for the Recent tab, in the desk's options and in Settings. Off by default; turning it off forgets the list.
+struct RecentTabToggle: View {
+    @AppStorage(RecentFiles.enabledKey) private var enabled = false
+    @AppStorage(RecentFiles.storageKey) private var stored = ""
+
+    var body: some View {
+        Toggle("Recent tab", isOn: Binding(get: { enabled }, set: { enabled = $0; if !$0 { stored = "" } }))
+            .help("Adds a Recent tab to the writing desk with the files you have open. Turning it off forgets the list.")
     }
 }

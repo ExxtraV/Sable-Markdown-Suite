@@ -15,6 +15,20 @@ import Foundation
         precondition(entries.first?.isDirectory == true)
         let empty = try FolderListing.entries(at: root.appendingPathComponent("Scenes"))
         precondition(empty.isEmpty)
+        // The less common Markdown spellings are Markdown too: listed, searched, and never given a second extension
+        let spellings = root.appendingPathComponent("Spellings", isDirectory: true)
+        try FileManager.default.createDirectory(at: spellings, withIntermediateDirectories: true)
+        for name in ["a.mdown", "b.MKD", "c.mkdn", "d.mdwn", "e.md", "f.docx"] { try Data("test".utf8).write(to: spellings.appendingPathComponent(name)) }
+        let spellingNames = try FolderListing.entries(at: spellings).map(\.name)
+        precondition(spellingNames == ["a.mdown", "b.MKD", "c.mkdn", "d.mdwn", "e.md"], "Every Markdown spelling is listed")
+        precondition(FolderListing.search("b", in: spellings).map(\.name) == ["b.MKD"], "…and found by search")
+        for name in ["Draft.mkd", "Draft.mdown", "Draft.mkdn", "Draft.mdwn"] { precondition(FolderCreation.fileName(for: name, kind: .file) == name, "\(name) keeps its own extension") }
+        precondition(BrowserEntry(url: spellings.appendingPathComponent("a.mdown"), isDirectory: false).displayName == "a", "The desk hides the extension")
+        let dropped = spellings.appendingPathComponent("a.mdown")
+        precondition(MarkdownFileTypes.openableDrop([dropped]) == dropped, "One Markdown file dropped on the page opens")
+        precondition(MarkdownFileTypes.openableDrop([dropped, spellings.appendingPathComponent("e.md")]) == nil, "Several files don't")
+        precondition(MarkdownFileTypes.openableDrop([spellings.appendingPathComponent("f.docx")]) == nil && MarkdownFileTypes.openableDrop([root.appendingPathComponent("Scenes")]) == nil && MarkdownFileTypes.openableDrop([]) == nil, "Other files and folders don't")
+        precondition(MarkdownFileTypes.isMarkdown(URL(fileURLWithPath: "/tmp/x.MdWn")) && !MarkdownFileTypes.isMarkdown(URL(fileURLWithPath: "/tmp/x.txt")) && MarkdownFileTypes.isMarkdownOrText(URL(fileURLWithPath: "/tmp/x.txt")))
         precondition(FolderCreation.fileName(for: " Act 1 ", kind: .file) == "Act 1.md")
         precondition(FolderCreation.fileName(for: "Notes.TXT", kind: .file) == "Notes.TXT")
         precondition(FolderCreation.fileName(for: "v1.2 draft", kind: .file) == "v1.2 draft.md")

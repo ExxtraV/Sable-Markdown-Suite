@@ -48,6 +48,29 @@ enum Revisions {
 
     static func directory(in root: URL) -> URL { root.appendingPathComponent(folderName, isDirectory: true) }
 
+    /// Where snapshots of the open file are kept.
+    enum Place: Equatable {
+        /// The file belongs to the Fiction Project on the desk: the whole manuscript is snapshotted.
+        case project(URL)
+        /// The file is in the writing folder but not in a project.
+        case writingFolder(URL)
+        /// The file lives somewhere else entirely (opened from Finder, say): its own folder, which keeps a hidden
+        /// `.sable-revisions` beside it, only once the writer saves a snapshot.
+        case besideFile(URL)
+    }
+
+    /// The desk can be showing a project or a writing folder the open file isn't in, so the file decides, not the desk.
+    static func place(forOpen file: URL, project: URL?, writingFolder: URL?) -> Place {
+        if let project, contains(project, file) { return .project(project) }
+        if let writingFolder, contains(writingFolder, file) { return .writingFolder(writingFolder) }
+        return .besideFile(file.deletingLastPathComponent())
+    }
+
+    private static func contains(_ folder: URL, _ file: URL) -> Bool {
+        let base = folder.standardizedFileURL.pathComponents, path = file.standardizedFileURL.pathComponents
+        return path.count > base.count && Array(path.prefix(base.count)) == base
+    }
+
     static func words(in text: String) -> Int { text.split { $0.isWhitespace || $0.isNewline }.count }
 
     // MARK: Reading

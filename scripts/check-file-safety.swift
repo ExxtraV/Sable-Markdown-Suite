@@ -120,6 +120,27 @@ import Foundation
         try? fm.removeItem(at: (cardInTrash as URL?)!)
         precondition(!trail.follow() && trail.url == before, "Or when deleted")
 
+        // A file opened from anywhere (a Downloads folder, a synced drive) is protected the same way: nothing here knows
+        // about a writing folder
+        let downloads = root.appendingPathComponent("Downloads", isDirectory: true)
+        try fm.createDirectory(at: downloads, withIntermediateDirectories: true)
+        let loose = downloads.appendingPathComponent("readme.mkd")
+        try Data("Read me.\n".utf8).write(to: loose)
+        precondition(FileWhereabouts.of(loose) == .inPlace, "Any folder counts as in place")
+        try SafeFile.writeText("Read me, revised.\n", to: loose)
+        let downloadsListing = try fm.contentsOfDirectory(atPath: downloads.path)
+        precondition(text(loose) == "Read me, revised.\n" && downloadsListing == ["readme.mkd"], "Saves safely, no leftovers")
+        var looseInTrash: NSURL?
+        try fm.trashItem(at: loose, resultingItemURL: &looseInTrash)
+        let trashed = looseInTrash! as URL
+        precondition(FileWhereabouts.of(trashed) == .inTrash, "Noticed in the Trash")
+        try SafeFile.move(from: trashed, to: loose)
+        precondition(FileWhereabouts.of(loose) == .inPlace && text(loose) == "Read me, revised.\n", "Put Back returns it to where it was")
+        try fm.removeItem(at: loose)
+        precondition(FileWhereabouts.of(loose) == .missing, "Deleted outside Sable is noticed")
+        try SafeFile.writeText("Read me, again.\n", to: loose)
+        precondition(FileWhereabouts.of(loose) == .inPlace && text(loose) == "Read me, again.\n", "Save Again writes it back")
+
         print("Passed: coordinated reads and writes, no leftovers, tags and dates kept, write-if-unchanged, deleted files restored, failed writes leave originals whole, copies kept in the Trash, moves that never replace, where a file has ended up (in place, missing, in the Trash), and files followed through renames and moves.")
     }
 }

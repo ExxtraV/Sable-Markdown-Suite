@@ -28,7 +28,7 @@ enum FolderListing {
             let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .isPackageKey, .contentModificationDateKey])
             guard values.isSymbolicLink != true, values.isPackage != true else { return nil }
             if values.isDirectory == true { return BrowserEntry(url: url, isDirectory: true, modified: values.contentModificationDate, isProject: FictionProject.isProject(url)) }
-            guard values.isRegularFile == true, ["md", "markdown", "txt"].contains(url.pathExtension.lowercased()) else { return nil }
+            guard values.isRegularFile == true, MarkdownFileTypes.isMarkdownOrText(url) else { return nil }
             return BrowserEntry(url: url, isDirectory: false, modified: values.contentModificationDate)
         }.sorted {
             if $0.isDirectory != $1.isDirectory { return $0.isDirectory }
@@ -64,7 +64,7 @@ extension FolderListing {
             if values.isSymbolicLink == true { walker.skipDescendants(); continue }
             let isDirectory = values.isDirectory == true
             if !isDirectory {
-                guard values.isRegularFile == true, ["md", "markdown", "txt"].contains(url.pathExtension.lowercased()) else { continue }
+                guard values.isRegularFile == true, MarkdownFileTypes.isMarkdownOrText(url) else { continue }
             }
             let title = isDirectory ? url.lastPathComponent : url.deletingPathExtension().lastPathComponent
             guard title.range(of: needle, options: options) != nil else { continue }
@@ -109,7 +109,7 @@ enum FolderCreationError: LocalizedError {
 }
 
 enum FolderCreation {
-    static let fileExtensions = ["md", "markdown", "txt"]
+    static let fileExtensions = MarkdownFileTypes.allExtensions
 
     /// The final on-disk name, or nil if it can't be used. Files without a Markdown/text extension get ".md".
     static func fileName(for raw: String, kind: NewItemKind) -> String? {
@@ -446,7 +446,15 @@ enum FolderMarksStore {
 
 @MainActor
 final class FolderBrowser: ObservableObject {
+    /// The top of what the desk shows: the writing folder, or a folder visited for this session (see `visit`).
     @Published private(set) var root: URL?
+    /// The folder saved as the writing folder, if any. Only `choose` and `forgetWritingFolder` change it.
+    @Published private(set) var writingFolder: URL?
+    /// A folder the desk is showing for this session only, because the open file isn't in the writing folder
+    /// (or there is no writing folder). Never saved: quitting Sable returns the desk to the writing folder.
+    @Published private(set) var visiting: URL?
+    /// True once the writer chose to work without a writing folder, so setup doesn't come back.
+    @Published private(set) var declinedWritingFolder = UserDefaults.standard.bool(forKey: FolderBrowser.declinedKey)
     @Published private(set) var current: URL? { didSet { updateProject() } }
     /// The Fiction Project being viewed, if any. Inside one, the desk shows only that project.
     @Published private(set) var projectURL: URL?
@@ -869,6 +877,7 @@ final class FolderBrowser: ObservableObject {
             do {
                 let url = try URL(resolvingBookmarkData: bookmark, options: [.withSecurityScope, .withoutUI], relativeTo: nil, bookmarkDataIsStale: &stale)
                 scoped = url.startAccessingSecurityScopedResource()
+                writingFolder = url
                 root = url
                 current = url
                 marks = FolderMarksStore.load(for: url)
@@ -883,8 +892,10 @@ final class FolderBrowser: ObservableObject {
         let newScope = url.startAccessingSecurityScopedResource()
         do {
             let bookmark = try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
-            if scoped { root?.stopAccessingSecurityScopedResource() }
+            if scoped { writingFolder?.stopAccessingSecurityScopedResource() }
             scoped = newScope
+            visiting = nil
+            writingFolder = url
             root = url
             current = url
             marks = FolderMarksStore.load(for: url)
@@ -892,12 +903,88 @@ final class FolderBrowser: ObservableObject {
             filter = nil
             expanded = []; children = [:]
             UserDefaults.standard.set(bookmark, forKey: "writingFolder")
+            setDeclined(false)
             refresh()
         } catch {
             if newScope { url.stopAccessingSecurityScopedResource() }
             throw error
         }
     }
+    static let declinedKey = "writingFolderDeclined"
+
+    private func setDeclined(_ value: Bool) {
+        declinedWritingFolder = value
+        UserDefaults.standard.set(value, forKey: FolderBrowser.declinedKey)
+    }
+
+    /// The writer chose to work without a writing folder. Setup won't ask again, and no file is touched;
+    /// choosing a folder later (Settings, or the desk's menu) turns the writing folder back on.
+    func forgetWritingFolder() {
+        if scoped { writingFolder?.stopAccessingSecurityScopedResource(); scoped = false }
+        UserDefaults.standard.removeObject(forKey: "writingFolder")
+        writingFolder = nil
+        setDeclined(true)
+        if visiting == nil { show(nil) }
+    }
+
+    /// Setup's "Just Open a File": no writing folder, and no more asking.
+    func declineWritingFolder() { setDeclined(true) }
+
+    /// Shows a folder in the desk for this session only, leaving the saved writing folder alone.
+    func visit(_ folder: URL) {
+        guard visiting?.standardizedFileURL != folder.standardizedFileURL else { return }
+        visiting = folder
+        show(folder)
+    }
+
+    /// Goes back to the writing folder (or to an empty desk when there is none).
+    func endVisit() {
+        guard visiting != nil else { return }
+        visiting = nil
+        show(writingFolder)
+    }
+
+    private func show(_ folder: URL?) {
+        root = folder
+        current = folder
+        marks = folder.map { FolderMarksStore.load(for: $0) } ?? FolderMarks()
+        categories = folder.map { FolderCategoriesStore.load(for: $0) } ?? FolderCategories()
+        filter = nil
+        expanded = []; children = [:]
+        if folder == nil { entries = []; loading = false; error = nil } else { refresh() }
+    }
+
+    /// Whether the desk is showing `file`'s place: inside what it shows, the folder the file is in or above it.
+    func isShown(_ file: URL) -> Bool {
+        guard let root else { return false }
+        return FolderMove.isInside(file, of: root)
+    }
+
+    /// True when the desk is on the writing folder and `file` isn't in it.
+    func isOutsideWritingFolder(_ file: URL) -> Bool {
+        guard let writingFolder else { return false }
+        return !FolderMove.isInside(file, of: writingFolder)
+    }
+
+    /// Whether `file` is inside the Fiction Project the desk is in. The desk can stay in a project while a file from
+    /// elsewhere is open, and project tools (name highlights, scene tags) are about that project's own files.
+    func isInProject(_ file: URL?) -> Bool {
+        guard let file, let projectURL else { return false }
+        return FolderMove.isInside(file, of: projectURL)
+    }
+
+    /// Keeps the desk in step with the open file. A file in the writing folder ends a visit and enters its project;
+    /// with no writing folder, the desk simply shows the file's own folder. A file elsewhere, with a writing folder
+    /// set, changes nothing: the desk offers to show its folder instead of moving on its own.
+    func follow(_ file: URL) {
+        if let writingFolder {
+            if visiting != nil, FolderMove.isInside(file, of: writingFolder) { endVisit() }
+        } else if !isShown(file) {
+            visit(file.deletingLastPathComponent())
+        }
+        enterProject(containing: file)
+    }
+
     func navigate(_ url: URL, leavingProject: Bool = false) {
         guard let root, FolderMove.isInside(url, of: root) else { return }
         // Inside a project the desk shows only that project; leaving is always an explicit choice.
@@ -914,7 +1001,7 @@ final class FolderBrowser: ObservableObject {
     // MARK: Categories
     /// True while the listing is the writing folder itself, where categories can be created.
     var canManageCategories: Bool {
-        guard projectURL == nil, let root, let current else { return false }
+        guard projectURL == nil, visiting == nil, let root, let current else { return false }
         return current.standardizedFileURL.path == root.standardizedFileURL.path
     }
     func categoryID(of entry: BrowserEntry) -> String? {
@@ -1111,6 +1198,7 @@ struct FolderBrowserSection: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let current = browser.current {
+                fileElsewhereNote
                 if let project = browser.project, let projectURL = browser.projectURL { projectHeader(project, projectURL) }
                 breadcrumbBar(current)
                 if !browser.marks.isEmpty { filterBar }
@@ -1144,14 +1232,48 @@ struct FolderBrowserSection: View {
                 if let item = browser.lastTrashed { trashNotice(item) }
                 if !browser.folderErrors.isEmpty { Text("A subfolder could not be read. Refresh or choose the folder again.").font(.caption).foregroundStyle(.secondary) }
             } else {
-                Button("Choose Writing Folder…", action: chooseFolder).font(.caption)
-                Text("Browse Markdown files and subfolders. Click a file to switch to it.").font(.caption).foregroundStyle(.secondary)
+                // No writing folder and no saved file yet: one quiet line, nothing to click.
+                Text("Save this file and its folder appears here. A writing folder, if you want one, is in Settings.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if let error = browser.error { Text(error).font(.caption).foregroundStyle(.secondary) }
         }
         .onAppear { if browser.entries.isEmpty { browser.refresh() } }
         .onChange(of: search) { _, value in browser.updateSearch(value) }
         .onChange(of: browser.current) { _, _ in browser.updateSearch(search) }
+    }
+
+    /// When the open file isn't in the writing folder, one quiet line says so and offers its folder for this session.
+    /// The desk never moves by itself, and the saved writing folder never changes.
+    @ViewBuilder
+    private var fileElsewhereNote: some View {
+        if let visiting = browser.visiting {
+            HStack(spacing: 6) {
+                Image(systemName: "folder").accessibilityHidden(true)
+                Text("Showing “\(visiting.lastPathComponent)” for now").lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 0)
+                if let writing = browser.writingFolder {
+                    Button("Back to \(writing.lastPathComponent)") { browser.endVisit() }
+                        .buttonStyle(.plain).foregroundStyle(Color.accentColor).lineLimit(1)
+                        .help("Show your writing folder again")
+                        .accessibilityLabel("Back to the writing folder, \(writing.lastPathComponent)")
+                }
+            }
+            .font(.caption).foregroundStyle(.secondary)
+            .accessibilityElement(children: .contain)
+        } else if let file = currentURL, browser.isOutsideWritingFolder(file) {
+            HStack(spacing: 6) {
+                Text("“\(file.deletingPathExtension().lastPathComponent)” is in \(file.deletingLastPathComponent().lastPathComponent), outside your writing folder.")
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Button("Show Folder") { browser.visit(file.deletingLastPathComponent()) }
+                    .buttonStyle(.plain).foregroundStyle(Color.accentColor)
+                    .help("Show this file's folder here until you go back. Your writing folder stays as it is.")
+                    .accessibilityLabel("Show the folder of the open file")
+            }
+            .font(.caption).foregroundStyle(.secondary)
+            .accessibilityElement(children: .contain)
+        }
     }
 
     private func creationDialogs<V: View>(_ view: V) -> some View {
@@ -1401,6 +1523,7 @@ struct FolderBrowserSection: View {
                 Button("Refresh") { browser.refresh() }
                 Button("Collapse All Folders") { browser.collapseAll() }.disabled(browser.expanded.isEmpty)
                 if browser.projectURL == nil, let root = browser.root { Button("Back to \(root.lastPathComponent)") { browser.navigate(root) } }
+                if browser.visiting != nil, let writing = browser.writingFolder { Button("Back to Writing Folder (\(writing.lastPathComponent))") { browser.endVisit() } }
                 if browser.canLeaveProject { Button("Leave Project") { browser.leaveProject() } }
             } label: { Image(systemName: "ellipsis.circle") }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().accessibilityLabel("File browser menu")
@@ -1741,7 +1864,7 @@ private struct BrowserRowView: View {
     /// The kind of thing a "+" on this folder would add (chapter, character, location, world note).
     private var addItem: NewProjectItem? { entry.isDirectory && inProject ? browser.projectItem(forFolder: entry.url) : nil }
     private var inProject: Bool { browser.projectURL != nil }
-    private var isMarkdown: Bool { ["md", "markdown"].contains(entry.url.pathExtension.lowercased()) }
+    private var isMarkdown: Bool { MarkdownFileTypes.isMarkdown(entry.url) }
     private var isRenaming: Bool { browser.renaming == entry.url }
     /// Dropping on a folder moves into it; dropping on a file moves next to it.
     private var dropFolder: URL { entry.isDirectory ? entry.url : entry.url.deletingLastPathComponent() }

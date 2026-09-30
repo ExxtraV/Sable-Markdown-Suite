@@ -445,18 +445,14 @@ final class SingleDocumentCoordinator: NSObject {
         let panel = NSOpenPanel()
         panel.title = "Open Markdown File"
         panel.prompt = "Open"
-        panel.allowedContentTypes = [
-            UTType(filenameExtension: "md") ?? .plainText,
-            UTType(filenameExtension: "markdown") ?? .plainText,
-            .plainText
-        ]
+        panel.allowedContentTypes = MarkdownFileTypes.markdownExtensions.compactMap { UTType(filenameExtension: $0) } + [.plainText]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             let source = NSApp.keyWindow?.windowController?.document as? NSDocument
             self?.switchDocument(from: source, to: url) { error in
-                if let error { NSApp.presentError(error) }
+                if let error { NSApp.presentError(error) } else { NSDocumentController.shared.noteNewRecentDocumentURL(url) }
             }
         }
     }
@@ -930,17 +926,27 @@ struct WritingFolderSetup: View {
     @State private var includeGuide = true
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Image(systemName: "folder.badge.plus").font(.largeTitle).foregroundStyle(.secondary)
+            Image(systemName: "folder.badge.plus").font(.largeTitle).foregroundStyle(.secondary).accessibilityHidden(true)
             Text("A home for your writing").font(.title2.weight(.semibold))
-            Text("Choose or create a folder for your Markdown files. You can still open and save documents anywhere.")
-            Text("We recommend a folder in iCloud Drive, Dropbox, or OneDrive so your writing is available on your other devices. Your chosen service handles syncing.").foregroundStyle(.secondary)
-            Toggle("Include the Sable guide", isOn: $includeGuide)
+            Text("A writing folder is optional. Choose or create one to keep your Markdown files together, or just open a file and write. You can open and save documents anywhere either way, and you can set up a folder later in Settings.")
+            Text("If you choose a folder, we recommend one in iCloud Drive, Dropbox, or OneDrive so your writing is available on your other devices. Your chosen service handles syncing.").foregroundStyle(.secondary)
+            Toggle("Include the Sable guide in the folder", isOn: $includeGuide)
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
             HStack {
+                Button("Just Open a File") { justOpenAFile() }
+                    .help("Skip the writing folder. Sable works as a plain Markdown editor.")
                 Spacer()
                 Button("Choose or Create Folder…") { choose() }.keyboardShortcut(.defaultAction)
             }
-        }.padding(28).frame(width: 440).interactiveDismissDisabled()
+        }.padding(28).frame(width: 460).interactiveDismissDisabled()
+    }
+    /// Works without a writing folder, and stops asking. The desk starts hidden (⌃⌘S brings it back): with no folder
+    /// to show, a quiet page is the calmer start.
+    private func justOpenAFile() {
+        browser.declineWritingFolder()
+        UserDefaults.standard.set(false, forKey: "showWritingDesk")
+        dismiss()
+        SingleDocumentCoordinator.shared.chooseDocument()
     }
     private func choose() {
         let panel = NSOpenPanel()

@@ -55,7 +55,7 @@ struct ReplaceFailure: LocalizedError {
 }
 
 enum ProjectSearch {
-    static let fileExtensions: Set<String> = ["md", "markdown"]
+    static let fileExtensions = Set(MarkdownFileTypes.markdownExtensions)
     static let hitLimit = 5000
 
     static func expression(for options: SearchOptions) -> NSRegularExpression? {

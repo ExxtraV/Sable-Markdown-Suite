@@ -461,6 +461,32 @@ final class WritingTextView: NSTextView {
     // Markdown colors are display preferences, never rich-text document mutations.
     override func changeColor(_ sender: Any?) {}
 
+    // MARK: Dropping a file on the page
+    // A Markdown or text file dragged onto the page opens, like File → Open, instead of pasting its path into the text.
+    override var acceptableDragTypes: [NSPasteboard.PasteboardType] { super.acceptableDragTypes + [.fileURL] }
+
+    private func droppedDocument(_ sender: NSDraggingInfo) -> URL? {
+        let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+        return MarkdownFileTypes.openableDrop(urls ?? [])
+    }
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        droppedDocument(sender) != nil ? .copy : super.draggingEntered(sender)
+    }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        droppedDocument(sender) != nil ? .copy : super.draggingUpdated(sender)
+    }
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        droppedDocument(sender) != nil || super.prepareForDragOperation(sender)
+    }
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let url = droppedDocument(sender) else { return super.performDragOperation(sender) }
+        let source = window?.windowController?.document as? NSDocument
+        SingleDocumentCoordinator.shared.switchDocument(from: source, to: url) { error in
+            if let error { NSApp.presentError(error) } else { NSDocumentController.shared.noteNewRecentDocumentURL(url) }
+        }
+        return true
+    }
+
     override func keyDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if (event.keyCode == 48 || event.keyCode == 53), modifiers.isEmpty, leaveFormatting() { return }

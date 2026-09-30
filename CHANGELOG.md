@@ -2,6 +2,17 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
+## Unreleased
+
+- **Open any Markdown file, with or without a writing folder.** The writing folder is now optional. First launch offers **Just Open a File** beside choosing a folder, and a window opened on a file from Finder skips setup. With no writing folder, the writing desk shows the open file's own folder. Settings → General → **Writing folder** chooses one later or stops using one (Sable only forgets the folder; no file is touched).
+- **A file outside the writing folder.** The desk stays on the writing folder and adds one quiet line with **Show Folder**, which shows the file's folder for this session only, with a **Back to** link. The saved writing folder never changes, and the desk returns by itself when the open file is back inside it.
+- **Make Sable the default for Markdown, only if you choose.** Settings → General → **Markdown files** shows which app opens Markdown now and has **Make Sable the Default for Markdown**; macOS asks you to confirm. Plain text (`.txt`) is a separate button, also off by default. Sable still registers as an alternate handler only, and never changes the default by itself. The setting updates when you come back from Finder's Get Info.
+- **An optional Recent tab.** Turn on **Recent tab** in Settings → General → Writing desk (or the desk's sliders menu) and the desk gains a **Recent** tab listing the files you have open, newest first, from any folder. It's off by default, is recorded only while on, stays on your Mac, and turning it off forgets the list; **Clear Recent Files** empties it any time.
+- **More Markdown extensions.** `.mdown`, `.mkd`, `.mkdn`, and `.mdwn` are declared in Info.plist (Markdown and plain text are now separate document types) and appear in the writing desk, search, import, and the Open panel.
+- **Open Recent and dropping a file.** File → Open Markdown File… now adds to Open Recent. Dropping one Markdown or text file on the page opens it, as File → Open does, instead of pasting its path into your text.
+- **Fixed: snapshots of the wrong files.** With a Fiction Project showing in the desk and a file from elsewhere open, Revision History and Save Snapshot used the project's chapters. The open file now decides what a snapshot covers, and the automatic daily snapshot only ever applies to a Fiction Project. Name highlights likewise follow the open file, not the desk's project.
+- **Under the hood:** new `MarkdownFileTypes.swift`, `DefaultAppStatus.swift`, and `FileHandlingSettings.swift`; new `RecentFiles.swift`; new checks `check-document-types.py`, `check-default-app.swift`, and `check-recent-files.swift`; `check-project-browser.swift`, `check-folder.swift`, `check-revisions.swift`, and `check-file-safety.swift` cover visiting a folder, no writing folder, the new extensions, where snapshots go, and files from anywhere.
+
 ## 0.10.1
 
 The new sleeping-curl icon, open files that follow a rename or move, folders inside folders from the writing desk, drag from anywhere on a row, and update checks at the renamed repository's address.

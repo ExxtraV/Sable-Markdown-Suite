@@ -173,6 +173,8 @@ struct WritingView: View {
     @AppStorage("smartTypography") private var smartTypography = false
     @AppStorage("sceneTagsPlacement") private var sceneTagsPlacement = "bottom"
     @State private var errorMessage: String?
+    @AppStorage(RecentFiles.enabledKey) private var showRecentTab = false
+    @AppStorage(RecentFiles.storageKey) private var recentOpens = ""
 
     /// The editor counts as you type, so the status bar never has to count a whole manuscript itself.
     private var count: Int { commands.words(in: document.text) }
@@ -184,11 +186,13 @@ struct WritingView: View {
         WritingHistory.add(now - previous)
     }
     private var sessionWords: Int { bankedWords + max(0, count - (startingWords ?? count)) }
+    /// The saved width, kept within what the desk can lay out: an older, narrower width is lifted to the minimum.
+    private var deskWidth: Double { min(420, max(240, sidebarWidth)) }
     private var colorScheme: ColorScheme? { WritingTheme.named(themeName).dark ? .dark : .light }
 
     var body: some View {
         workspace
-            .frame(minWidth: (sidebar ? sidebarWidth + 440 : 560) + (parallelURL == nil ? 0 : 370), minHeight: 520)
+            .frame(minWidth: (sidebar ? deskWidth + 440 : 560) + (parallelURL == nil ? 0 : 370), minHeight: 520)
             .preferredColorScheme(colorScheme)
             .tint(.gray)
             .onAppear(perform: prepareWorkspace)
@@ -218,11 +222,11 @@ struct WritingView: View {
     private var workspace: some View {
         HStack(spacing: 0) {
             HStack(spacing: 0) {
-                writingDesk.frame(width: sidebarWidth).overlay(alignment: .trailing) { sidebarResizeHandle }
+                writingDesk.frame(width: deskWidth).overlay(alignment: .trailing) { sidebarResizeHandle }
                 Divider()
             }
-            .offset(x: sidebar ? 0 : -(sidebarWidth + 1))
-            .frame(width: sidebar ? sidebarWidth + 1 : 0, alignment: .leading)
+            .offset(x: sidebar ? 0 : -(deskWidth + 1))
+            .frame(width: sidebar ? deskWidth + 1 : 0, alignment: .leading)
             .clipped()
             .allowsHitTesting(sidebar)
             .accessibilityHidden(!sidebar)
@@ -243,9 +247,9 @@ struct WritingView: View {
             }
             .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
                 .onChanged { drag in
-                    let start = sidebarDragStart ?? sidebarWidth
+                    let start = sidebarDragStart ?? deskWidth
                     sidebarDragStart = start
-                    sidebarWidth = min(420, max(220, start + drag.translation.width))
+                    sidebarWidth = min(420, max(240, start + drag.translation.width))
                 }
                 .onEnded { _ in sidebarDragStart = nil })
     }
@@ -367,14 +371,21 @@ struct WritingView: View {
     /// What revisions look at: every chapter of a Fiction Project, or the document that is open.
     private func revisionScope() -> RevisionScope? {
         commands.flushText()
-        if let project = browser.projectURL {
+        // The desk can show a project the open file isn't in (a file opened from Finder), so the file decides.
+        let place = activeURL.map { Revisions.place(forOpen: $0, project: browser.projectURL, writingFolder: browser.writingFolder) }
+        switch place {
+        case let .project(project)?:
             let files = ProjectSearch.markdownFiles(in: FictionProject.folder(for: .chapter, in: project))
             return RevisionScope(root: project, files: files, chapterOrder: browser.project?.chapterOrder, isProject: true, openURL: activeURL, openText: document.text)
+        case let .writingFolder(root)?, let .besideFile(root)?:
+            guard let url = activeURL else { return nil }
+            return RevisionScope(root: root, files: [url], chapterOrder: nil, isProject: false, openURL: url, openText: document.text)
+        case nil:
+            // An unsaved document has no file yet; the desk's project, if any, still has chapters to keep.
+            guard let project = browser.projectURL else { return nil }
+            let files = ProjectSearch.markdownFiles(in: FictionProject.folder(for: .chapter, in: project))
+            return RevisionScope(root: project, files: files, chapterOrder: browser.project?.chapterOrder, isProject: true, openURL: nil, openText: document.text)
         }
-        guard let url = activeURL else { return nil }
-        let rootPath = browser.root?.standardizedFileURL.path
-        let root = rootPath.flatMap { url.standardizedFileURL.path.hasPrefix($0 + "/") ? browser.root : nil } ?? url.deletingLastPathComponent()
-        return RevisionScope(root: root, files: [url], chapterOrder: nil, isProject: false, openURL: url, openText: document.text)
     }
 
     private func startRevisions(saving: Bool) {
@@ -387,7 +398,8 @@ struct WritingView: View {
 
     /// Once a day, when the manuscript has changed, keeps a snapshot without being asked.
     private func takeDailySnapshot() async {
-        guard autoSnapshots, browser.projectURL != nil, let scope = revisionScope() else { return }
+        // Only a Fiction Project is kept automatically; a file from elsewhere never gets a folder dropped beside it unasked.
+        guard autoSnapshots, browser.projectURL != nil, let scope = revisionScope(), scope.isProject else { return }
         let root = scope.root, files = scope.files, order = scope.chapterOrder
         _ = await Task.detached(priority: .utility) { Revisions.automaticIfDue(root: root, files: files, chapterOrder: order) }.value
     }
@@ -395,7 +407,7 @@ struct WritingView: View {
     /// Opens Find & Replace across the Fiction Project, or the writing folder outside one.
     private func startFindInProject() {
         guard let root = browser.projectURL ?? browser.root else {
-            importMessage = "Choose a writing folder first; Find & Replace looks through every Markdown file in it."
+            importMessage = "Find & Replace across files looks through a writing folder, which you haven’t set up. Use ⌘F to find in this file, or choose a writing folder in Settings."
             return
         }
         commands.flushText()
@@ -600,9 +612,10 @@ struct WritingView: View {
 
     private func prepareWorkspace() {
         if startingWords == nil { startingWords = count }
-        needsSetup = browser.root == nil
+        // A window opened on a file from Finder never starts with setup: the writer came to open that file.
+        needsSetup = browser.writingFolder == nil && !browser.declinedWritingFolder && fileURL == nil
         activeURL = fileURL
-        if let fileURL { browser.enterProject(containing: fileURL) }
+        if let fileURL { browser.follow(fileURL) }
         let binding = $document
         commands.loadText = { [commands] text, url in
             commands.flushText()
@@ -612,7 +625,7 @@ struct WritingView: View {
             historyBaseline = nil
             saveFeedback.message = ""
             activeURL = url
-            if let url { browser.enterProject(containing: url) }
+            if let url { browser.follow(url) }
             edited = false
             hasSavedFile = url != nil
         }
@@ -624,9 +637,13 @@ struct WritingView: View {
         hasSavedFile = native.fileURL != nil
         if activeURL != native.fileURL {
             activeURL = native.fileURL
-            if let url = native.fileURL { browser.enterProject(containing: url) }
+            if let url = native.fileURL { browser.follow(url) }
         }
         LaunchBehavior.remember(native.fileURL)
+        if showRecentTab, let url = native.fileURL {
+            let updated = RecentFiles.adding(url, to: recentOpens)
+            if updated != recentOpens { recentOpens = updated }
+        }
         let place = native.fileURL.map(FileWhereabouts.of) ?? .inPlace
         let gone = place == .missing
         defer { if goneOnLastLook != gone { goneOnLastLook = gone } }
@@ -797,7 +814,7 @@ struct WritingView: View {
                              pageWidth: pageWidth, commands: commands, fontFamily: fontFamily,
                              lineSpacing: lineSpacing, focusParagraph: focus, focusGradient: focusStyle == "gradient", readOnly: reading, syntaxClasses: syntaxClasses,
                              colorVersion: colorVersion, spellCheckEnabled: spellCheckEnabled, typewriterMode: typewriterMode,
-                             nameHighlighter: nameHighlights && browser.projectURL != nil ? cardIndex.highlighter : nil, nameShimmer: nameStyle == "shimmer",
+                             nameHighlighter: nameHighlights && browser.projectURL != nil && (activeURL == nil || browser.isInProject(activeURL)) ? cardIndex.highlighter : nil, nameShimmer: nameStyle == "shimmer",
                              nameKinds: Set(CardKind.allCases.filter { ($0 == .character && nameCharacters) || ($0 == .location && nameLocations) || ($0 == .lore && nameLore) }),
                              nameCards: cardIndex.cards, openNameFile: switchPrimaryDocument, showNameCard: showCard,
                              dimMarkers: dimMarkers, smartTypography: smartTypography, transparentBackground: wantsPaperBehindText,
@@ -852,6 +869,13 @@ struct PreferencesView: View {
     var body: some View {
         TabView {
             Form {
+                FileHandlingSettings()
+                Section("Writing desk") {
+                    RecentTabToggle()
+                    Text("Adds a Recent tab beside Files and Outline, listing the files you have open, newest first. It's off until you turn it on, and turning it off forgets the list.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                WritingFolderSettings()
                 UpdateSettings(updater: updater)
                 Section("Revisions") {
                     Toggle("Keep a daily snapshot of my manuscript", isOn: $autoSnapshots)
@@ -899,7 +923,7 @@ struct PreferencesView: View {
     }
 
     private var guideFolder: URL {
-        browser.root ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Sable Markdown Writer")
+        browser.writingFolder ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Sable Markdown Writer")
     }
 
     private func regenerateGuide() {

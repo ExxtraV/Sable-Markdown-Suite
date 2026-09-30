@@ -6,7 +6,7 @@ Your words live in ordinary Markdown files. They are plain text, so you can open
 
 ## Your writing folder
 
-Choose a writing folder during setup. We recommend iCloud Drive, Dropbox, or OneDrive for access across devices. Your cloud service handles synchronization; let it finish before editing the same file on another device.
+A writing folder is optional (see [Just open a file](#just-open-a-file) below). If you want one, choose it during setup. We recommend iCloud Drive, Dropbox, or OneDrive for access across devices. Your cloud service handles synchronization; let it finish before editing the same file on another device.
 
 The writing desk has two tabs: **Files** and your **Outline**. Click a file to open it in the same window (full screen stays on); Sable asks you to save or discard unsaved changes first.
 
@@ -17,9 +17,26 @@ The writing desk has two tabs: **Files** and your **Outline**. Click a file to o
 - **Focus:** Control-click a folder and choose Focus on This Folder to see only that folder. The path above the list takes you back out.
 - **Search:** the search box looks through every folder beneath the one you're viewing, not only the ones that are open.
 - **Keyboard:** arrow keys move through the list, → and ← open and close folders, Return opens, ⇧Return renames, ⌘Delete moves to the Trash.
+- **Recent tab (optional):** off until you want it. Turn on **Recent tab** in Settings → General → Writing desk, or in the desk's sliders menu, and a **Recent** tab appears beside Files and Outline. It lists the files you have open, newest first, from any folder; click one to switch to it. Turning it off forgets the list, and **Clear Recent Files** empties it any time. The list is kept only on your Mac and is recorded only while the tab is on.
 - **Make it yours:** the sliders button sets sorting, icons, file extensions, last-modified dates, word counts and compact rows. Drag the desk's right edge to resize it.
 
-Choose another folder from the ⋯ menu at any time.
+Choose another folder from the ⋯ menu at any time, or in Settings → General → Writing folder.
+
+## Just open a file
+
+You don't need a writing folder to use Sable. It opens any Markdown file (`.md`, `.markdown`, `.mdown`, `.mkd`, `.mkdn`, `.mdwn`) or plain text file from anywhere on your Mac.
+
+- **Ways to open one:** Finder's Open With → Sable, **File → Open Markdown File…** (⌘O), **File → Open Recent**, dragging a file onto Sable's Dock icon, or dragging it onto the page.
+- **First launch:** setup offers **Just Open a File** beside choosing a folder. It skips the folder, hides the writing desk (⌃⌘S brings it back), and shows the Open panel. Opening a file from Finder skips setup altogether. Nothing asks you to choose a folder later.
+- **With no writing folder,** the writing desk shows the folder of the file you have open. An unsaved document has nothing to show yet. Choose a writing folder, or stop using one, in Settings → General → **Writing folder**. Stopping only makes Sable forget the folder; none of your files are touched.
+- **A file outside your writing folder.** The desk keeps showing your writing folder and adds one quiet line saying the file is somewhere else. **Show Folder** shows that folder in the desk for now, with a **Back to** link to return. It lasts only until you go back or quit Sable, and your saved writing folder never changes. Opening a file from your writing folder also brings the desk back by itself.
+- **Safe everywhere.** Saving, the notice when an open file is moved to the Trash or deleted, and **Put Back** all work the same for a file from anywhere. Snapshots of a file outside a writing folder live in a hidden `.sable-revisions` folder beside the file, created only when you save a snapshot.
+
+### Make Sable the default for Markdown
+
+Settings → General → **Markdown files** shows which app opens Markdown files now. **Make Sable the Default for Markdown** changes it, and macOS asks you to confirm. Plain text (`.txt`) files are a separate button, also off by default; macOS treats every plain-text file the same way, not only `.txt`. Sable never changes this on its own.
+
+To switch back, select a Markdown file in Finder, choose **File → Get Info**, pick another app under **Open with**, and click **Change All…**. Settings notices the change when you return to Sable.
 
 ## Fiction Projects
 
@@ -62,11 +79,12 @@ Use `backticks` for inline code and ~~two tildes~~ for a strikethrough.
 
 ## Revisions
 
-Before a big rewrite, save a snapshot: **File → Save Snapshot** (⌥⌘S), or the Revisions button at the bottom of the writing desk. A snapshot keeps a copy of every chapter as it is right now. **Revision History** (⌥⌘R) lists your snapshots and shows, for any of them, which chapters changed and how: words you have added are underlined green and words you have removed are struck through red. From there you can restore one chapter or the whole draft. Sable saves a safety snapshot before every restore, so a restore can be undone too. In a Fiction Project it also keeps a daily snapshot when something changed (turn that off in Settings). Snapshots live in a hidden `.sable-revisions` folder as ordinary Markdown files.
+Before a big rewrite, save a snapshot: **File → Save Snapshot** (⌥⌘S), or the Revisions button at the bottom of the writing desk. A snapshot keeps a copy of every chapter as it is right now. **Revision History** (⌥⌘R) lists your snapshots and shows, for any of them, which chapters changed and how: words you have added are underlined green and words you have removed are struck through red. From there you can restore one chapter or the whole draft. Sable saves a safety snapshot before every restore, so a restore can be undone too. In a Fiction Project it also keeps a daily snapshot when something changed (turn that off in Settings). Snapshots live in a hidden `.sable-revisions` folder as ordinary Markdown files. For a file opened from outside a writing folder, that folder sits beside the file, and only a snapshot you save creates it.
 
 ## How Sable protects your files
 
 - **All or nothing.** When Sable rewrites a file, it writes the new version beside the old one and swaps them in a single step. If the disk fills up or your Mac stops halfway, the old file is still whole.
+- **Files from anywhere.** These protections follow the open file itself, not a folder. A file opened from Finder is saved, noticed in the Trash, and put back the same way as one in your writing folder.
 - **A snapshot before big changes.** Find & Replace in Project and every restore save a safety snapshot first. If that snapshot can't be saved, nothing is changed.
 - **Undo that won't erase newer words.** Undo Replace puts back only files that still read exactly as the replacement left them. Anything you changed afterwards is left alone, and Sable tells you which files those were.
 - **Files open beside your draft.** When Find & Replace or a restore touches a file that's open beside your draft, that file saves your latest words first and then shows the new text. If the file changes somewhere else (another app, or another Mac through iCloud or Dropbox) while you have edits beside your draft, Sable doesn't save over it. Choose **Keep Mine** or **Use Saved File**; the version you don't keep goes to the Trash as a copy.

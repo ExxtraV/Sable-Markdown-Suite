@@ -11,7 +11,18 @@ A small, native Markdown editor for fiction, for macOS 14 or later. Source is in
 
 ## Use
 
-Open `build/Sable Markdown Writer.app` after building. Use File → New or File → Open. Choose an existing UTF-8 `.md`, `.markdown`, or `.txt` file from your Mac or iCloud Drive. File → Save writes plain Markdown; prose overlays are never serialized. File coordination and document saving use Apple's SwiftUI `DocumentGroup` and `FileDocument`.
+Open `build/Sable Markdown Writer.app` after building. Use File → New or File → Open. Choose an existing UTF-8 `.md`, `.markdown`, `.mdown`, `.mkd`, `.mkdn`, `.mdwn`, or `.txt` file from your Mac or iCloud Drive. File → Save writes plain Markdown; prose overlays are never serialized. File coordination and document saving use Apple's SwiftUI `DocumentGroup` and `FileDocument`.
+
+### Open any Markdown file, with or without a writing folder
+
+A writing folder is optional. You can use Sable as a calm Markdown editor for single files:
+
+- **Open a file from anywhere.** Finder's Open With → Sable, File → Open Markdown File… (⌘O), File → Open Recent, dragging a file onto the Dock icon, or dragging it onto the window all work. The file's own folder need not be a writing folder, and the writing folder is never changed.
+- **Make Sable the default app for Markdown, if you want.** Settings → General → Markdown files shows which app opens Markdown files now and has a **Make Sable the Default for Markdown** button; macOS asks you to confirm. Plain text (`.txt`) is a separate button, also off by default. Sable never changes either by itself and registers as an alternate handler only. To switch back, select a Markdown file in Finder, choose File → Get Info, pick another app under Open with, and click Change All.
+- **No writing folder needed.** First launch offers **Just Open a File** beside choosing a folder, and a window opened on a file from Finder skips setup. With no writing folder, the writing desk shows the open file's own folder. Settings → General → Writing folder chooses one later, or stops using it; that only makes Sable forget the folder, and no file is touched.
+- **A file outside the writing folder.** The desk keeps showing the writing folder and adds one quiet line: the file is in another folder, with **Show Folder**. That shows the file's folder for this session only, with a **Back to** link; the saved writing folder never changes.
+- **An optional Recent tab.** Settings → General → Writing desk turns on a **Recent** tab in the desk with the files you have open, newest first. It is off by default, recorded only while on, and turning it off forgets the list.
+- **The same protections everywhere.** Safe saving, the moved-to-Trash or deleted notice with **Put Back**, and snapshots work from the open file itself, wherever it lives. A snapshot of a file outside a writing folder is kept in a hidden `.sable-revisions` folder beside it, and only when you save one.
 
 The writing surface now displays bold, italic, combined emphasis, headings, links, quotes, lists, inline code, fenced code, and strikethrough. Markdown markers remain visible in a subdued color. Fonts and visual attributes never become part of the saved text. Supported web/mail links have native link attributes.
 
@@ -79,7 +90,10 @@ For an iPad edition, reuse `QuillCore` and the document model, add a UIKit text 
 - `Sources/QuillCore/Prose.swift`: prose matching and default word list.
 - `Sources/QuillCore/FocusParagraph.swift`: Markdown paragraph boundaries for focus mode.
 - `Sources/Quill/ZoomSteps.swift`: zoom limits and how the mouse wheel steps through them.
-- `Sources/Quill/FolderBrowser.swift`: folder access, file filtering, navigation, and file menu.
+- `Sources/Quill/FolderBrowser.swift`: folder access, file filtering, navigation, file menu, and the session-only view of a file's folder.
+- `Sources/Quill/MarkdownFileTypes.swift`: which file extensions count as Markdown or text, shared by the desk, search, import, and the Open panel.
+- `Sources/Quill/RecentFiles.swift`: the optional Recent tab's list (newest first, capped, only recorded while the tab is on).
+- `Sources/Quill/FileHandlingSettings.swift`, `Sources/Quill/DefaultAppStatus.swift`: Settings → General sections for the default Markdown app and the optional writing folder.
 - `Sources/Quill/ReferencePane.swift`: general parallel Markdown reading and editing pane.
 - `Sources/Quill/ReferenceDocument.swift`: tracked parallel document saving, and stopping when the file changed outside Sable.
 - `Sources/Quill/SafeFile.swift`: coordinated, all-or-nothing reads and writes for Find & Replace, revisions, and copies kept in the Trash.
@@ -115,7 +129,7 @@ The Sable Markdown Writer name and logo aren't covered by the MIT License. Forks
 
 ## Minimalist editor
 
-- First launch opens a blank document and asks you to choose or create a writing folder. Cloud folders are recommended; normal files elsewhere remain supported.
+- First launch opens a blank document and asks you to choose or create a writing folder, or to just open a file. Cloud folders are recommended; normal files elsewhere remain supported, and no folder is required.
 - Setup can include an editable **Sable Guide.md**. Open it again from Help; existing guide edits are never overwritten.
 - Writing Style includes Graphite, Midnight, Chalk, Forest, Obsidian, Arcane, Parchment, and Paper themes.
 - Zoom with Command-Plus/Minus, reset with Command-0, pinch the trackpad, or hold Command and turn a mouse wheel (5% per notch, 65%–200%). Pinch zoom can be disabled in Writing Style.
