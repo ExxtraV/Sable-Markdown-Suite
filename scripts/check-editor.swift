@@ -443,6 +443,12 @@ import QuillCore
             override func data(ofType typeName: String) throws -> Data { Data() }
         }
         func settle() { RunLoop.main.run(until: Date().addingTimeInterval(0.6)) }
+        /// Waits for macOS to report a move to the open document. A busy CI runner can take longer than any fixed pause.
+        func waitFor(_ condition: () -> Bool, timeout: TimeInterval = 5) -> Bool {
+            let deadline = Date().addingTimeInterval(timeout)
+            while !condition() && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
+            return condition()
+        }
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("quill-follow-\(UUID())")
         try! FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -460,16 +466,14 @@ import QuillCore
         SingleDocumentCoordinator.repoint(page, to: second)
         settle()
         try! FolderMove.coordinatedMove(from: second, to: folder.appendingPathComponent("The Harbor.md"))
-        settle()
-        precondition(name(page) == "The Harbor.md", "Renamed in Sable, followed: \(name(page))")
+        precondition(waitFor { name(page) == "The Harbor.md" }, "Renamed in Sable, followed: \(name(page))")
         try! FolderMove.coordinatedMove(from: first, to: folder.appendingPathComponent("Old Chapter 1.md"))
         settle()
         precondition(name(page) == "The Harbor.md", "The previous file moving leaves it alone: \(name(page))")
         let drafts = folder.appendingPathComponent("Drafts", isDirectory: true)
         try! FileManager.default.createDirectory(at: drafts, withIntermediateDirectories: true)
         try! FileManager.default.moveItem(at: folder.appendingPathComponent("The Harbor.md"), to: drafts.appendingPathComponent("The Harbor.md"))
-        RunLoop.main.run(until: Date().addingTimeInterval(1.5))
-        precondition(page.fileURL?.deletingLastPathComponent().lastPathComponent == "Drafts", "Moved without coordination (like Finder), followed: \(page.fileURL?.path ?? "nil")")
+        precondition(waitFor { page.fileURL?.deletingLastPathComponent().lastPathComponent == "Drafts" }, "Moved without coordination (like Finder), followed: \(page.fileURL?.path ?? "nil")")
     }
 
     /// Real wheel events through `WritingScrollView`: Command zooms its own surface a notch at a time, a fast spin is
