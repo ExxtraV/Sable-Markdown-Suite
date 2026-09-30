@@ -25,7 +25,7 @@ The repository was renamed from `ExxtraV/Sable` to `ExxtraV/Sable-Markdown-Suite
 
 ## Each release
 
-Update `docs/release-notes.md`. In GitHub Actions run **Prepare release**, select **community** and the **stable** channel, and supply a version such as `0.9.1` and a positive build number greater than all previously published builds (the current local build is 14).
+Update `docs/release-notes.md`. In GitHub Actions run **Prepare release**, select **community** and the **stable** channel, and supply a version such as `0.9.1` and a positive build number greater than all previously published builds (the current local build is 15).
 
 The workflow builds both Apple Silicon and Intel, runs tests, packages the app, builds a drag-to-install disk image, signs the update archive, verifies that signature against the public key embedded in the app, and creates a draft release. It includes the app archive, appcast, release notes, and checksums of the archive and disk image. A stable release also carries the previous stable items forward in its appcast; see [Beta channel](#beta-channel). Ordinary code pushes do not publish updates.
 
