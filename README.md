@@ -40,6 +40,8 @@ A session goal shows net words added since the document window opened. Set the g
 
 An optional goal with a deadline, such as 50,000 words in November, is off until you turn on "Track a goal with a deadline" in Settings → General, beside the daily writing record. It shows words so far, an even pace line, what today needs for the goal to finish on time, and days left, charted over the goal's dates. It counts only words you add, never subtracts for deletions, and has no streaks, badges, or notifications. A small "1,204 / 1,667 today" can sit beside the session goal in the footer (off by default). One goal is active at a time, and clearing it keeps your writing record. It is stored on this Mac only, like the record.
 
+Export (the Manuscript tab's **Export…**, ⇧⌘E, or File → Export This Document…) makes one PDF, EPUB, Word, or Markdown file. The Manuscript and Book looks are starting points, and a compact **Layout** section adjusts them: headings left or centered; a title page on or off, left or centered; the font, size, and line spacing (single, 1.5, or double); margins; and page numbers and a running header. PDF and Word follow every choice; EPUB follows the heading and title page alignment, since an e-reader sets its own type and pages. A Fiction Project keeps its layout in its `.sable-project.json` marker, and exports of a single document share one remembered layout.
+
 The toolbar toggles prose suggestions. A light strikethrough marks words you may want to cut; the underlying text is unchanged. Right-click a suggestion to remove it explicitly or stop flagging that word. Settings lets you edit the comma-separated word/phrase list and font size. Ignoring a word updates this list for all documents.
 
 macOS checks spelling and basic grammar. Right-click flagged text for available corrections. Automatic spelling replacement is disabled to protect intentional fiction wording and invented names. Availability and quality of grammar suggestions depend on macOS and language.
@@ -100,6 +102,7 @@ For an iPad edition, reuse `QuillCore` and the document model, add a UIKit text 
 - `Sources/Quill/ReferenceDocument.swift`: tracked parallel document saving, and stopping when the file changed outside Sable.
 - `Sources/Quill/SafeFile.swift`: coordinated, all-or-nothing reads and writes for Find & Replace, revisions, and copies kept in the Trash.
 - `Sources/Quill/ReadingView.swift`: native formatted reading view.
+- `Sources/Quill/Export.swift`, `Sources/Quill/ExportLayout.swift`, `Sources/Quill/ExportViews.swift`: PDF, EPUB, Word, and Markdown export; the layout choices and the Manuscript and Book looks they start from; the Export sheet.
 - `Sources/QuillCore/SentenceStructure.swift`: local parts-of-speech tagging.
 - `Sources/Quill/WritingStyle.swift`: font, style, and outline controls.
 - `Sources/QuillCore/MarkdownSyntax.swift`: source highlighting spans, chapter outline, and formatting exit logic.

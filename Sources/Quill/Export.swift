@@ -16,34 +16,15 @@ enum ExportFormat: String, CaseIterable, Sendable {
     var fileExtension: String {
         switch self { case .pdf: return "pdf"; case .epub: return "epub"; case .docx: return "docx"; case .markdown: return "md" }
     }
-    /// Whether page layout settings (style, size, page breaks) apply.
+    /// Whether page layout settings (type, spacing, margins, page size, page furniture) apply.
     var isPaged: Bool { self == .pdf || self == .docx }
-}
-
-enum ExportStyle: String, CaseIterable, Sendable {
-    case manuscript, book
-    var title: String { self == .manuscript ? "Manuscript" : "Book" }
-    var detail: String {
-        self == .manuscript ? "12-point Times, double-spaced, running header. The usual shape for submissions." : "Serif type, tighter lines, page numbers at the foot. Reads like a printed book."
-    }
-}
-
-enum PageSize: String, CaseIterable, Sendable {
-    case letter, a4
-    var title: String { self == .letter ? "US Letter" : "A4" }
-    var points: CGSize { self == .letter ? CGSize(width: 612, height: 792) : CGSize(width: 595.28, height: 841.89) }
-    /// A4 in metric countries, Letter elsewhere.
-    static var regional: PageSize { Locale.current.measurementSystem == .metric ? .a4 : .letter }
 }
 
 struct ExportOptions: Sendable {
     var title = "Untitled"
     var author = ""
     var format = ExportFormat.pdf
-    var style = ExportStyle.manuscript
-    var pageSize = PageSize.regional
-    var titlePage = true
-    var chapterPageBreaks = true
+    var layout = ExportLayout()
     var sceneBreak = "* * *"
 }
 
@@ -89,6 +70,11 @@ enum ManuscriptExport {
             guard include?.contains(stat.name) ?? true, let text = try? String(contentsOf: stat.url, encoding: .utf8) else { return nil }
             return chapter(named: stat.name, markdown: text)
         }
+    }
+
+    /// "Surname / Title", the label a running header starts with.
+    static func runningHeader(_ options: ExportOptions) -> String {
+        [options.author.components(separatedBy: " ").last ?? "", options.title].filter { !$0.isEmpty }.joined(separator: " / ")
     }
 
     /// A safe file name for a save panel's suggestion.
@@ -222,7 +208,7 @@ enum ExportDestination {
 enum MarkdownExporter {
     static func text(_ chapters: [ExportChapter], _ options: ExportOptions) -> String {
         var out = ""
-        if options.titlePage {
+        if options.layout.titlePage {
             out += "# \(options.title)\n\n"
             if !options.author.isEmpty { out += "*by \(options.author)*\n\n" }
             out += "---\n\n"
@@ -249,12 +235,12 @@ enum EPUBExporter {
           <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
         </container>
         """, date: date)
-        zip.add("OEBPS/style.css", css, date: date)
+        zip.add("OEBPS/style.css", css(options.layout), date: date)
 
         var manifest = "    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>\n    <item id=\"css\" href=\"style.css\" media-type=\"text/css\"/>\n"
         var spine = ""
         var toc = ""
-        if options.titlePage {
+        if options.layout.titlePage {
             zip.add("OEBPS/title.xhtml", page(title: options.title, body: "<div class=\"titlepage\"><h1>\(xmlEscape(options.title))</h1>\(options.author.isEmpty ? "" : "<p class=\"author\">\(xmlEscape(options.author))</p>")</div>"), date: date)
             manifest += "    <item id=\"title\" href=\"title.xhtml\" media-type=\"application/xhtml+xml\"/>\n"
             spine += "    <itemref idref=\"title\"/>\n"
@@ -292,10 +278,14 @@ enum EPUBExporter {
         return zip.finish()
     }
 
-    private static let css = """
+    /// E-readers set their own type and spacing, so only the layout's alignment carries over.
+    static func css(_ layout: ExportLayout) -> String {
+        let headings = layout.headingAlignment == .center ? "center" : "left"
+        let titlePage = layout.titleAlignment == .center ? "center" : "left"
+        return """
     body { font-family: serif; line-height: 1.45; margin: 5%; }
-    h1 { text-align: center; font-size: 1.6em; margin: 2em 0 1.2em; page-break-before: always; }
-    h2, h3, h4, h5, h6 { text-align: center; margin: 1.6em 0 0.8em; }
+    h1 { text-align: \(headings); font-size: 1.6em; margin: 2em 0 1.2em; page-break-before: always; }
+    h2, h3, h4, h5, h6 { text-align: \(headings); margin: 1.6em 0 0.8em; }
     p { margin: 0; text-indent: 1.4em; text-align: justify; }
     h1 + p, h2 + p, h3 + p, p.first, p.scenebreak + p { text-indent: 0; }
     p.scenebreak { text-align: center; text-indent: 0; margin: 1.4em 0; }
@@ -303,10 +293,11 @@ enum EPUBExporter {
     blockquote p { text-indent: 0; }
     pre { font-family: monospace; white-space: pre-wrap; margin: 1em 0; }
     ul, ol { margin: 0.8em 0 0.8em 1.6em; }
-    .titlepage { text-align: center; margin-top: 30%; }
-    .titlepage h1 { page-break-before: avoid; font-size: 2.2em; }
-    .titlepage .author { text-indent: 0; text-align: center; font-size: 1.2em; margin-top: 1.5em; }
+    .titlepage { text-align: \(titlePage); margin-top: 30%; }
+    .titlepage h1 { page-break-before: avoid; font-size: 2.2em; text-align: \(titlePage); }
+    .titlepage .author { text-indent: 0; text-align: \(titlePage); font-size: 1.2em; margin-top: 1.5em; }
     """
+    }
 
     private static func page(title: String, body: String) -> String {
         """
@@ -375,8 +366,13 @@ enum EPUBExporter {
 enum DOCXExporter {
     static func data(_ chapters: [ExportChapter], _ options: ExportOptions, date: Date = Date()) -> Data {
         var zip = ZipWriter()
-        let manuscript = options.style == .manuscript
-        let size = options.pageSize
+        let layout = options.layout
+        let manuscript = layout.style == .manuscript
+        let size = layout.pageSize
+        // The running header carries the page number when there is one; otherwise the number sits at the foot.
+        let furniture: (part: String, file: String)? = layout.runningHeader ? ("header", "header1") : (layout.pageNumbers ? ("footer", "footer1") : nil)
+        let furnitureType = furniture.map { "<Override PartName=\"/word/\($0.file).xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.\($0.part)+xml\"/>" } ?? ""
+        let furnitureLink = furniture.map { "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/\($0.part)\" Target=\"\($0.file).xml\"/>" } ?? ""
         zip.add("[Content_Types].xml", """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -384,7 +380,7 @@ enum DOCXExporter {
           <Default Extension="xml" ContentType="application/xml"/>
           <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
           <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
-          <Override PartName="/word/\(manuscript ? "header1" : "footer1").xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.\(manuscript ? "header" : "footer")+xml"/>
+          \(furnitureType)
           <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
         </Types>
         """, date: date)
@@ -399,7 +395,7 @@ enum DOCXExporter {
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
           <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-          <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/\(manuscript ? "header" : "footer")" Target="\(manuscript ? "header1" : "footer1").xml"/>
+          \(furnitureLink)
         </Relationships>
         """, date: date)
         zip.add("docProps/core.xml", """
@@ -409,31 +405,33 @@ enum DOCXExporter {
           <dcterms:created xsi:type="dcterms:W3CDTF">\(ISO8601DateFormatter().string(from: date))</dcterms:created>
         </cp:coreProperties>
         """, date: date)
-        zip.add("word/styles.xml", styles(manuscript: manuscript), date: date)
+        zip.add("word/styles.xml", styles(layout), date: date)
         let pageField = "<w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText xml:space=\"preserve\"> PAGE </w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r>"
         let ns = "xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\""
-        if manuscript {
+        if layout.runningHeader {
             // The customary running header: author / title / page number, at the top right.
-            let label = [options.author.components(separatedBy: " ").last ?? "", options.title].filter { !$0.isEmpty }.joined(separator: " / ")
-            zip.add("word/header1.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:hdr \(ns)><w:p><w:pPr><w:jc w:val=\"right\"/></w:pPr><w:r><w:t xml:space=\"preserve\">\(xmlEscape(label))\(label.isEmpty ? "" : " / ")</w:t></w:r>\(pageField)</w:p></w:hdr>", date: date)
-        } else {
+            let label = ManuscriptExport.runningHeader(options)
+            let separator = label.isEmpty || !layout.pageNumbers ? "" : " / "
+            zip.add("word/header1.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:hdr \(ns)><w:p><w:pPr><w:jc w:val=\"right\"/></w:pPr><w:r><w:t xml:space=\"preserve\">\(xmlEscape(label))\(separator)</w:t></w:r>\(layout.pageNumbers ? pageField : "")</w:p></w:hdr>", date: date)
+        } else if layout.pageNumbers {
             zip.add("word/footer1.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:ftr \(ns)><w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr>\(pageField)</w:p></w:ftr>", date: date)
         }
 
         var body = ""
         let words = chapters.reduce(0) { $0 + $1.words }
-        if options.titlePage {
+        if layout.titlePage {
+            // The Title and Subtitle styles carry the title page's alignment.
             if manuscript {
                 body += paragraph("About \(roundedWords(words)) words", style: "Byline", align: "right")
                 body += "<w:p><w:pPr><w:pStyle w:val=\"Title\"/><w:spacing w:before=\"3600\"/></w:pPr><w:r><w:t xml:space=\"preserve\">\(xmlEscape(options.title))</w:t></w:r></w:p>"
             } else {
                 body += "<w:p><w:pPr><w:pStyle w:val=\"Title\"/><w:spacing w:before=\"4200\"/></w:pPr><w:r><w:t xml:space=\"preserve\">\(xmlEscape(options.title))</w:t></w:r></w:p>"
             }
-            if !options.author.isEmpty { body += paragraph("by \(options.author)", style: "Subtitle", align: "center") }
+            if !options.author.isEmpty { body += "<w:p><w:pPr><w:pStyle w:val=\"Subtitle\"/></w:pPr><w:r><w:t xml:space=\"preserve\">\(xmlEscape("by \(options.author)"))</w:t></w:r></w:p>" }
         }
         for (index, chapter) in chapters.enumerated() {
             // The first chapter always starts a fresh page after a title page; others follow the setting.
-            let breakBefore = (index == 0 && options.titlePage) || (index > 0 && options.chapterPageBreaks)
+            let breakBefore = (index == 0 && layout.titlePage) || (index > 0 && layout.chapterPageBreaks)
             body += "<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/>\(breakBefore ? "<w:pageBreakBefore/>" : "")\(manuscript && breakBefore ? "<w:spacing w:before=\"2400\" w:after=\"480\"/>" : "")</w:pPr><w:r><w:t xml:space=\"preserve\">\(xmlEscape(chapter.title))</w:t></w:r></w:p>"
             var afterOpening = true
             for block in MarkdownBlocks.parse(chapter.body) {
@@ -460,8 +458,11 @@ enum DOCXExporter {
             }
         }
         let width = Int(size.points.width * 20), height = Int(size.points.height * 20)
-        let margin = manuscript ? 1440 : 1300
-        body += "<w:sectPr><w:\(manuscript ? "header" : "footer")Reference w:type=\"default\" r:id=\"rId2\"/><w:pgSz w:w=\"\(width)\" w:h=\"\(height)\"/><w:pgMar w:top=\"\(margin)\" w:right=\"\(margin)\" w:bottom=\"\(margin)\" w:left=\"\(margin)\" w:header=\"720\" w:footer=\"720\" w:gutter=\"0\"/>\(options.titlePage ? "<w:pgNumType w:start=\"0\"/><w:titlePg/>" : "")</w:sectPr>"
+        let margin = Int((layout.margins * 1440).rounded())
+        // The header and footer sit halfway into the margin, as they do in the PDF.
+        let edge = margin / 2
+        let reference = furniture.map { "<w:\($0.part)Reference w:type=\"default\" r:id=\"rId2\"/>" } ?? ""
+        body += "<w:sectPr>\(reference)<w:pgSz w:w=\"\(width)\" w:h=\"\(height)\"/><w:pgMar w:top=\"\(margin)\" w:right=\"\(margin)\" w:bottom=\"\(margin)\" w:left=\"\(margin)\" w:header=\"\(edge)\" w:footer=\"\(edge)\" w:gutter=\"0\"/>\(layout.titlePage ? "<w:pgNumType w:start=\"0\"/><w:titlePg/>" : "")</w:sectPr>"
         zip.add("word/document.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><w:document \(ns)><w:body>\(body)</w:body></w:document>", date: date)
         return zip.finish()
     }
@@ -491,11 +492,14 @@ enum DOCXExporter {
         }.joined()
     }
 
-    private static func styles(manuscript: Bool) -> String {
-        let font = manuscript ? "Times New Roman" : "Palatino Linotype"
-        let size = manuscript ? 24 : 22
-        let line = manuscript ? 480 : 300
+    private static func styles(_ layout: ExportLayout) -> String {
+        let manuscript = layout.style == .manuscript
+        let font = layout.font.wordName
+        let size = layout.fontSize * 2                                   // half-points
+        let line = Int((240 * layout.lineSpacing.multiple).rounded())    // 240 is single spacing
         let indent = manuscript ? 720 : 360
+        let heading = layout.headingAlignment == .center ? "center" : "left"
+        let title = layout.titleAlignment == .center ? "center" : "left"
         return """
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -506,15 +510,15 @@ enum DOCXExporter {
           <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>
           <w:style w:type="paragraph" w:styleId="BodyText"><w:name w:val="Body Text"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:ind w:firstLine="\(indent)"/>\(manuscript ? "" : "<w:jc w:val=\"both\"/>")</w:pPr></w:style>
           <w:style w:type="paragraph" w:styleId="FirstParagraph"><w:name w:val="First Paragraph"/><w:basedOn w:val="Normal"/><w:qFormat/>\(manuscript ? "<w:pPr><w:ind w:firstLine=\"\(indent)\"/></w:pPr>" : "<w:pPr><w:jc w:val=\"both\"/></w:pPr>")</w:style>
-          <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="FirstParagraph"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="480" w:after="360"/><w:jc w:val="center"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="\(size + 6)"/></w:rPr></w:style>
-          <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="FirstParagraph"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="360" w:after="240"/><w:jc w:val="center"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/></w:rPr></w:style>
-          <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:next w:val="FirstParagraph"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:b/><w:i/></w:rPr></w:style>
+          <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="FirstParagraph"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="480" w:after="360"/><w:jc w:val="\(heading)"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="\(size + 6)"/></w:rPr></w:style>
+          <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="FirstParagraph"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="360" w:after="240"/><w:jc w:val="\(heading)"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/></w:rPr></w:style>
+          <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:next w:val="FirstParagraph"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/><w:jc w:val="\(heading)"/><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:b/><w:i/></w:rPr></w:style>
           <w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:spacing w:before="120" w:after="120"/><w:ind w:left="720" w:right="720"/></w:pPr><w:rPr><w:i/></w:rPr></w:style>
           <w:style w:type="paragraph" w:styleId="SceneBreak"><w:name w:val="Scene Break"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:spacing w:before="240" w:after="240"/><w:jc w:val="center"/></w:pPr></w:style>
           <w:style w:type="paragraph" w:styleId="ListItem"><w:name w:val="List Item"/><w:basedOn w:val="Normal"/><w:pPr><w:tabs><w:tab w:val="left" w:pos="720"/></w:tabs><w:ind w:left="720" w:hanging="360"/></w:pPr></w:style>
           <w:style w:type="paragraph" w:styleId="Code"><w:name w:val="Code"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New" w:cs="Courier New"/><w:sz w:val="20"/></w:rPr></w:style>
-          <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:jc w:val="center"/></w:pPr><w:rPr><w:b/><w:sz w:val="56"/></w:rPr></w:style>
-          <w:style w:type="paragraph" w:styleId="Subtitle"><w:name w:val="Subtitle"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:spacing w:before="480"/><w:jc w:val="center"/></w:pPr><w:rPr><w:sz w:val="\(size + 4)"/></w:rPr></w:style>
+          <w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:jc w:val="\(title)"/></w:pPr><w:rPr><w:b/><w:sz w:val="56"/></w:rPr></w:style>
+          <w:style w:type="paragraph" w:styleId="Subtitle"><w:name w:val="Subtitle"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:spacing w:before="480"/><w:jc w:val="\(title)"/></w:pPr><w:rPr><w:sz w:val="\(size + 4)"/></w:rPr></w:style>
           <w:style w:type="paragraph" w:styleId="Byline"><w:name w:val="Byline"/><w:basedOn w:val="Normal"/><w:pPr><w:jc w:val="right"/></w:pPr></w:style>
         </w:styles>
         """
@@ -528,11 +532,14 @@ enum PDFExporter {
         let font: String, size: CGFloat, lineMultiple: CGFloat, indent: CGFloat, margin: CGFloat, justified: Bool
         let paragraphSpace: CGFloat
     }
-    private static func metrics(_ style: ExportStyle) -> Metrics {
-        style == .manuscript
-            ? Metrics(font: "Times New Roman", size: 12, lineMultiple: 2.0, indent: 36, margin: 72, justified: false, paragraphSpace: 0)
-            : Metrics(font: "Charter", size: 11, lineMultiple: 1.28, indent: 18, margin: 66, justified: true, paragraphSpace: 0)
+    /// Type, spacing, and margins come from the layout; the indent and justification come from its look.
+    private static func metrics(_ layout: ExportLayout) -> Metrics {
+        let manuscript = layout.style == .manuscript
+        return Metrics(font: layout.font.pdfName, size: CGFloat(layout.fontSize), lineMultiple: layout.lineSpacing.multiple,
+                       indent: manuscript ? 36 : 18, margin: CGFloat(layout.margins) * 72, justified: !manuscript, paragraphSpace: 0)
     }
+
+    private static func alignment(_ choice: ExportAlignment) -> CTTextAlignment { choice == .center ? .center : .left }
 
     private static func font(_ name: String, _ size: CGFloat, bold: Bool = false, italic: Bool = false, mono: Bool = false) -> CTFont {
         let base = CTFontCreateWithName((mono ? "Courier New" : name) as CFString, size, nil)
@@ -579,7 +586,8 @@ enum PDFExporter {
         let out = NSMutableAttributedString()
         func add(_ text: NSAttributedString) { out.append(text); out.append(NSAttributedString(string: "\n")) }
         // When chapters run on without page breaks, the title needs room above it.
-        let title = paragraphStyle(m, align: .center, multiple: 1.1, before: runningOn ? m.size * 3 : 0, after: m.size * 1.8)
+        let headings = alignment(options.layout.headingAlignment)
+        let title = paragraphStyle(m, align: headings, multiple: 1.1, before: runningOn ? m.size * 3 : 0, after: m.size * 1.8)
         add(attributed([ExportRun(text: chapter.title, bold: true)], m, baseSize: m.size + 5, style: title))
         var afterOpening = true
         for block in MarkdownBlocks.parse(chapter.body) {
@@ -587,14 +595,14 @@ enum PDFExporter {
             switch block {
             case let .paragraph(runs):
                 // Book convention: no indent on the first paragraph of a chapter or after a break.
-                let indent = (options.style == .book && afterOpening) ? 0 : m.indent
+                let indent = (options.layout.style == .book && afterOpening) ? 0 : m.indent
                 add(attributed(runs, m, baseSize: m.size, style: paragraphStyle(m, first: indent, align: alignment, after: m.paragraphSpace)))
                 afterOpening = false
             case let .heading(_, runs):
-                add(attributed(runs, m, baseSize: m.size + 2, style: paragraphStyle(m, align: .center, multiple: 1.2, before: m.size, after: m.size), forceBold: true))
+                add(attributed(runs, m, baseSize: m.size + 2, style: paragraphStyle(m, align: headings, multiple: 1.2, before: m.size, after: m.size), forceBold: true))
                 afterOpening = true
             case let .quote(runs):
-                add(attributed(runs, m, baseSize: m.size, style: paragraphStyle(m, head: 36, tail: -36, align: .natural, multiple: max(1.2, m.lineMultiple * 0.85), before: 4, after: 4), forceItalic: true))
+                add(attributed(runs, m, baseSize: m.size, style: paragraphStyle(m, first: 36, head: 36, tail: -36, align: .natural, multiple: min(m.lineMultiple, max(1.2, m.lineMultiple * 0.85)), before: 4, after: 4), forceItalic: true))
                 afterOpening = true
             case let .bullet(runs, depth):
                 add(attributed([ExportRun(text: "•\t")] + runs, m, baseSize: m.size, style: paragraphStyle(m, first: CGFloat(depth) * 18, head: 36 + CGFloat(depth) * 18, multiple: m.lineMultiple)))
@@ -629,8 +637,9 @@ enum PDFExporter {
     }
 
     static func data(_ chapters: [ExportChapter], _ options: ExportOptions) throws -> Data {
-        let m = metrics(options.style)
-        let page = CGRect(origin: .zero, size: options.pageSize.points)
+        let layout = options.layout
+        let m = metrics(layout)
+        let page = CGRect(origin: .zero, size: layout.pageSize.points)
         let output = NSMutableData()
         var box = page
         guard let consumer = CGDataConsumer(data: output as CFMutableData), let context = CGContext(consumer: consumer, mediaBox: &box, [
@@ -641,8 +650,7 @@ enum PDFExporter {
         var pageIndex = 0        // physical pages written so far
         var folio = 0            // the number printed on the page (a title page is unnumbered)
         let text = CGRect(x: m.margin, y: m.margin, width: page.width - 2 * m.margin, height: page.height - 2 * m.margin)
-        let surname = options.author.components(separatedBy: " ").last ?? ""
-        let header = [surname, options.title].filter { !$0.isEmpty }.joined(separator: " / ")
+        let header = ManuscriptExport.runningHeader(options)
 
         func line(_ string: String, size: CGFloat, italic: Bool = false) -> CTLine {
             let attributes: [NSAttributedString.Key: Any] = [
@@ -655,26 +663,33 @@ enum PDFExporter {
         func draw(_ line: CTLine, x: CGFloat, y: CGFloat) { context.textPosition = CGPoint(x: x, y: y); CTLineDraw(line, context) }
         func beginPage() { context.beginPDFPage(nil); context.setFillColor(gray: 0, alpha: 1) }
         func endPage() { context.endPDFPage(); pageIndex += 1 }
+        // The running header carries the page number when there is one; otherwise the number sits at the foot.
         func drawFolio() {
             folio += 1
-            if options.style == .manuscript {
-                let label = line((header.isEmpty ? "" : header + " / ") + String(folio), size: 11)
+            if layout.runningHeader {
+                let text = [header, layout.pageNumbers ? String(folio) : ""].filter { !$0.isEmpty }.joined(separator: " / ")
+                guard !text.isEmpty else { return }
+                let label = line(text, size: 11)
                 draw(label, x: page.width - m.margin - width(label), y: page.height - m.margin / 2 - 4)
-            } else {
+            } else if layout.pageNumbers {
                 let label = line(String(folio), size: 10)
                 draw(label, x: page.midX - width(label) / 2, y: m.margin / 2 - 4)
             }
         }
 
-        if options.titlePage {
+        if layout.titlePage {
             beginPage()
-            let title = line(options.title, size: 30)
-            draw(title, x: page.midX - width(title) / 2, y: page.height * 0.58)
+            // Title and byline wrap within the margins, starting a little above the middle of the page.
+            let align = alignment(layout.titleAlignment)
+            let block = NSMutableAttributedString(attributedString: attributed([ExportRun(text: options.title)], m, baseSize: 30, style: paragraphStyle(m, align: align, multiple: 1.1)))
             if !options.author.isEmpty {
-                let byline = line("by \(options.author)", size: 15, italic: true)
-                draw(byline, x: page.midX - width(byline) / 2, y: page.height * 0.58 - 46)
+                block.append(NSAttributedString(string: "\n"))
+                block.append(attributed([ExportRun(text: "by \(options.author)")], m, baseSize: 15, style: paragraphStyle(m, align: align, multiple: 1.1, before: 12), forceItalic: true))
             }
-            if options.style == .manuscript {
+            let top = page.height * 0.58 + 30
+            let area = CGRect(x: m.margin, y: m.margin, width: page.width - 2 * m.margin, height: top - m.margin)
+            CTFrameDraw(CTFramesetterCreateFrame(CTFramesetterCreateWithAttributedString(block), CFRange(location: 0, length: 0), CGPath(rect: area, transform: nil), nil), context)
+            if layout.style == .manuscript {
                 let count = line("About \(chapters.reduce(0) { $0 + $1.words }.formatted()) words", size: 11)
                 draw(count, x: page.width - m.margin - width(count), y: page.height - m.margin)
             }
@@ -683,7 +698,7 @@ enum PDFExporter {
 
         // One section per chapter when chapters start new pages; otherwise the whole book as one continuous run.
         var sections: [Section] = []
-        if options.chapterPageBreaks {
+        if layout.chapterPageBreaks {
             sections = chapters.map { Section(text: chapterText($0, options, m), chapters: [($0.title, 0)]) }
         } else {
             let combined = NSMutableAttributedString()
@@ -703,7 +718,7 @@ enum PDFExporter {
             while location < section.text.length {
                 beginPage()
                 // A manuscript chapter opens a fifth of the way down its page.
-                let inset: CGFloat = (first && options.chapterPageBreaks && options.style == .manuscript) ? page.height * 0.2 : 0
+                let inset: CGFloat = (first && layout.chapterPageBreaks && layout.style == .manuscript) ? page.height * 0.2 : 0
                 var area = text
                 area.size.height -= inset
                 let frame = CTFramesetterCreateFrame(setter, CFRange(location: location, length: 0), CGPath(rect: area, transform: nil), nil)
