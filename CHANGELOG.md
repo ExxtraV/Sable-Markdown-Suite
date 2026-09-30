@@ -2,6 +2,17 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
+## 0.11.0 (unreleased)
+
+A writing goal with a deadline, for challenges like 50,000 words in November.
+
+- **A goal with a deadline**, off by default behind a **Track a goal with a deadline** switch in Settings → General, above the writing record. Turned off, nothing shows in Settings or the footer, and a stored goal is kept. When on: a **November: 50,000 words** preset or a custom word count with start and end dates (up to 366 days). One goal is active at a time. Progress shows words so far, the even pace line, today's target (what finishes on time, spread evenly over the days left), and days left, charted against the pace line.
+- **Neutral wording.** Running under an even pace reads "1,900 a day finishes on time"; there's no "behind" state, and no streaks, badges, or notifications. Only words added count, as in the writing record.
+- **Optional footer figure**, off by default: "1,204 / 1,667 today" beside the session goal while the goal is running.
+- **Stored locally** in the same preferences as the record, as day keys (`yyyy-MM-dd`), so clock changes and time zones never shift a goal. **Clear Goal** keeps the writing record, and clearing the record keeps the goal.
+- **Under the hood:** pace math lives in `Sources/Quill/WritingGoal.swift` with the views in `WritingGoalView.swift`. `check-writing-history.swift` now compiles `WritingGoal.swift` too and covers mid-day starts, the end date itself, daylight-saving changes (New York, Sydney, and São Paulo's midnight-less day), leap years, New Year, presets, and damaged stored goals.
+- The roadmap marks the monthly word goal done.
+
 ## 0.10.1
 
 The new sleeping-curl icon, open files that follow a rename or move, folders inside folders from the writing desk, drag from anywhere on a row, and update checks at the renamed repository's address.

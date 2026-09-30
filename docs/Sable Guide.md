@@ -79,6 +79,23 @@ Before a big rewrite, save a snapshot: **File → Save Snapshot** (⌥⌘S), or 
 
 Settings → General charts the words you've added each day for the last 30 days, with your best day and a lifetime total. It only counts progress you keep — deleting words never counts against you — and it isn't a streak, so a quiet day changes nothing. It's kept only on this Mac, and you can clear it any time.
 
+## A goal with a deadline
+
+This is optional, and it's off until you want it. For a challenge like 50,000 words in November, turn on **Track a goal with a deadline** in Settings → General, just above your writing record. Until you do, nothing about goals appears in Settings or while you write; turn it off again any time, and a goal you set earlier is kept for next time. Then choose **November: 50,000 words**, or **Custom…** to pick your own word count, start date, and end date (up to a year). Only one goal is active at a time.
+
+Once it's set, Settings shows:
+
+- **So far:** the words you've written on the goal's days.
+- **Pace today:** where an even pace, the same number of words every day, would have you at the end of today. The chart draws it as a dashed line beside your own.
+- **Today's target:** what today needs to be for the goal to finish on time, spreading what's left evenly over the days left. If you've written less than an even pace, the sentence above the chart simply says what finishes on time, such as "1,900 a day finishes on time." If you're ahead, it says you're on pace. Today's target is worked out from the words you wrote before today, so it holds steady while you write.
+- **Days left,** counting today and the goal's last day.
+
+Like the writing record, it only counts words you add. Deleting words never subtracts from it, and there are no streaks, badges, or notifications. Words you write on the start date all count, even the ones you wrote before you set the goal that day. Goals are measured in calendar days, so a clock change or a trip to another time zone doesn't shift them.
+
+Turn on **Show today's share in the footer** to see a small "1,204 / 1,667 today" beside the session goal while you write. It's off by default, and it only appears while the goal is running.
+
+**Clear Goal** removes the goal and keeps your writing record. Clearing the record keeps your goal. Both are kept only on this Mac.
+
 ## Updates
 
 Sable checks for updates while it's open: every day, every 3 days, or every week, as you choose in Settings → General, where you can also turn automatic checks off. **Check for Updates…** in the Sable Markdown Writer menu checks right away. Either way, you choose when to install and restart. **Get beta updates**, off by default, also offers early builds published ahead of a stable release; they may be rougher. If you turn it off again, you keep the build you have until a newer stable release arrives.
