@@ -2,7 +2,9 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
-## Unreleased
+## 0.10.1
+
+The new sleeping-curl icon, open files that follow a rename or move, folders inside folders from the writing desk, drag from anywhere on a row, and update checks at the renamed repository's address.
 
 - **The app icon is the new sleeping-curl sable.** The Dock, Finder, and About panel now show the sable asleep, curled nose to tail, matching the website. The icon is sized to macOS's icon grid, so it sits at the same size as other apps in the Dock rather than a little larger, and the 16, 32, and 64 pixel versions use a simplified black-and-white mark so the curl stays readable in small lists. macOS keeps old icons in a cache; if the previous one lingers, quit Sable and run `killall Dock Finder`. The README now opens with the logo, in light and dark versions.
 - **Under the hood:** `scripts/build-icon.sh` now builds `Assets/Sable.icns` through `scripts/render-icon.swift`, and a new check, `check-app-icon.swift`, fails if the icon drifts off the macOS grid, loses a size, or gets too faint to read.
@@ -10,6 +12,8 @@ All notable changes to Sable Markdown Writer are documented here. The app was or
 - **Drag from anywhere on a row.** In the writing desk's file list and the Manuscript tab, pressing anywhere on a row (icon, name, padding, or word count) now starts a drag. Before, only part of a row did. A double-click on a folder now opens it instead of opening and closing it again.
 - **The hover “+” on a folder offers a file or a folder.** It was only ever a new Markdown file. Now it's a small menu: **New Markdown File** or **New Folder**, with the folder's own kind of item (a chapter, a character…) first when it has one. Control-click a folder has **New Folder** too, including on a Fiction Project's own row. A new folder is made right away as “Untitled Folder”, its parent opens, and its name is ready to type, as in Finder. If the name you type is already taken, Sable says so and leaves the folder as it was. It works at any depth, in plain writing folders and in Fiction Projects. While searching or filtering, there's no list to type a name in, so Sable asks in a small window instead.
 - **Under the hood:** `check-folder.swift` and `check-fiction.swift` now cover folders made several levels deep, placeholder names, taken names (with or without matching case), and folders made inside Manuscript and Characters.
+- **Updates use the renamed repository's address.** The repository is now `ExxtraV/Sable-Markdown-Suite`, and `UpdateConfig.json` points the update feed there. Sable 0.10.0 and earlier have the old address built in and reach the new one through GitHub's redirect, so the old `ExxtraV/Sable` name must never be reused for another repository. `docs/UPDATES.md` explains.
+- The Sable Guide's description of the **+** buttons now matches the new folder menu, and the roadmap marks these fixes done.
 
 ## 0.10.0
 

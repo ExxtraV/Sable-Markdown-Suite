@@ -1,23 +1,15 @@
-Sable Markdown Writer 0.10.0 keeps typing instant in long manuscripts, makes zooming smooth, and adds safeguards in every place Sable writes, moves, or deletes your files. There's also an optional beta update channel.
+Sable Markdown Writer 0.10.1 gives Sable its new sleeping-curl icon, keeps a file open when you rename or move it, and lets you make folders inside folders without leaving the writing desk.
 
-- **Instant typing, however long the file.** A whole novel in one file no longer makes the page lag. Sable now restyles only the lines you're editing, so a keystroke takes about the same time at 10,000 words as at 100,000. In a 100,000-word file it went from about 430 ms to about 5 ms, and with sentence colors, Paragraph Focus, smart typography, and centered typing all on, from about 1.8 seconds to about 24 ms. The page looks exactly as before. One small difference: the word count and cuts in the status bar now catch up when you pause, within a third of a second, instead of on every letter.
-- **Smooth pinch zoom.** Pinching the trackpad now scales the page smoothly under your fingers, then settles at the new size when you let go, with the line under the pointer still under it. Before, a pinch in a long manuscript stuttered.
-- **Zoom with ⌘ and a mouse wheel.** Hold ⌘ and turn a mouse's scroll wheel over the page: away from you zooms in, toward you zooms out, 5% per notch, between 65% and 200%. It works in Reading Mode and in a file open beside your draft, too. Trackpads keep scrolling as before; pinch zooms there.
-- **Faster theme and font changes.** Changing the theme, font, size, zoom, or colors in a long manuscript takes well under half as long as it did, because Sable repaints from what it already knows about your text instead of reading all of it again.
-- **Your files, better protected.** An audit of every place Sable writes, moves, or deletes files led to these safeguards. The Sable Guide's new section, "How Sable protects your files," has the details.
-  - **Find & Replace in Project** won't change anything unless its safety snapshot is saved first. If a replacement stops partway, it puts back the files it already changed.
-  - **Undo Replace won't erase newer words.** It puts back only files that still read exactly as the replacement left them, and tells you which ones it left alone.
-  - **The file beside your draft** saves your latest words before Find & Replace or a restore touches it. If that file changes somewhere else while you have edits in it, Sable stops and asks: **Keep Mine** or **Use Saved File**. The other version goes to the Trash as a copy.
-  - **Export** can't be saved over the chapters it's exporting, over a file open in Sable, or into your Manuscript folder. A file it replaces goes to the Trash as a copy first.
-  - **Put Back.** If a file you have open is moved to the Trash or deleted outside Sable, a quiet note appears under the page (or in the side pane). **Put Back** returns a trashed file to its folder, **Save Again** writes a deleted one back, and **Save As…** keeps it somewhere else.
-- **Beta updates, if you want them.** Settings → General has a new **Get beta updates** checkbox, off by default. Turn it on to receive early builds as they're published; they may be rougher than stable releases. Leave it off and you only ever see stable ones.
+- **A new icon.** The Dock, Finder, and About panel now show the sable asleep, curled nose to tail, matching the website. It's sized to macOS's icon grid, so it sits at the same size as your other apps, and the small versions in lists use a simpler black-and-white mark so the curl stays readable. macOS remembers old icons; if the previous one lingers, quit Sable and run `killall Dock Finder` in Terminal.
+- **Rename or move an open file, and it stays open.** In the writing desk, renaming or moving a file that's open on the page, beside your draft, or as a card now carries it along, and your next save goes to the new name. Renames and moves you make in Finder are followed the same way. Before, Sable said the file had been deleted. The note still appears when a file really is deleted or moved to the Trash.
+- **New folders, at any depth.** Hover a folder in the writing desk and click its **+**. It's now a small menu with **New Markdown File** and **New Folder**, and a folder that holds chapters, characters, or the like lists its own kind of item first. A new folder appears as "Untitled Folder" with its name ready to type, as in Finder. If the name you type is already taken, Sable says so and leaves the folder as it was. Control-clicking a folder, including a Fiction Project, offers **New Folder** too. While you're searching or filtering there's no list to type a name in, so Sable asks in a small window instead.
+- **Drag from anywhere on a row.** In the writing desk's file list and the Manuscript tab, pressing anywhere on a row (icon, name, padding, or word count) now starts a drag. Before, only part of a row did.
+- **Updates come from Sable's new GitHub address.** Sable's home on GitHub is now ExxtraV/Sable-Markdown-Suite, and this version checks for updates there. Earlier versions reach it automatically, so there's nothing to do.
 
 **Fixed**
 
-- Sable no longer keeps saving an open file into the Trash, without a word, after the file was moved there.
-- The writing desk no longer moves a file to the Trash while it's open in another window.
-- A change made to a file just as you switched to it could be overwritten by the next save. Now Sable asks first.
-- Restoring a large draft from Revision History no longer freezes the window. If a restore stops partway, Sable says how many files were restored and where the safety snapshot is.
-- Import no longer replaces a file that appears with the same name at the same moment.
+- A file you had switched to in the writing desk lost track of itself when renamed, and could follow a file you'd had open before if that one was moved, so your next save could go to the wrong file.
+- Double-clicking a folder opened it and then closed it again. Now it opens.
+- Renaming or moving the file open beside your draft is no longer blocked.
 
 _Release notes written by Claude Code._
