@@ -129,6 +129,16 @@ enum FolderCreation {
         }
         return url
     }
+
+    /// "Untitled Folder", or "Untitled Folder 2", "3"… when something in `folder` already has that name
+    /// (compared without regard to case, so it holds on any volume).
+    static func untitledFolderName(in folder: URL) -> String {
+        let taken = Set(((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []).map { $0.lowercased() })
+        var name = "Untitled Folder"
+        var number = 2
+        while taken.contains(name.lowercased()) { name = "Untitled Folder \(number)"; number += 1 }
+        return name
+    }
 }
 
 enum FolderMoveError: LocalizedError {
@@ -826,6 +836,15 @@ final class FolderBrowser: ObservableObject {
         reload()
         return url
     }
+    /// Makes an untitled folder inside `folder`, opens `folder` so the new one shows, and puts its name in edit
+    /// mode. Renaming goes through the usual rename checks, so a name that's already taken is politely refused.
+    @discardableResult
+    func createFolderToName(in folder: URL) throws -> URL {
+        let url = try create(.folder, named: FolderCreation.untitledFolderName(in: folder), in: folder)
+        selection = url
+        renaming = url
+        return url
+    }
     func toggle(_ url: URL) {
         if expanded.contains(url) { expanded.remove(url) }
         else { expanded.insert(url); loadChildren(url) }
@@ -1098,6 +1117,7 @@ struct FolderBrowserSection: View {
                 let items = flat ? rows.map { TreeItem.row($0) } : treeItems()
                 let shown = items.compactMap(\.row)
                 let _ = browser.recordDisplayed(shown.map(\.entry))
+                ScrollViewReader { proxy in
                 VStack(alignment: .leading, spacing: 1) {
                     ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                         switch item {
@@ -1115,6 +1135,11 @@ struct FolderBrowserSection: View {
                 .focusable().focused($listFocused).focusEffectDisabled()
                 .onKeyPress(phases: .down) { handleKey($0, rows: shown) }
                 .onChange(of: browser.selection) { _, new in if new != nil { listFocused = true } }
+                // A new folder's name field can be below the fold; bring it into view once its row exists.
+                .onChange(of: shown.count) { _, _ in
+                    if let url = browser.renaming, shown.contains(where: { $0.entry.url == url }) { proxy.scrollTo(url) }
+                }
+                }
                 emptyState(shownCount: shown.count)
                 if let item = browser.lastTrashed { trashNotice(item) }
                 if !browser.folderErrors.isEmpty { Text("A subfolder could not be read. Refresh or choose the folder again.").font(.caption).foregroundStyle(.secondary) }
@@ -1361,8 +1386,8 @@ struct FolderBrowserSection: View {
                     ForEach(NewProjectItem.allCases, id: \.self) { item in Button(item.title + "…") { promptItem(item) } }
                     Divider()
                 }
-                Button("New File…") { promptNew(.file, in: browser.current) }
-                Button("New Folder…") { promptNew(.folder, in: browser.current) }
+                Button("New Markdown File…") { promptNew(.file, in: browser.current) }
+                Button("New Folder") { promptNew(.folder, in: browser.current) }
                 if browser.projectURL == nil {
                     Divider()
                     Button("New Fiction Project…") { projectName = ""; showNewProject = true }
@@ -1370,7 +1395,7 @@ struct FolderBrowserSection: View {
                 }
             } label: { Image(systemName: "plus") }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-            .help("Create a file or folder in \(current.lastPathComponent)").accessibilityLabel("New file or folder")
+            .help("Create a Markdown file or folder in \(current.lastPathComponent)").accessibilityLabel("New file or folder")
             Menu {
                 Button("Choose Writing Folder…", action: chooseFolder)
                 Button("Refresh") { browser.refresh() }
@@ -1489,6 +1514,11 @@ struct FolderBrowserSection: View {
 
     private func promptNew(_ kind: NewItemKind, in folder: URL?) {
         guard let folder else { return }
+        // A folder is named in place, in the list. While searching or filtering there's no tree to name it in.
+        if kind == .folder, !flat {
+            do { try browser.createFolderToName(in: folder) } catch { problem = error.localizedDescription }
+            return
+        }
         newProjectItem = nil
         newKind = kind
         newFolder = folder
@@ -1733,20 +1763,7 @@ private struct BrowserRowView: View {
     var body: some View {
         HStack(spacing: 4) {
             if isRenaming { renameField } else { rowLabel }
-            if entry.isDirectory, !isRenaming, hovering {
-                if let addItem {
-                    Button { addToFolder(entry.url, addItem) } label: {
-                        Image(systemName: "plus.circle").font(.system(size: 12)).foregroundStyle(Color.accentColor).frame(width: 22, height: 20)
-                    }.buttonStyle(.plain)
-                    .help(addItem.addHelp).accessibilityLabel(addItem.title)
-                } else {
-                    // Every other folder still gets a quick way to add a Markdown file, fiction project or not.
-                    Button { promptNew(.file, entry.url) } label: {
-                        Image(systemName: "plus.circle").font(.system(size: 12)).foregroundStyle(Color.secondary).frame(width: 22, height: 20)
-                    }.buttonStyle(.plain)
-                    .help("New file in this folder").accessibilityLabel("New file")
-                }
-            }
+            if entry.isDirectory, !isRenaming, hovering { addMenu }
             if let cardKind, !isRenaming, hovering {
                 Button { showCard(entry.url) } label: {
                     Image(systemName: "rectangle.stack.person.crop").font(.system(size: 11)).foregroundStyle(Color.secondary).frame(width: 22, height: 20)
@@ -1822,6 +1839,21 @@ private struct BrowserRowView: View {
         .accessibilityAction { open() }
     }
 
+    /// The quiet "+" on a hovered folder: a small menu, so a file and a folder are equally near and nothing has to be
+    /// remembered. A folder that holds chapters, characters, or the like lists that first.
+    private var addMenu: some View {
+        Menu {
+            if let addItem { Button(addItem.title + (addItem == .chapter ? "" : "…")) { addToFolder(entry.url, addItem) } }
+            Button("New Markdown File…") { promptNew(.file, entry.url) }
+            Button("New Folder") { promptNew(.folder, entry.url) }
+        } label: {
+            Image(systemName: "plus.circle").font(.system(size: 12))
+                .foregroundStyle(addItem == nil ? Color.secondary : Color.accentColor).frame(width: 22, height: 20)
+        }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .help("Add to this folder").accessibilityLabel("Add to this folder")
+    }
+
     private var renameField: some View {
         HStack(spacing: 8) {
             Image(systemName: entry.isDirectory ? "folder.fill" : "doc.text").foregroundStyle(.secondary)
@@ -1838,13 +1870,15 @@ private struct BrowserRowView: View {
     private var menu: some View {
         if entry.isProject {
             Button("Open Project") { browser.navigate(entry.url) }
+            Button("New Markdown File in This Project…") { promptNew(.file, entry.url) }
+            Button("New Folder in This Project") { promptNew(.folder, entry.url) }
             Button("Convert to Regular Folder…") { convertProject(entry.url) }
             Divider()
         } else if entry.isDirectory {
             Button("Focus on This Folder") { browser.navigate(entry.url) }
             if let addItem { Button(addItem.title + " Here" + (addItem == .chapter ? "" : "…")) { addToFolder(entry.url, addItem) } }
-            Button("New File in This Folder…") { promptNew(.file, entry.url) }
-            Button("New Folder in This Folder…") { promptNew(.folder, entry.url) }
+            Button("New Markdown File in This Folder…") { promptNew(.file, entry.url) }
+            Button("New Folder in This Folder") { promptNew(.folder, entry.url) }
             if !inProject { Button("Make Fiction Project…") { adoptFolder(entry.url) } }
             if !inProject { categoryMenu }
         } else {

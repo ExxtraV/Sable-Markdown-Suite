@@ -49,10 +49,6 @@ enum NewProjectItem: CaseIterable, Sendable {
     var cardKind: CardKind? {
         switch self { case .chapter: return nil; case .character: return .character; case .location: return .location; case .lore: return .lore }
     }
-    /// Tooltip for the "+" on a folder of this kind.
-    var addHelp: String {
-        switch self { case .chapter: return "Add the next chapter"; case .character: return "Add a character"; case .location: return "Add a location"; case .lore: return "Add a world note" }
-    }
     var prompt: String {
         switch self { case .chapter: return "Chapter name"; case .character: return "Character name"; case .location: return "Location name"; case .lore: return "Title" }
     }

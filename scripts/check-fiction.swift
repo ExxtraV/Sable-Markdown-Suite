@@ -340,6 +340,27 @@ import Foundation
         // A damaged marker still opens as a project
         try Data("not json".utf8).write(to: FictionProject.markerURL(in: bare))
         precondition(FictionProject.load(bare)?.title == "Bare")
-        print("Passed: project creation and structure, detection, items, front matter, cards, images, adopting and converting back.")
+        // Folders inside a project, at any depth
+        let deepRoot = try FictionProject.create(named: "Deep", in: root, starterFiles: false)
+        let arcs = try FolderCreation.create(.folder, named: "Arcs", in: deepRoot.appendingPathComponent("Manuscript"))
+        let arcOne = try FolderCreation.create(.folder, named: "Arc One", in: arcs)
+        let arcDeep = try FolderCreation.create(.folder, named: "Turning Points", in: arcOne)
+        precondition(FictionProject.projectRoot(containing: arcDeep, within: root) == deepRoot.standardizedFileURL, "Still inside the project")
+        precondition(FictionProject.isProject(deepRoot) && FictionProject.load(deepRoot)?.title == "Deep", "Adding folders leaves the project marker alone")
+        let deepChapter = try FictionProject.createItem(.chapter, named: "Opening", in: deepRoot, folder: arcDeep)
+        precondition(deepChapter.deletingLastPathComponent() == arcDeep && fm.fileExists(atPath: deepChapter.path), "Items can be added inside a nested folder")
+        let castFolder = try FolderCreation.create(.folder, named: "Crew", in: deepRoot.appendingPathComponent("Characters"))
+        let castDeep = try FolderCreation.create(.folder, named: "Officers", in: castFolder)
+        let officer = try FictionProject.createItem(.character, named: "Lt. Pryce", in: deepRoot, folder: castDeep)
+        precondition(CardParsing.kindByLocation(officer, projectRoot: deepRoot) == .character, "A folder made inside Characters keeps holding character cards")
+        let untitledIn = try FolderCreation.create(.folder, named: FolderCreation.untitledFolderName(in: deepRoot), in: deepRoot)
+        precondition(untitledIn.deletingLastPathComponent() == deepRoot && untitledIn.lastPathComponent == "Untitled Folder", "A folder can be added at the project's own level")
+        let renamedIn = try FolderRename.perform(untitledIn, isDirectory: true, name: "Research")
+        precondition(renamedIn.lastPathComponent == "Research" && FictionProject.isProject(deepRoot))
+        do { _ = try FolderCreation.create(.folder, named: "Characters", in: deepRoot); preconditionFailure("The project's own folders can't be duplicated") } catch FolderCreationError.exists {}
+        do { _ = try FolderCreation.create(.folder, named: "Arc One", in: arcs); preconditionFailure("A taken name is refused inside a project") } catch FolderCreationError.exists {}
+        do { _ = try FolderRename.perform(renamedIn, isDirectory: true, name: "Manuscript"); preconditionFailure("Naming a new folder onto a taken one is refused") } catch FolderCreationError.exists {}
+        precondition(fm.fileExists(atPath: renamedIn.path), "The refused rename leaves the folder where it was")
+        print("Passed: project creation and structure, detection, items, front matter, cards, images, adopting and converting back, and folders made inside project folders at any depth.")
     }
 }
