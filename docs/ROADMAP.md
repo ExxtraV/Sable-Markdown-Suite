@@ -12,7 +12,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 ## Phase 1: 1.0, by late October
 
 - Apple notarization, so first launch no longer needs a Privacy & Security workaround.
-- A monthly word goal, alongside the existing per-window session count.
+- ~~A monthly word goal, alongside the existing per-window session count.~~ Done in 0.11.0, as a goal with any start and end dates, including a November preset.
 - Scrivener import.
 - A sample project new users can open immediately.
 - Accessibility pass (VoiceOver, keyboard navigation, contrast).

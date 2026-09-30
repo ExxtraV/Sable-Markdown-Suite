@@ -1,15 +1,11 @@
-Sable Markdown Writer 0.10.1 gives Sable its new sleeping-curl icon, keeps a file open when you rename or move it, and lets you make folders inside folders without leaving the writing desk.
+Sable Markdown Writer 0.11.0 adds a writing goal with a deadline, for challenges like 50,000 words in November.
 
-- **A new icon.** The Dock, Finder, and About panel now show the sable asleep, curled nose to tail, matching the website. It's sized to macOS's icon grid, so it sits at the same size as your other apps, and the small versions in lists use a simpler black-and-white mark so the curl stays readable. macOS remembers old icons; if the previous one lingers, quit Sable and run `killall Dock Finder` in Terminal.
-- **Rename or move an open file, and it stays open.** In the writing desk, renaming or moving a file that's open on the page, beside your draft, or as a card now carries it along, and your next save goes to the new name. Renames and moves you make in Finder are followed the same way. Before, Sable said the file had been deleted. The note still appears when a file really is deleted or moved to the Trash.
-- **New folders, at any depth.** Hover a folder in the writing desk and click its **+**. It's now a small menu with **New Markdown File** and **New Folder**, and a folder that holds chapters, characters, or the like lists its own kind of item first. A new folder appears as "Untitled Folder" with its name ready to type, as in Finder. If the name you type is already taken, Sable says so and leaves the folder as it was. Control-clicking a folder, including a Fiction Project, offers **New Folder** too. While you're searching or filtering there's no list to type a name in, so Sable asks in a small window instead.
-- **Drag from anywhere on a row.** In the writing desk's file list and the Manuscript tab, pressing anywhere on a row (icon, name, padding, or word count) now starts a drag. Before, only part of a row did.
-- **Updates come from Sable's new GitHub address.** Sable's home on GitHub is now ExxtraV/Sable-Markdown-Suite, and this version checks for updates there. Earlier versions reach it automatically, so there's nothing to do.
-
-**Fixed**
-
-- A file you had switched to in the writing desk lost track of itself when renamed, and could follow a file you'd had open before if that one was moved, so your next save could go to the wrong file.
-- Double-clicking a folder opened it and then closed it again. Now it opens.
-- Renaming or moving the file open beside your draft is no longer blocked.
+- **A goal with a deadline, only if you want one.** It's off by default. In Settings → General, just above your writing record, turn on **Track a goal with a deadline**, then pick **November: 50,000 words** or **Custom…** and choose a word count, a start date, and an end date. Settings then shows your words so far, where an even pace would have you today, what today needs for the goal to finish on time, and how many days are left. A chart plots your running total against a dashed pace line, alongside the 30-day record below it.
+- **A calm way to read it.** If you're running under an even pace, Sable says so in plain numbers, such as "1,900 a day finishes on time," and if you're ahead it says you're on pace. There are no streaks, badges, or notifications. Like the writing record, the goal counts only words you add; deleting words never takes anything away.
+- **Today's share in the footer, if you want it.** Turn on **Show today's share in the footer** and a small "1,204 / 1,667 today" sits beside the session goal while the goal is running. It's off by default.
+- **Turn it off any time.** With the switch off, no goal shows in Settings or in the footer, and a goal you set earlier is kept for next time.
+- **One goal at a time, and the record stays.** **Clear Goal** removes the goal and keeps your writing record, and clearing the record keeps your goal. Both stay on this Mac only.
+- **Dates work the way you'd expect.** A goal is a run of calendar days. The end date counts in full, words you write on the start date all count even if you wrote them before setting the goal, and a clock change or a trip to another time zone doesn't shift the days.
+- **Under the hood:** `check-writing-history.swift` now also covers the pace math, including a goal that starts mid-day, the end date itself, clock changes, leap years, goals that cross New Year, and damaged stored goals.
 
 _Release notes written by Claude Code._

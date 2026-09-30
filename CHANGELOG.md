@@ -2,8 +2,16 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
-## Unreleased
+## 0.11.0 (unreleased)
 
+A writing goal with a deadline, for challenges like 50,000 words in November, and opening any Markdown file without a writing folder.
+
+- **A goal with a deadline**, off by default behind a **Track a goal with a deadline** switch in Settings → General, above the writing record. Turned off, nothing shows in Settings or the footer, and a stored goal is kept. When on: a **November: 50,000 words** preset or a custom word count with start and end dates (up to 366 days). One goal is active at a time. Progress shows words so far, the even pace line, today's target (what finishes on time, spread evenly over the days left), and days left, charted against the pace line.
+- **Neutral wording.** Running under an even pace reads "1,900 a day finishes on time"; there's no "behind" state, and no streaks, badges, or notifications. Only words added count, as in the writing record.
+- **Optional footer figure**, off by default: "1,204 / 1,667 today" beside the session goal while the goal is running.
+- **Stored locally** in the same preferences as the record, as day keys (`yyyy-MM-dd`), so clock changes and time zones never shift a goal. **Clear Goal** keeps the writing record, and clearing the record keeps the goal.
+- **Under the hood:** pace math lives in `Sources/Quill/WritingGoal.swift` with the views in `WritingGoalView.swift`. `check-writing-history.swift` now compiles `WritingGoal.swift` too and covers mid-day starts, the end date itself, daylight-saving changes (New York, Sydney, and São Paulo's midnight-less day), leap years, New Year, presets, and damaged stored goals.
+- The roadmap marks the monthly word goal done.
 - **Open any Markdown file, with or without a writing folder.** The writing folder is now optional. First launch offers **Just Open a File** beside choosing a folder, and a window opened on a file from Finder skips setup. With no writing folder, the writing desk shows the open file's own folder. Settings → General → **Writing folder** chooses one later or stops using one (Sable only forgets the folder; no file is touched).
 - **A file outside the writing folder.** The desk stays on the writing folder and adds one quiet line with **Show Folder**, which shows the file's folder for this session only, with a **Back to** link. The saved writing folder never changes, and the desk returns by itself when the open file is back inside it.
 - **Make Sable the default for Markdown, only if you choose.** Settings → General → **Markdown files** shows which app opens Markdown now and has **Make Sable the Default for Markdown**; macOS asks you to confirm. Plain text (`.txt`) is a separate button, also off by default. Sable still registers as an alternate handler only, and never changes the default by itself. The setting updates when you come back from Finder's Get Info.
