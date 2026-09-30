@@ -27,6 +27,8 @@ Paragraph focus (target icon, ⇧⌘F) dims text outside the paragraph containin
 
 A session goal shows net words added since the document window opened. Set the goal in Settings, or set it to 0 to hide it. This is a per-window session count, not a daily history or a cross-device statistic.
 
+An optional goal with a deadline, such as 50,000 words in November, is off until you turn on "Track a goal with a deadline" in Settings → General, beside the daily writing record. It shows words so far, an even pace line, what today needs for the goal to finish on time, and days left, charted over the goal's dates. It counts only words you add, never subtracts for deletions, and has no streaks, badges, or notifications. A small "1,204 / 1,667 today" can sit beside the session goal in the footer (off by default). One goal is active at a time, and clearing it keeps your writing record. It is stored on this Mac only, like the record.
+
 The toolbar toggles prose suggestions. A light strikethrough marks words you may want to cut; the underlying text is unchanged. Right-click a suggestion to remove it explicitly or stop flagging that word. Settings lets you edit the comma-separated word/phrase list and font size. Ignoring a word updates this list for all documents.
 
 macOS checks spelling and basic grammar. Right-click flagged text for available corrections. Automatic spelling replacement is disabled to protect intentional fiction wording and invented names. Availability and quality of grammar suggestions depend on macOS and language.

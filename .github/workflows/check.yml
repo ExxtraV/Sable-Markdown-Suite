@@ -72,7 +72,7 @@ jobs:
           /tmp/quill-revision-checks
       - name: Writing history checks
         run: |
-          swiftc Sources/Quill/WritingHistory.swift scripts/check-writing-history.swift -o /tmp/quill-writing-history-checks
+          swiftc Sources/Quill/WritingHistory.swift Sources/Quill/WritingGoal.swift scripts/check-writing-history.swift -o /tmp/quill-writing-history-checks
           /tmp/quill-writing-history-checks
       - name: Story Timeline checks
         run: |

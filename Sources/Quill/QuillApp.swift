@@ -103,6 +103,11 @@ struct WritingView: View {
     @AppStorage("lineSpacing") private var lineSpacing = 0.28
     @AppStorage("pageWidth") private var pageWidth = 680.0
     @AppStorage("sessionGoal") private var sessionGoal = 500
+    @AppStorage(WritingGoal.enabledKey) private var deadlineGoalEnabled = false
+    @AppStorage(WritingGoal.storageKey) private var deadlineGoal = ""
+    @AppStorage(WritingGoal.showInFooterKey) private var showGoalInFooter = false
+    /// "1,204 / 1,667 today" for the deadline goal, or nil when there's none to show. Recomputed when words are banked.
+    @State private var goalFooter: String?
     @AppStorage("showWritingDesk") private var sidebar = true
     @AppStorage("toolbarEdge") private var toolbarEdgeName = ToolbarEdge.top.rawValue
     @AppStorage("toolbarAutoHide") private var toolbarAutoHide = true
@@ -182,6 +187,11 @@ struct WritingView: View {
         defer { historyBaseline = now }
         guard let previous = historyBaseline, now > previous else { return }
         WritingHistory.add(now - previous)
+        refreshGoalFooter()
+    }
+    private func refreshGoalFooter() {
+        guard deadlineGoalEnabled, showGoalInFooter, let goal = WritingGoal.decode(deadlineGoal) else { goalFooter = nil; return }
+        goalFooter = WritingGoal.footerText(goal.progress(history: WritingHistory.load()))
     }
     private var sessionWords: Int { bankedWords + max(0, count - (startingWords ?? count)) }
     private var colorScheme: ColorScheme? { WritingTheme.named(themeName).dark ? .dark : .light }
@@ -192,6 +202,10 @@ struct WritingView: View {
             .preferredColorScheme(colorScheme)
             .tint(.gray)
             .onAppear(perform: prepareWorkspace)
+            .onAppear(perform: refreshGoalFooter)
+            .onChange(of: deadlineGoal) { _, _ in refreshGoalFooter() }
+            .onChange(of: showGoalInFooter) { _, _ in refreshGoalFooter() }
+            .onChange(of: deadlineGoalEnabled) { _, _ in refreshGoalFooter() }
             .sheet(isPresented: $needsSetup) { folderSetup }
             .sheet(isPresented: $showStyle) { writingStyleSheet }
             .sheet(isPresented: $showToolbarCustomizer) { ToolbarCustomizer(stored: $toolbarTools, close: { showToolbarCustomizer = false }) }
@@ -820,6 +834,7 @@ struct WritingView: View {
                     Text(saveFeedback.message.isEmpty ? (edited ? "Unsaved changes" : (hasSavedFile ? "Saved" : "Not saved yet")) : saveFeedback.message)
                 }.buttonStyle(.plain).help("Save document (⌘S)")
                 if sessionGoal > 0 { Text("\(sessionWords) / \(sessionGoal) this session").help("Net words added since this document window opened.") }
+                if let goalFooter { Text(goalFooter).help("Words written today toward your goal, against what finishes it on time.") }
                 Spacer(minLength: 0)
                 if focus && !reading { Image(systemName: "scope").help("Paragraph focus is on") }
                 if review && !reading { Text("\(commands.cuts(in: document.text, words: words)) cuts") }
@@ -862,6 +877,7 @@ struct PreferencesView: View {
                     Stepper("Session goal: \(sessionGoal) words", value: $sessionGoal, in: 0...10000, step: 100)
                     Text("Set the goal to 0 to hide it.").font(.caption).foregroundStyle(.secondary)
                 }
+                Section("Goal with a deadline") { WritingGoalSection() }
                 Section("Writing record") { WritingRecordSection() }
                 Section("Sable Guide") {
                     Button("Regenerate Guide…") { regenerateGuide() }
