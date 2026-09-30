@@ -10,7 +10,7 @@ Choose a writing folder during setup. We recommend iCloud Drive, Dropbox, or One
 
 The writing desk has two tabs: **Files** and your **Outline**. Click a file to open it in the same window (full screen stays on); Sable asks you to save or discard unsaved changes first.
 
-- **Create:** the **+** button makes a new file or folder. Control-click a folder to create inside it.
+- **Create:** the **+** above the list makes a new Markdown file or folder. Hover a folder and a small **+** appears beside it: click it and choose **New Markdown File** or **New Folder** to create inside that folder. Control-click a folder offers the same. A new folder opens its parent and waits with its name ready to type. Press Return to keep the name or Esc to keep “Untitled Folder”. If the name is already taken, Sable says so and leaves the folder as it was. Folders can go inside folders as deep as you like, in plain writing folders and in Fiction Projects.
 - **Rearrange:** drag files and folders onto folders to nest them. Drop on the path above the list to move things back up.
 - **Rename and trash:** Control-click for Rename and Move to Trash, with an Undo shortcut just after trashing. You can rename or move a file while it's open, on the page, beside your draft, or as a card. It stays open under its new name, and the next save goes there. The same happens when you rename or move it in Finder.
 - **Colors and pins:** give any file or folder a color or pin it to the top. Name your colors (Draft, Revised…) in the list options. Chips above the list filter by color or pin.

@@ -29,6 +29,38 @@ import Foundation
         catch { /* case-insensitive volumes report the duplicate; case-sensitive ones create a second file */ }
         do { _ = try FolderCreation.create(.file, named: "Prologue", in: root); preconditionFailure("must not overwrite") }
         catch FolderCreationError.exists {}
+        // Folders inside folders, at any depth
+        precondition(FolderCreation.untitledFolderName(in: root) == "Untitled Folder")
+        let untitled = try FolderCreation.create(.folder, named: FolderCreation.untitledFolderName(in: root), in: root)
+        precondition(untitled.lastPathComponent == "Untitled Folder")
+        precondition(FolderCreation.untitledFolderName(in: root) == "Untitled Folder 2", "The next placeholder skips the taken one")
+        let untitled2 = try FolderCreation.create(.folder, named: FolderCreation.untitledFolderName(in: root), in: root)
+        precondition(untitled2.lastPathComponent == "Untitled Folder 2" && FolderCreation.untitledFolderName(in: root) == "Untitled Folder 3")
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("untitled folder 3"), withIntermediateDirectories: true)
+        precondition(FolderCreation.untitledFolderName(in: root) == "Untitled Folder 4", "Taken names are compared without regard to case")
+        var nested = root.appendingPathComponent("Nesting")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        for level in ["Act One", "Scene Three", "Beats", "Drafts"] {
+            nested = try FolderCreation.create(.folder, named: level, in: nested)
+            var nestedIsDir: ObjCBool = false
+            precondition(FileManager.default.fileExists(atPath: nested.path, isDirectory: &nestedIsDir) && nestedIsDir.boolValue, level)
+        }
+        precondition(nested.path.hasSuffix("Nesting/Act One/Scene Three/Beats/Drafts"))
+        let nestedListing = try FolderListing.entries(at: nested.deletingLastPathComponent()).map(\.name)
+        precondition(nestedListing == ["Drafts"], "The new folder lists in its parent")
+        do { _ = try FolderCreation.create(.folder, named: "Drafts", in: nested.deletingLastPathComponent()); preconditionFailure("a taken folder name is refused") }
+        catch FolderCreationError.exists(let taken) { precondition(taken == "Drafts") }
+        precondition(FolderCreationError.exists("Drafts").errorDescription?.contains("already exists") == true, "The refusal reads as a plain sentence")
+        do { _ = try FolderCreation.create(.folder, named: "Drafts", in: nested.deletingLastPathComponent().deletingLastPathComponent()); } catch { preconditionFailure("The same name is fine in a different folder") }
+        try Data("x".utf8).write(to: nested.appendingPathComponent("Draft one.md"))
+        do { _ = try FolderCreation.create(.folder, named: "Draft one", in: nested) } catch { preconditionFailure("A folder may share a file's stem when the full names differ") }
+        do { _ = try FolderCreation.create(.folder, named: "Draft one.md", in: nested); preconditionFailure("a name taken by a file is refused too") } catch FolderCreationError.exists {}
+        // Naming the untitled folder is a rename: a free name works, a taken one is refused, and the folder stays put
+        let named = try FolderRename.perform(untitled, isDirectory: true, name: "Backstory")
+        precondition(named.lastPathComponent == "Backstory" && !FileManager.default.fileExists(atPath: untitled.path))
+        do { _ = try FolderRename.perform(untitled2, isDirectory: true, name: "backstory"); preconditionFailure("a taken name is refused, whatever its case") }
+        catch FolderCreationError.exists {}
+        precondition(FileManager.default.fileExists(atPath: untitled2.path), "A refused name leaves the folder as it was")
         // Moving
         let moveRoot = root.appendingPathComponent("MoveTest")
         let a = moveRoot.appendingPathComponent("A"), b = moveRoot.appendingPathComponent("B")
@@ -135,6 +167,6 @@ import Foundation
         FolderMarksStore.save(marks, for: marksRoot, defaults: defaults)
         precondition(FolderMarksStore.load(for: marksRoot, defaults: defaults) == marks)
         precondition(FolderMarksStore.load(for: URL(fileURLWithPath: "/tmp/Elsewhere"), defaults: defaults).isEmpty)
-        print("Passed: natural sorting, subfolders, Markdown extensions, hidden/unsupported-file and symlink exclusions, folder marks (keys, filters, persistence), new file/folder creation, moving (safety checks, marks follow moved items), search, sorting, rename, color labels, and folder categories.")
+        print("Passed: natural sorting, subfolders, Markdown extensions, hidden/unsupported-file and symlink exclusions, folder marks (keys, filters, persistence), new file/folder creation (including folders inside folders and refused duplicate names), moving (safety checks, marks follow moved items), search, sorting, rename, color labels, and folder categories.")
     }
 }
