@@ -2,9 +2,9 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
-## 0.11.0 (unreleased)
+## 1.0.0-beta.1
 
-A writing goal with a deadline, for challenges like 50,000 words in November, and opening any Markdown file without a writing folder.
+The first beta of 1.0, for people who turn on **Get beta updates**. Opening any Markdown file without a writing folder, export layout choices, and a writing goal with a deadline for challenges like 50,000 words in November.
 
 - **A goal with a deadline**, off by default behind a **Track a goal with a deadline** switch in Settings → General, above the writing record. Turned off, nothing shows in Settings or the footer, and a stored goal is kept. When on: a **November: 50,000 words** preset or a custom word count with start and end dates (up to 366 days). One goal is active at a time. Progress shows words so far, the even pace line, today's target (what finishes on time, spread evenly over the days left), and days left, charted against the pace line.
 - **Neutral wording.** Running under an even pace reads "1,900 a day finishes on time"; there's no "behind" state, and no streaks, badges, or notifications. Only words added count, as in the writing record.
@@ -19,6 +19,7 @@ A writing goal with a deadline, for challenges like 50,000 words in November, an
 - **An optional Recent tab.** Turn on **Recent tab** in Settings → General → Writing desk (or the desk's sliders menu) and the desk gains a **Recent** tab listing the files you have open, newest first, from any folder. It's off by default, is recorded only while on, stays on your Mac, and turning it off forgets the list; **Clear Recent Files** empties it any time.
 - **More Markdown extensions.** `.mdown`, `.mkd`, `.mkdn`, and `.mdwn` are declared in Info.plist (Markdown and plain text are now separate document types) and appear in the writing desk, search, import, and the Open panel.
 - **Open Recent and dropping a file.** File → Open Markdown File… now adds to Open Recent. Dropping one Markdown or text file on the page opens it, as File → Open does, instead of pasting its path into your text.
+- **The desk's tabs always fit.** With the optional Recent tab there can be four (Files, Outline, Manuscript, Recent). The strip shows names when they fit, then icons alone, then a dropdown, so it never spills past the desk's edge however narrow the desk is dragged.
 - **Fixed: snapshots of the wrong files.** With a Fiction Project showing in the desk and a file from elsewhere open, Revision History and Save Snapshot used the project's chapters. The open file now decides what a snapshot covers, and the automatic daily snapshot only ever applies to a Fiction Project. Name highlights likewise follow the open file, not the desk's project.
 - **Under the hood:** new `MarkdownFileTypes.swift`, `DefaultAppStatus.swift`, and `FileHandlingSettings.swift`; new `RecentFiles.swift`; new checks `check-document-types.py`, `check-default-app.swift`, and `check-recent-files.swift`; `check-project-browser.swift`, `check-folder.swift`, `check-revisions.swift`, and `check-file-safety.swift` cover visiting a folder, no writing folder, the new extensions, where snapshots go, and files from anywhere.
 
