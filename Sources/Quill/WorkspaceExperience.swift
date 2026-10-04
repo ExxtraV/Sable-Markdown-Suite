@@ -1,33 +1,28 @@
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
+import QuillCore
 
+/// A writing theme as the app draws it. The colors themselves live in QuillCore's `ThemePalette`, so
+/// `scripts/check-contrast.swift` measures exactly what is drawn here.
 struct WritingTheme: Identifiable {
-    let id: String
-    let name: String
-    let paper: String
-    let ink: String
-    let dark: Bool
+    let spec: ThemeSpec
+    var id: String { spec.id }
+    var name: String { spec.name }
+    var paper: String { spec.paper }
+    var ink: String { spec.ink }
+    var dark: Bool { spec.dark }
     /// A darker shade for the bottom status bar; nil keeps the window's own color.
-    var chrome: String? = nil
+    var chrome: String? { spec.chrome }
     /// Darker shade the page fades toward at its edges. Themes that set it feel "narrowed in" on the writing.
-    var edge: String? = nil
+    var edge: String? { spec.edge }
     /// A theme that drifts faint motes of light behind the text, for a quiet fantasy feel.
-    var particles: Bool = false
+    var particles: Bool { spec.particles }
     var background: NSColor { NSColor(quillHex: paper)! }
     var foreground: NSColor { NSColor(quillHex: ink)! }
     var chromeColor: Color { chrome.flatMap { NSColor(quillHex: $0) }.map(Color.init(nsColor:)) ?? Color(nsColor: .windowBackgroundColor) }
     var edgeColor: Color? { edge.flatMap { NSColor(quillHex: $0) }.map(Color.init(nsColor:)) }
-    static let all = [
-        WritingTheme(id: "graphite", name: "Graphite", paper: "242424", ink: "E0DDD7", dark: true, chrome: "191919", edge: "121212"),
-        WritingTheme(id: "midnight", name: "Midnight", paper: "131820", ink: "D6DEE8", dark: true, chrome: "0C1015", edge: "05070A"),
-        WritingTheme(id: "chalk", name: "Chalk", paper: "2D3034", ink: "EEECE4", dark: true, chrome: "1A1C1F", edge: "121416"),
-        WritingTheme(id: "forest", name: "Forest", paper: "1D2925", ink: "DCE4D9", dark: true, edge: "0A100E"),
-        WritingTheme(id: "obsidian", name: "Obsidian", paper: "070707", ink: "D7D3CB", dark: true, chrome: "020202", edge: "000000"),
-        WritingTheme(id: "arcane", name: "Arcane", paper: "1B1330", ink: "E9DFFB", dark: true, chrome: "120B22", edge: "07040D", particles: true),
-        WritingTheme(id: "parchment", name: "Parchment", paper: "F3EBDD", ink: "40382E", dark: false),
-        WritingTheme(id: "paper", name: "Paper", paper: "FAFAF8", ink: "30302E", dark: false)
-    ]
+    static let all = ThemePalette.all.map(WritingTheme.init(spec:))
     static func named(_ id: String) -> WritingTheme { all.first { $0.id == id } ?? all[0] }
 }
 
@@ -38,16 +33,18 @@ struct VignetteOverlay: View {
     var strength: Double = 1
     var body: some View {
         let color = self.color
-        let k = strength
+        // The same numbers `scripts/check-contrast.swift` measures text against.
+        let edges = ThemePalette.edgeOpacity(strength: strength)
+        let (v, h) = (edges.vertical, edges.horizontal)
         return ZStack {
             LinearGradient(stops: [
-                .init(color: color.opacity(min(1, 0.66 * k)), location: 0), .init(color: color.opacity(min(1, 0.24 * k)), location: 0.12),
+                .init(color: color.opacity(v), location: 0), .init(color: color.opacity(v * (0.24 / 0.66)), location: 0.12),
                 .init(color: .clear, location: 0.30), .init(color: .clear, location: 0.70),
-                .init(color: color.opacity(min(1, 0.24 * k)), location: 0.88), .init(color: color.opacity(min(1, 0.66 * k)), location: 1)
+                .init(color: color.opacity(v * (0.24 / 0.66)), location: 0.88), .init(color: color.opacity(v), location: 1)
             ], startPoint: .top, endPoint: .bottom)
             LinearGradient(stops: [
-                .init(color: color.opacity(min(1, 0.55 * k)), location: 0), .init(color: .clear, location: 0.18),
-                .init(color: .clear, location: 0.82), .init(color: color.opacity(min(1, 0.55 * k)), location: 1)
+                .init(color: color.opacity(h), location: 0), .init(color: .clear, location: 0.18),
+                .init(color: .clear, location: 0.82), .init(color: color.opacity(h), location: 1)
             ], startPoint: .leading, endPoint: .trailing)
         }
         .allowsHitTesting(false).accessibilityHidden(true)
@@ -647,6 +644,7 @@ struct HoverToolbar<Content: View>: View {
     let autoHide: Bool
     var keepOpen = false
     let content: Content
+    @ObservedObject private var assistive = AssistiveTechnology.shared
     @State private var revealed = false
     @State private var showTask: Task<Void, Never>?
     @State private var hideTask: Task<Void, Never>?
@@ -659,23 +657,28 @@ struct HoverToolbar<Content: View>: View {
         self.edge = edge; self.enabled = enabled; self.autoHide = autoHide; self.keepOpen = keepOpen; self.content = content()
     }
 
-    private var shown: Bool { enabled && (!autoHide || revealed || keepOpen) }
+    /// VoiceOver and Full Keyboard Access can't reach a bar that only appears when the pointer nears it, so for them it stays.
+    private var shown: Bool { enabled && (!autoHide || revealed || keepOpen || assistive.keepsToolbarVisible) }
 
     var body: some View {
         content
             .environment(\.barEdge, edge)
             .padding(edge.vertical ? .horizontal : .vertical, 6)
             .padding(edge.vertical ? .vertical : .horizontal, 10)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.separator, lineWidth: 0.5))
+            .panelFill(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .panelOutline(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .shadow(color: .black.opacity(0.2), radius: 12, y: 3)
             .padding(edge == .top ? .top : (edge == .left ? .leading : .trailing), 10)
             .offset(shown ? .zero : edge.hiddenOffset)
             .opacity(shown ? 1 : 0)
             .allowsHitTesting(shown)
+            // Hidden means hidden to VoiceOver too, and the bar is one named group when it is there.
+            .accessibilityElement(children: shown ? .contain : .ignore)
+            .accessibilityLabel("Writing toolbar")
+            .accessibilityHidden(!shown)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: edge.alignment)
             .background(PointerTracker(onMove: track))
-            .animation(.smooth(duration: 0.32), value: shown)
+            .quietAnimation(.smooth(duration: 0.32), value: shown)
             .onChange(of: autoHide) { _, _ in revealed = false }
     }
 
@@ -726,6 +729,8 @@ struct BarButton: View {
     var detail: String = ""
     var shortcut: String?
     var active = false
+    /// A button that switches something on and off says which it is now; the rest (Bold, Export…) just act.
+    var toggles = false
     let action: () -> Void
     @Environment(\.isEnabled) private var enabled
     @Environment(\.barEdge) private var edge
@@ -746,7 +751,9 @@ struct BarButton: View {
                 .opacity(enabled ? 1 : 0.35)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label).accessibilityHint((active ? "On. " : "Off. ") + detail)
+        .accessibilityLabel(label)
+        .accessibilityValue(toggles ? (active ? "On" : "Off") : "")
+        .accessibilityHint(detail)
         .onHover { inside in
             hovering = inside
             tipTask?.cancel()
@@ -759,7 +766,7 @@ struct BarButton: View {
         }
         .overlay(alignment: overlayAlignment) { if tipVisible { tip.offset(tipOffset).transition(.opacity) } }
         .zIndex(tipVisible ? 10 : 0)
-        .animation(.easeOut(duration: 0.12), value: tipVisible)
+        .quietAnimation(.easeOut(duration: 0.12), value: tipVisible)
     }
 
     private var overlayAlignment: Alignment {
@@ -786,10 +793,11 @@ struct BarButton: View {
         }
         .padding(.horizontal, 10).padding(.vertical, 7)
         .frame(width: 214, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(.separator, lineWidth: 0.5))
+        .panelFill(in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .panelOutline(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .shadow(color: .black.opacity(0.22), radius: 8, y: 2)
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -933,7 +941,7 @@ struct WritingFolderSetup: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Image(systemName: "folder.badge.plus").font(.largeTitle).foregroundStyle(.secondary).accessibilityHidden(true)
-            Text("A home for your writing").font(.title2.weight(.semibold))
+            Text("A home for your writing").font(.title2.weight(.semibold)).accessibilitySectionHeading()
             Text("A writing folder is optional. Choose or create one to keep your Markdown files together, or just open a file and write. You can open and save documents anywhere either way, and you can set up a folder later in Settings.")
             Text("If you choose a folder, we recommend one in iCloud Drive, Dropbox, or OneDrive so your writing is available on your other devices. Your chosen service handles syncing.").foregroundStyle(.secondary)
             Toggle("Include the Sable guide in the folder", isOn: $includeGuide)
@@ -945,6 +953,9 @@ struct WritingFolderSetup: View {
                 Button("Explore a Sample Project") { startExploringSample() }
                     .help("Copy a small finished story into Documents and open it. This doesn't set your writing folder.")
                 Spacer()
+                // Escape closes this without deciding anything; setup comes back next time.
+                Button("Not Now") { dismiss() }.keyboardShortcut(.cancelAction)
+                    .help("Close this and decide later. Sable asks again next time it opens.")
                 Button("Choose or Create Folder…") { choose() }.keyboardShortcut(.defaultAction)
             }
         }.padding(28).frame(width: 580).interactiveDismissDisabled()

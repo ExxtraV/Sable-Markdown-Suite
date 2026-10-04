@@ -350,9 +350,10 @@ struct Fuzz {
     private func changeSetting(_ host: HostedEditor, _ rng: inout SeededRandom, only: Int? = nil) -> String {
         var changed = host.settings
         let operation: String
-        switch only ?? rng.int(0..<10) {
+        switch only ?? rng.int(0..<11) {
         case 0: changed.theme = rng.pick(WritingTheme.all.map(\.id)); operation = "theme \(changed.theme)"
         case 1: changed.dimMarkers.toggle(); operation = "dim markers \(changed.dimMarkers)"
+        case 10: changed.highContrast.toggle(); operation = "increase contrast \(changed.highContrast)"
         case 2: changed.names.toggle(); operation = "names \(changed.names)"
         case 3: changed.review.toggle(); operation = "review \(changed.review)"
         case 4: changed.fontSize = rng.pick([16, 19, 22]); operation = "font size \(changed.fontSize)"

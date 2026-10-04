@@ -64,6 +64,10 @@ Optional sentence coloring highlights nouns, verbs, adjectives, adverbs, and pro
 | ⌘S | Save |
 | ⌘, | Settings |
 
+### Accessibility
+
+Sable is built to work with VoiceOver, with the keyboard alone, and with the system's display settings. Every control has a name, toolbar tools you switch on and off report On or Off, and the desk, cards, Story Timeline, and writing record have spoken summaries. Anything that appears only when the pointer hovers is also a VoiceOver action, and the drag-to-reorder lists (Customize Tools, the Manuscript tab) have keyboard and VoiceOver equivalents. Every sheet and popover closes with Escape. With VoiceOver or Keyboard navigation on, the toolbar stays in view instead of auto-hiding. Increase Contrast brightens dimmed text and gives a flat page, Reduce Transparency makes panels solid, and Reduce Motion turns off animation, particles, and the name shimmer. Every theme's text, dimmed Markdown symbols, paragraph-focus dimming, and name and sentence colors are measured against WCAG contrast limits by `scripts/check-contrast.swift`. [CONTRIBUTING.md](CONTRIBUTING.md) lists the conventions and has a short manual VoiceOver test for anyone changing the interface.
+
 ## Build
 
 Requires Apple Swift 6 tools (Xcode or Command Line Tools) and a macOS SDK. Sparkle is the only third-party dependency; SwiftPM downloads its pinned binary framework. Local editing needs no service keys. Community updates require a Sparkle signing key and public release feed; Apple signing is optional.
@@ -106,6 +110,8 @@ For an iPad edition, reuse `QuillCore` and the document model, add a UIKit text 
 - `Sources/Quill/Export.swift`, `Sources/Quill/ExportLayout.swift`, `Sources/Quill/ExportViews.swift`: PDF, EPUB, Word, and Markdown export; the layout choices and the Manuscript and Book looks they start from; the Export sheet.
 - `Sources/QuillCore/SentenceStructure.swift`: local parts-of-speech tagging.
 - `Sources/Quill/WritingStyle.swift`: font, style, and outline controls.
+- `Sources/QuillCore/ThemePalette.swift`: the themes' colors and every dimmed-text and highlight color the editor draws, as numbers, with the WCAG contrast math. `scripts/check-contrast.swift` measures them.
+- `Sources/Quill/AccessibilitySupport.swift`: whether VoiceOver or Full Keyboard Access is on, spoken announcements, and the Reduce Motion and Reduce Transparency helpers.
 - `Sources/QuillCore/MarkdownSyntax.swift`: source highlighting spans, chapter outline, and formatting exit logic.
 - `Sources/Quill/WorldSidebar.swift`: writing desk with file browser and outline.
 - `Sources/Quill/NativeEditor.swift`: visual overlays, text behavior, context menu, and shortcuts.

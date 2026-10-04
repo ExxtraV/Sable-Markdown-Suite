@@ -21,10 +21,13 @@ struct WritingStyleControls: View {
     @AppStorage("edgeStrength") private var edgeStrength = 0.65
     @AppStorage("themeParticles") private var themeParticles = true
     @AppStorage("smartTypography") private var smartTypography = false
-    private func valueSlider(_ value: Binding<Double>, _ range: ClosedRange<Double>, step: Double, label: String) -> some View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+    /// A slider with its number beside it. VoiceOver hears the name and the spoken value, not the loose number.
+    private func valueSlider(_ value: Binding<Double>, _ range: ClosedRange<Double>, step: Double, name: String, label: String, spoken: String) -> some View {
         HStack {
-            Slider(value: value, in: range, step: step)
-            Text(label).monospacedDigit().foregroundStyle(.secondary).frame(width: 52, alignment: .trailing)
+            Slider(value: value, in: range, step: step).accessibilityLabel(name).accessibilityValue(spoken)
+            Text(label).monospacedDigit().foregroundStyle(.secondary).frame(width: 52, alignment: .trailing).accessibilityHidden(true)
         }
     }
     private let presets = [("Everyday", "Georgia"), ("Literary", "Charter"), ("Classic", "Baskerville"), ("Science fiction", "Menlo"), ("Manuscript", "Courier New")]
@@ -37,19 +40,27 @@ struct WritingStyleControls: View {
                     ForEach(WritingTheme.all) { item in
                         ThemeSwatch(theme: item, selected: theme == item.id) { theme = item.id }
                     }
-                }.padding(.vertical, 4)
+                }
+                .padding(.vertical, 4)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Themes")
                 Toggle("Darken toward the edges (dark themes)", isOn: $edgeShading)
                 if WritingTheme.named(theme).particles {
                     Toggle("Faint drifting particles", isOn: $themeParticles)
                 }
                 LabeledContent("Edge darkness") {
                     HStack {
-                        Slider(value: $edgeStrength, in: 0.3...1.6)
-                        Text("\(Int(edgeStrength * 100))%").monospacedDigit().foregroundStyle(.secondary).frame(width: 44, alignment: .trailing)
+                        Slider(value: $edgeStrength, in: ThemePalette.edgeStrengthRange)
+                            .accessibilityLabel("Edge darkness").accessibilityValue("\(Int(edgeStrength * 100)) percent")
+                        Text("\(Int(edgeStrength * 100))%").monospacedDigit().foregroundStyle(.secondary).frame(width: 44, alignment: .trailing).accessibilityHidden(true)
                     }
                 }.disabled(!edgeShading)
                 Text("The page is lightest around your text and shades toward the edges, behind the words, so the eye settles on them. Light themes have no shading.")
                     .font(.caption).foregroundStyle(.secondary)
+                if reduceTransparency || contrast == .increased {
+                    Text("Increase Contrast or Reduce Transparency is on in System Settings, so the page stays flat: no shading and no drifting particles. Your choices here come back when you turn it off.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             Section("Typeface") {
                 Picker("Writing font", selection: Binding(get: {
@@ -66,9 +77,9 @@ struct WritingStyleControls: View {
                         ForEach(families, id: \.self) { name in Text(name).tag(name) }
                     }
                 }
-                LabeledContent("Size") { valueSlider($size, 14...30, step: 1, label: "\(Int(size)) pt") }
-                LabeledContent("Page width") { valueSlider($width, 480...880, step: 20, label: "\(Int(width))") }
-                LabeledContent("Line spacing") { valueSlider($spacing, 0.1...0.65, step: 0.05, label: String(format: "%.2f", spacing)) }
+                LabeledContent("Size") { valueSlider($size, 14...30, step: 1, name: "Font size", label: "\(Int(size)) pt", spoken: "\(Int(size)) points") }
+                LabeledContent("Page width") { valueSlider($width, 480...880, step: 20, name: "Page width", label: "\(Int(width))", spoken: "\(Int(width)) points") }
+                LabeledContent("Line spacing") { valueSlider($spacing, 0.1...0.65, step: 0.05, name: "Line spacing", label: String(format: "%.2f", spacing), spoken: String(format: "%.2f", spacing)) }
                 let active = WritingTheme.named(theme)
                 Text("The story begins with a door.")
                     .font(.custom(family, size: size))
@@ -77,6 +88,7 @@ struct WritingStyleControls: View {
                     .padding(14)
                     .background(Color(nsColor: active.background), in: RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.separator, lineWidth: 0.5))
+                    .accessibilityLabel("Preview in your font and theme: The story begins with a door.")
             }
             Section("Scrolling & focus") {
                 Picker("Scrolling", selection: $typewriterMode) {
@@ -137,7 +149,10 @@ struct ThemeSwatch: View {
             }.contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(theme.name).accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityLabel(theme.name)
+        .accessibilityValue(theme.dark ? "Dark theme" : "Light theme")
+        .accessibilityHint("Uses this theme for your writing page")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -146,11 +161,11 @@ struct OutlineControls: View {
     @AppStorage("outlineLevel") private var level = 0
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Your outline").font(.headline)
+            Text("Your outline").font(.headline).accessibilitySectionHeading()
             TextField("Section name", text: $title).textFieldStyle(.roundedBorder)
             HStack {
                 ForEach(["Chapters", "Episodes", "Scenes", "Outline"], id: \.self) { name in
-                    Button(name) { title = name }.font(.caption)
+                    Button(name) { title = name }.font(.caption).accessibilityHint("Names this section \(name)")
                 }
             }
             Picker("Show", selection: $level) {
@@ -174,9 +189,10 @@ struct SentenceOptions: View {
     @AppStorage("nameLore") private var nameLore = true
     @AppStorage("nameShimmerStrength") private var shimmerStrength = 0.6
     @AppStorage("nameShimmerSpeed") private var shimmerSpeed = 1.0
+    @Environment(\.colorSchemeContrast) private var contrast
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Sentence structure").font(.headline)
+            Text("Sentence structure").font(.headline).accessibilitySectionHeading()
             ForEach(WordClass.allCases, id: \.rawValue) { kind in
                 HStack {
                     Toggle(isOn: Binding(get: { enabled & kind.rawValue != 0 }, set: { if $0 { enabled |= kind.rawValue } else { enabled &= ~kind.rawValue } })) {
@@ -196,17 +212,23 @@ struct SentenceOptions: View {
             Text("Defaults are soft pastel tints; use the swatches to pick your own. On-device language predictions, not grammar rules. Invented names and unusual sentences may be misclassified. Colors appear in edit mode and are never saved to your file.")
                 .font(.caption).foregroundStyle(.secondary)
             Divider().padding(.vertical, 4)
-            Text("Names & places").font(.headline)
+            Text("Names & places").font(.headline).accessibilitySectionHeading()
             Toggle("Highlight names in a Fiction Project", isOn: $nameHighlights)
             Picker("Style", selection: $nameStyle) {
                 Text("Shimmer").tag("shimmer")
                 Text("Color only").tag("color")
             }.pickerStyle(.segmented).disabled(!nameHighlights)
             if nameStyle == "shimmer" {
-                HStack { Text("Strength"); Slider(value: $shimmerStrength, in: 0.1...1); Text(Int(shimmerStrength * 100).formatted() + "%").monospacedDigit().frame(width: 40, alignment: .trailing) }
-                    .disabled(!nameHighlights)
-                HStack { Text("Speed"); Slider(value: $shimmerSpeed, in: 0.3...2.5); Text(String(format: "%.1f×", shimmerSpeed)).monospacedDigit().frame(width: 40, alignment: .trailing) }
-                    .disabled(!nameHighlights)
+                HStack {
+                    Text("Strength").accessibilityHidden(true)
+                    Slider(value: $shimmerStrength, in: 0.1...1).accessibilityLabel("Shimmer strength").accessibilityValue("\(Int(shimmerStrength * 100)) percent")
+                    Text(Int(shimmerStrength * 100).formatted() + "%").monospacedDigit().frame(width: 40, alignment: .trailing).accessibilityHidden(true)
+                }.disabled(!nameHighlights)
+                HStack {
+                    Text("Speed").accessibilityHidden(true)
+                    Slider(value: $shimmerSpeed, in: 0.3...2.5).accessibilityLabel("Shimmer speed").accessibilityValue(String(format: "%.1f times", shimmerSpeed))
+                    Text(String(format: "%.1f×", shimmerSpeed)).monospacedDigit().frame(width: 40, alignment: .trailing).accessibilityHidden(true)
+                }.disabled(!nameHighlights)
             }
             ForEach(CardKind.allCases, id: \.self) { kind in
                 HStack {
@@ -235,7 +257,7 @@ struct SentenceOptions: View {
             get: {
                 var resolved = NSColor.gray
                 let appearance = NSAppearance(named: WritingTheme.named(themeName).dark ? .darkAqua : .aqua)!
-                appearance.performAsCurrentDrawingAppearance { resolved = WritingTextView.nameColor(kind).usingColorSpace(.sRGB) ?? .gray }
+                appearance.performAsCurrentDrawingAppearance { resolved = WritingTextView.nameColor(kind, highContrast: contrast == .increased).usingColorSpace(.sRGB) ?? .gray }
                 return Color(nsColor: resolved)
             },
             set: { newValue in
@@ -250,7 +272,7 @@ struct SentenceOptions: View {
                 var resolved = NSColor.gray
                 let appearance = NSAppearance(named: WritingTheme.named(themeName).dark ? .darkAqua : .aqua)!
                 appearance.performAsCurrentDrawingAppearance {
-                    resolved = WritingTextView.wordColor(kind).usingColorSpace(.sRGB) ?? .gray
+                    resolved = WritingTextView.wordColor(kind, highContrast: contrast == .increased).usingColorSpace(.sRGB) ?? .gray
                 }
                 return Color(nsColor: resolved)
             },

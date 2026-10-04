@@ -99,3 +99,36 @@ public enum StoryTimeline {
         return 0.93 - 0.7 * tail
     }
 }
+
+/// What a screen reader says about the Story Timeline, whose points are drawn rather than listed.
+public enum StoryTimelineSummary {
+    /// "Chapter 3 — The Break-In, Climax": the heading, then its beat if it has one.
+    public static func label(for point: StoryBeatPoint) -> String {
+        point.beat.map { "\(point.title), \($0.rawValue)" } ?? point.title
+    }
+
+    /// Where the point sits: its place in the story and how tense that stretch is.
+    public static func value(for point: StoryBeatPoint, at index: Int, of count: Int) -> String {
+        "Point \(index + 1) of \(count), \(tension(point.height)) tension"
+    }
+
+    public static func tension(_ height: Double) -> String {
+        height < 0.34 ? "low" : (height < 0.67 ? "medium" : "high")
+    }
+
+    /// The arc in a few sentences: how many headings, which beats are tagged, and where the story peaks.
+    public static func arc(_ points: [StoryBeatPoint]) -> String {
+        guard let first = points.first, let last = points.last else { return "No headings yet." }
+        var parts = ["\(points.count) \(points.count == 1 ? "heading" : "headings") along the arc, from \(first.title) to \(last.title)."]
+        let tagged = points.filter { $0.beat != nil }
+        if tagged.isEmpty {
+            parts.append("No story beats are tagged yet.")
+        } else {
+            parts.append("Tagged beats: " + tagged.map { "\($0.beat!.rawValue), \($0.title)" }.joined(separator: "; ") + ".")
+        }
+        if points.count > 1, let peak = points.max(by: { $0.height < $1.height }) {
+            parts.append("The tensest point is \(peak.title).")
+        }
+        return parts.joined(separator: " ")
+    }
+}

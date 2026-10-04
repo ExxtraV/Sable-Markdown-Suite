@@ -154,6 +154,18 @@ Try Graphite, Midnight, Chalk, Forest, Obsidian, Arcane, Parchment, or Paper in 
 
 Control-click any Markdown file in the writing desk and choose **Open Beside Current Document**. It opens as a formatted reading view next to your draft. Each side scrolls and zooms on its own: pinch, use ⌘+ and ⌘−, or ⌘-scroll a mouse wheel, with the pointer over the one you want to scale. Choose Edit to work on it in place, then Read to return to the clean view. This stays within one focused document window: Sable does not use writing tabs.
 
+## VoiceOver, the keyboard, and your display settings
+
+Sable works with VoiceOver, with the keyboard alone, and with the display options in System Settings → Accessibility.
+
+**VoiceOver.** Every button, field, and sheet has a name, and VoiceOver reads a short hint for what it does. Toolbar tools you switch on and off (Writing desk, Paragraph focus, Prose suggestions, Spelling & grammar, Highlight names) say whether they are On or Off; the rest just act. In the writing desk each file, chapter, and heading is one item that says what it is and its state, such as "folder, collapsed" or "open for writing". The buttons that otherwise appear only when the pointer hovers (Show as card, Open beside current document, adding to a folder, Rename, Pin, Move to Trash) are VoiceOver actions on the item: open the Actions rotor and choose one. Cards are named groups with actions to pin, close, move to another corner, and resize; a collapsed card opens and stays open when you activate it. On the Story Timeline each point is a button read as its heading and beat, like "Chapter 3, Midpoint", and the writing record in Settings has a spoken summary and an audio graph.
+
+**The keyboard.** Every toolbar action is also in the menus. To Tab between buttons and fields, turn on **Keyboard navigation** in System Settings → Keyboard. Escape closes every sheet and popover. In **Customize Tools**, select a tool and press ⌥↑ or ⌥↓ to move it, and ⌘Return to add the selected tool; the Move Up and Move Down buttons do the same. In the Manuscript tab, ↑ and ↓ move between chapters, Return opens one, and ⌥↑ or ⌥↓ moves it. In a card's picture frame, the arrow keys reposition the picture. In the writing desk's file list, use the arrow keys to move, Return to open, and ⇧Return to rename.
+
+**Staying reachable.** When VoiceOver or Keyboard navigation is on, the toolbar stays in view instead of hiding until the pointer comes near, and the page makes room for it.
+
+**Display settings.** *Increase Contrast* brightens the dimmed text (Markdown symbols, quotes, notes, and paragraph focus), uses stronger name and sentence colors, firms up the outlines of cards and the toolbar, and gives you a flat page with no edge shading or drifting particles. *Reduce Transparency* makes the toolbar, cards, and scene tags solid instead of frosted, with the same flat page. *Reduce Motion* turns off the sliding and fading animations, the drifting particles, and the shimmer on names. Without any of them, every theme's text, dimmed symbols, and highlight colors are kept at or above the WCAG contrast ratios, and the check that guards this runs with every change to Sable.
+
 ## What comes next
 
 Sable is a focused Markdown editor first, with Fiction Projects for writers who want one home for a whole story. A corkboard, a relationships view, and an iPad edition are on the roadmap.

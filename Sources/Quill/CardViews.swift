@@ -18,6 +18,15 @@ enum CardCorner: CaseIterable, Sendable {
         case .bottomTrailing: return .bottomTrailing
         }
     }
+    /// How a screen reader names it.
+    var spoken: String {
+        switch self {
+        case .topLeading: return "top left"
+        case .topTrailing: return "top right"
+        case .bottomLeading: return "bottom left"
+        case .bottomTrailing: return "bottom right"
+        }
+    }
     /// The corner nearest to where a card was dropped.
     static func nearest(to point: CGPoint, in size: CGSize) -> CardCorner {
         switch (point.x < size.width / 2, point.y < size.height / 2) {
@@ -146,6 +155,7 @@ private struct CardBodyText: NSViewRepresentable {
         scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true; scroll.drawsBackground = false
         let text = NSTextView()
         text.isEditable = false; text.isSelectable = true; text.drawsBackground = false
+        text.setAccessibilityLabel("Card notes")
         text.isVerticallyResizable = true; text.autoresizingMask = [.width]
         text.textContainerInset = NSSize(width: 0, height: 2)
         text.textContainer?.widthTracksTextView = true
@@ -182,6 +192,7 @@ struct CardView: View {
     @State private var collapseTask: Task<Void, Never>?
     @State private var dropTargeted = false
     @AppStorage("fontFamily") private var family = "Charter"
+    @Environment(\.colorSchemeContrast) private var contrast
     private let poll = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
 
     init(card: Binding<OpenCard>, writingRoot: URL?, liveText: LiveText?, onClose: @escaping () -> Void, onEditBeside: @escaping () -> Void,
@@ -213,7 +224,7 @@ struct CardView: View {
                 tagImage(picture)
                 return true
             } isTargeted: { dropTargeted = $0 }
-            .animation(.smooth(duration: 0.22), value: expanded)
+            .quietAnimation(.smooth(duration: 0.22), value: expanded)
             .sheet(item: $cropRequest) { request in
                 CropSheet(request: request, title: title, onDone: { finishCrop(request, $0) }, onCancel: { cropRequest = nil })
             }
@@ -247,6 +258,9 @@ struct CardView: View {
                         }
                     }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Tags")
+                .accessibilityValue(tags.joined(separator: ", "))
             }
             if model.missing {
                 Text("This file can’t be found. It may have been moved or renamed.").font(.caption).foregroundStyle(.secondary)
@@ -261,11 +275,34 @@ struct CardView: View {
         .background(GeometryReader { proxy in
             Color.clear.onAppear { measured = proxy.size }.onChange(of: proxy.size) { _, new in measured = new }
         })
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(dropTargeted ? Color.accentColor : Color.primary.opacity(0.12), lineWidth: dropTargeted ? 2 : 0.7))
-        .overlay(alignment: .top) { if let tint { Capsule().fill(tint).frame(width: 46, height: 4).padding(.top, 5) } }
+        .panelFill(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .strokeBorder(dropTargeted ? Color.accentColor : Color.primary.opacity(contrast == .increased ? 0.7 : 0.12), lineWidth: dropTargeted ? 2 : (contrast == .increased ? 1.25 : 0.7)))
+        .overlay(alignment: .top) { if let tint { Capsule().fill(tint).frame(width: 46, height: 4).padding(.top, 5).accessibilityHidden(true) } }
         .overlay(alignment: gripAlignment) { resizeGrip }
         .shadow(color: .black.opacity(0.28), radius: 16, y: 6)
+        // One group per card, named for what it is, with the things the pointer does (pin, move to a corner, resize) as actions.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(kind.title) card: \(title)")
+        .accessibilityActions { cardActions }
+    }
+
+    @ViewBuilder private var cardActions: some View {
+        Button(card.pinned ? "Unpin card" : "Pin card open") { card.pinned.toggle() }
+        Button("Close card", action: onClose)
+        ForEach(CardCorner.allCases.filter { $0 != card.corner }, id: \.self) { corner in
+            Button("Move to \(corner.spoken)") { withQuietAnimation(.smooth(duration: 0.3)) { card.corner = corner } }
+        }
+        Button("Make card larger") { resize(widthBy: 40, heightBy: 40) }
+        Button("Make card smaller") { resize(widthBy: -40, heightBy: -40) }
+        if card.size != nil { Button("Reset card size") { withQuietAnimation { card.size = nil } } }
+    }
+
+    /// Grows or shrinks the card without dragging, within the same limits the drag keeps.
+    private func resize(widthBy dw: CGFloat, heightBy dh: CGFloat) {
+        let start = card.size ?? measured
+        card.size = CGSize(width: min(max(220, start.width + dw), max(220, dockSize.width - 32)),
+                           height: min(max(150, start.height + dh), max(150, dockSize.height - 90)))
     }
 
     private func bodyHeight(for text: String) -> CGFloat {
@@ -290,7 +327,7 @@ struct CardView: View {
     private var resizeGrip: some View {
         let diagonalDown = gripAlignment == .bottomTrailing || gripAlignment == .topLeading
         return Image(systemName: "line.diagonal")
-            .font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary)
+            .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
             .scaleEffect(x: diagonalDown ? 1 : -1, y: 1)
             .frame(width: 22, height: 22).padding(3).contentShape(Rectangle())
             .onHover { inside in if inside { NSCursor.crosshair.push() } else { NSCursor.pop() } }
@@ -304,9 +341,19 @@ struct CardView: View {
                                        height: min(max(150, proposed.height), max(150, dockSize.height - 90)))
                 }
                 .onEnded { _ in resizeStart = nil })
-            .onTapGesture(count: 2) { withAnimation(.smooth) { card.size = nil } }
+            .onTapGesture(count: 2) { withQuietAnimation { card.size = nil } }
             .help("Drag to resize this card. Double-click to reset its size.")
-            .accessibilityLabel("Resize card")
+            .accessibilityElement()
+            .accessibilityLabel("Card size")
+            .accessibilityValue("\(Int(card.size?.width ?? measured.width)) points wide")
+            .accessibilityHint("Swipe up to make the card larger, down to make it smaller.")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: resize(widthBy: 40, heightBy: 40)
+                case .decrement: resize(widthBy: -40, heightBy: -40)
+                @unknown default: break
+                }
+            }
     }
 
     private var header: some View {
@@ -322,7 +369,8 @@ struct CardView: View {
             }
             Spacer(minLength: 0)
             VStack(spacing: 8) {
-                iconButton(card.pinned ? "pin.fill" : "pin", help: card.pinned ? "Unpin: shrink to a tab when you move away" : "Pin: keep this card open") { card.pinned.toggle() }
+                iconButton(card.pinned ? "pin.fill" : "pin", label: card.pinned ? "Unpin card" : "Pin card open",
+                           help: card.pinned ? "Unpin: shrink to a tab when you move away" : "Pin: keep this card open") { card.pinned.toggle() }
                 Menu {
                     Button("Edit Beside Your Draft", action: onEditBeside)
                     Button("Open in the Editor", action: onOpenInEditor)
@@ -344,16 +392,17 @@ struct CardView: View {
                     Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([card.url]) }
                 } label: { Image(systemName: "ellipsis").font(.system(size: 11)).frame(width: 20, height: 18) }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
-                iconButton("xmark", help: "Close this card", action: onClose)
+                .accessibilityLabel("More actions for \(title)")
+                iconButton("xmark", label: "Close card", help: "Close this card", action: onClose)
             }
         }
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 4, coordinateSpace: .named("cardDock")).onChanged(dragChanged).onEnded(dragEnded))
     }
 
-    private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
+    private func iconButton(_ symbol: String, label: String, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) { Image(systemName: symbol).font(.system(size: 11)).frame(width: 20, height: 18).foregroundStyle(.secondary) }
-            .buttonStyle(.plain).help(help).accessibilityLabel(help)
+            .buttonStyle(.plain).help(help).accessibilityLabel(label).accessibilityHint(help)
     }
 
     private func portrait(width: CGFloat, height: CGFloat, round: Bool = false) -> some View {
@@ -374,6 +423,8 @@ struct CardView: View {
             .overlay(RoundedRectangle(cornerRadius: round ? height / 2 : 9, style: .continuous).strokeBorder(Color.primary.opacity(0.14), lineWidth: 0.6))
         }
         .buttonStyle(.plain).help(model.info?.imageRef == nil ? "Add an image to this card" : "Change this card’s image")
+        .accessibilityLabel(model.info?.imageRef == nil ? "Add an image for \(title)" : "Change the image for \(title)")
+        .accessibilityHint("Opens a file chooser")
     }
 
     /// The collapsed form: just a face and a name, tucked into the corner until you need it.
@@ -383,13 +434,20 @@ struct CardView: View {
             Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1)
         }
         .padding(.leading, 6).padding(.trailing, 12).padding(.vertical, 5)
-        .background(.regularMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(tint?.opacity(0.85) ?? Color.primary.opacity(0.12), lineWidth: tint == nil ? 0.7 : 1.4))
+        .panelFill(in: Capsule())
+        .overlay(Capsule().strokeBorder(tint?.opacity(0.85) ?? Color.primary.opacity(contrast == .increased ? 0.7 : 0.12), lineWidth: tint == nil ? (contrast == .increased ? 1.25 : 0.7) : 1.4))
         .shadow(color: .black.opacity(0.22), radius: 8, y: 3)
-        // In focus mode, cards you aren't using step back so the page is the brightest thing.
-        .opacity(dimWhenIdle ? 0.32 : 1)
-        .animation(.easeInOut(duration: 0.3), value: dimWhenIdle)
+        // In focus mode, cards you aren't using step back so the page is the brightest thing (less so with Increase Contrast).
+        .opacity(dimWhenIdle ? (contrast == .increased ? 0.65 : 0.32) : 1)
+        .quietAnimation(.easeInOut(duration: 0.3), value: dimWhenIdle)
         .gesture(DragGesture(minimumDistance: 4, coordinateSpace: .named("cardDock")).onChanged(dragChanged).onEnded(dragEnded))
+        // Hovering opens a collapsed card, which VoiceOver and the keyboard can't do, so activating it pins it open.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(kind.title.lowercased()) card")
+        .accessibilityValue("Collapsed")
+        .accessibilityHint("Opens the card and keeps it open")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { card.pinned = true }
     }
 
     // MARK: Images
@@ -458,11 +516,11 @@ struct CropSheet: View {
             Text("Frame \(title)’s portrait").font(.headline)
             cropWindow
             HStack(spacing: 8) {
-                Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)
-                Slider(value: $zoom, in: 1...CropRect.maxZoom).accessibilityLabel("Zoom")
-                Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary)
+                Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
+                Slider(value: $zoom, in: 1...CropRect.maxZoom).accessibilityLabel("Zoom").accessibilityValue("\(Int(zoom * 100)) percent")
+                Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
             }.frame(width: window.width)
-            Text("Drag to reposition. The card shows what’s inside the frame.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Text("Drag to reposition, or click the frame and use the arrow keys. The card shows what’s inside the frame.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             HStack {
                 Button("Cancel", role: .cancel, action: onCancel).keyboardShortcut(.cancelAction)
                 Spacer()
@@ -471,6 +529,7 @@ struct CropSheet: View {
             }
         }
         .padding(22).frame(width: 300)
+        .onExitCommand(perform: onCancel)
         .onAppear {
             if let initial = request.initial {
                 zoom = initial.zoom(imageSize: request.image.size)
@@ -500,7 +559,32 @@ struct CropSheet: View {
                 center = CGPoint(x: moved.centerX, y: moved.centerY)
             }
             .onEnded { _ in dragStart = nil })
-        .accessibilityLabel("Portrait frame. Drag to reposition.")
+        .focusable()
+        .onKeyPress(phases: [.down, .repeat]) { press in
+            switch press.key {
+            case .leftArrow: nudge(dx: -0.04, dy: 0)
+            case .rightArrow: nudge(dx: 0.04, dy: 0)
+            case .upArrow: nudge(dx: 0, dy: -0.04)
+            case .downArrow: nudge(dx: 0, dy: 0.04)
+            default: return .ignored
+            }
+            return .handled
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Portrait frame")
+        .accessibilityHint("Choose a movement to reposition the picture inside the frame.")
+        .accessibilityActions {
+            Button("Move picture left") { nudge(dx: -0.04, dy: 0) }
+            Button("Move picture right") { nudge(dx: 0.04, dy: 0) }
+            Button("Move picture up") { nudge(dx: 0, dy: -0.04) }
+            Button("Move picture down") { nudge(dx: 0, dy: 0.04) }
+        }
+    }
+
+    /// Moves the frame over the picture by a share of the picture's size, like a small drag.
+    private func nudge(dx: Double, dy: Double) {
+        let moved = CropRect.make(imageSize: request.image.size, zoom: zoom, centerX: center.x + dx, centerY: center.y + dy)
+        center = CGPoint(x: moved.centerX, y: moved.centerY)
     }
 }
 
@@ -549,13 +633,13 @@ struct CardDock: View {
         let isActive = activeURL?.standardizedFileURL == url.standardizedFileURL
         return CardView(
             card: card, writingRoot: writingRoot, liveText: isActive ? liveText : nil,
-            onClose: { withAnimation(.smooth) { cards.removeAll { $0.url == url } } },
+            onClose: { withQuietAnimation { cards.removeAll { $0.url == url } } },
             onEditBeside: { onEditBeside(url) }, onOpenInEditor: { onOpenInEditor(url) },
             onSetField: onSetField, onProblem: onProblem,
             dragChanged: { value in draggingID = url; dragOffset = value.translation },
             dragEnded: { value in
                 let corner = CardCorner.nearest(to: value.location, in: size)
-                withAnimation(.smooth(duration: 0.3)) {
+                withQuietAnimation(.smooth(duration: 0.3)) {
                     card.wrappedValue.corner = corner
                     draggingID = nil
                     dragOffset = .zero
@@ -563,7 +647,7 @@ struct CardDock: View {
             }, dockSize: size, dimWhenIdle: dimIdleCards)
         .offset(draggingID == url ? dragOffset : .zero)
         .zIndex(draggingID == url ? 5 : 0)
-        .transition(.scale(scale: 0.92).combined(with: .opacity))
+        .transition(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? .opacity : .scale(scale: 0.92).combined(with: .opacity))
     }
 }
 
@@ -638,6 +722,7 @@ struct SceneTagsLayer: View {
     @AppStorage("sceneTagsPlacement") private var placement = "bottom"
     @AppStorage("sceneTagsFade") private var fadeWhileTyping = true
     @AppStorage("sceneTagsColor") private var colorCoded = true
+    @Environment(\.colorSchemeContrast) private var contrast
     let activeURL: URL?
     let liveText: LiveText
     /// Fires on each keystroke; the text itself reaches `liveText` only after a pause in typing.
@@ -710,11 +795,18 @@ struct SceneTagsLayer: View {
             editButton(empty: chips.isEmpty)
         }
         .frame(maxWidth: corner ? 270 : 640, alignment: corner ? .leading : .center)
-        .opacity(quiet ? 0.12 : (focusDim && !pointerOver ? 0.35 : 1))
-        .animation(.easeInOut(duration: 0.5), value: quiet)
-        .animation(.easeInOut(duration: 0.3), value: focusDim)
+        // With Increase Contrast the strip never fades below something you can still read.
+        .opacity(quiet ? (contrast == .increased ? 0.5 : 0.12) : (focusDim && !pointerOver ? (contrast == .increased ? 0.7 : 0.35) : 1))
+        .quietAnimation(.easeInOut(duration: 0.5), value: quiet)
+        .quietAnimation(.easeInOut(duration: 0.3), value: focusDim)
         .onHover { pointerOver = $0 }
         .contextMenu { placementMenu }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Scene tags")
+        .accessibilityActions {
+            Button("Edit scene tags") { editing = true }
+            Button("Hide scene tags") { placement = "off" }
+        }
     }
 
     /// The card's own color, or the color given to its file in the desk.
@@ -732,13 +824,16 @@ struct SceneTagsLayer: View {
                 Text(card?.title ?? name).lineLimit(1)
             }
             .font(.system(size: 11)).padding(.horizontal, 8).padding(.vertical, 3)
-            .background(.regularMaterial, in: Capsule())
+            .panelFill(in: Capsule())
             .background(Capsule().fill((tint ?? .clear).opacity(0.2)))
-            .overlay(Capsule().strokeBorder(tint?.opacity(0.6) ?? Color.primary.opacity(card == nil ? 0.3 : 0.14), style: StrokeStyle(lineWidth: 0.8, dash: card == nil ? [3, 2] : [])))
+            .overlay(Capsule().strokeBorder(tint?.opacity(0.6) ?? Color.primary.opacity(card == nil ? 0.3 : (contrast == .increased ? 0.7 : 0.14)), style: StrokeStyle(lineWidth: contrast == .increased ? 1.25 : 0.8, dash: card == nil ? [3, 2] : [])))
             .opacity(card == nil ? 0.8 : 1)
         }
         .buttonStyle(.plain)
         .help(card.map { $0.subtitle.isEmpty ? "Show \($0.title)’s card" : "\($0.title) — \($0.subtitle)" } ?? "There’s no card called “\(name)” yet. Click to create one.")
+        .accessibilityLabel("\(kind.title): \(card?.title ?? name)")
+        .accessibilityValue(card == nil ? "No card yet" : (card.map { $0.subtitle } ?? ""))
+        .accessibilityHint(card == nil ? "Creates a card with this name" : "Shows this card")
     }
 
     private func editButton(empty: Bool) -> some View {
@@ -752,6 +847,8 @@ struct SceneTagsLayer: View {
             .foregroundStyle(.secondary).opacity(empty ? 0.6 : 0.85)
         }
         .buttonStyle(.plain).help("Choose the location and characters in this scene")
+        .accessibilityLabel(empty ? "Tag this scene" : "Edit scene tags")
+        .accessibilityHint("Opens a list of your characters, locations, and world notes to choose from")
         .popover(isPresented: $editing, arrowEdge: placement.hasPrefix("top") ? .bottom : .top) { editor }
     }
 
@@ -796,10 +893,10 @@ struct SceneTagEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Tag this scene").font(.headline)
+            Text("Tag this scene").font(.headline).accessibilitySectionHeading()
             Text("Who and what appears here. Tags are saved at the top of this chapter’s file, and clicking one while you write opens its card.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            TextField("Filter", text: $filter).textFieldStyle(.roundedBorder)
+            TextField("Filter", text: $filter).textFieldStyle(.roundedBorder).accessibilityLabel("Filter cards")
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(SceneTags.kinds, id: \.self) { kind in section(kind) }
@@ -813,15 +910,19 @@ struct SceneTagEditor: View {
         return VStack(alignment: .leading, spacing: 4) {
             Label(kind.pickerTitle.uppercased(), systemImage: kind.tagSymbol)
                 .font(.system(size: 9.5, weight: .semibold)).tracking(1).foregroundStyle(.secondary)
+                .accessibilityLabel(kind.pickerTitle).accessibilityAddTraits(.isHeader)
             ForEach(orphans(kind), id: \.self) { name in
                 Button { remove(kind, name) } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor)
                         Text(name).lineLimit(1)
-                        Text("no card yet").font(.caption).foregroundStyle(.tertiary)
+                        Text("no card yet").font(.caption).foregroundStyle(.secondary)
                         Spacer(minLength: 0)
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plain)
+                    .accessibilityLabel(name)
+                    .accessibilityValue("Tagged, but there is no card with this name yet")
+                    .accessibilityHint("Removes the tag")
             }
             ForEach(shown) { card in
                 let on = isOn(card, kind)
@@ -830,14 +931,19 @@ struct SceneTagEditor: View {
                         Image(systemName: on ? "checkmark.circle.fill" : "circle").foregroundStyle(on ? Color.accentColor : Color.secondary)
                         Text(card.title).lineLimit(1)
                         if let dot = colorFor(card) { Circle().fill(dot).frame(width: 8, height: 8) }
-                        if !card.subtitle.isEmpty { Text(card.subtitle).font(.caption).foregroundStyle(.tertiary).lineLimit(1) }
+                        if !card.subtitle.isEmpty { Text(card.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                         Spacer(minLength: 0)
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plain)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(card.title)
+                    .accessibilityValue((on ? "In this scene" : "Not in this scene") + (card.subtitle.isEmpty ? "" : ", \(card.subtitle)"))
+                    .accessibilityHint(on ? "Takes this tag off the scene" : "Adds this tag to the scene")
+                    .accessibilityAddTraits(.isButton)
             }
             if shown.isEmpty && orphans(kind).isEmpty {
                 Text(cards.contains { $0.kind == kind } ? "Nothing matches." : "None yet. Use the + on the \(kind.folderHint) folder to add one.")
-                    .font(.caption).foregroundStyle(.tertiary)
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
     }

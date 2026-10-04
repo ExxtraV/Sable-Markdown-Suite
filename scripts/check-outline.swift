@@ -61,6 +61,17 @@ import Foundation
         try fm.createDirectory(at: StoryTimeline.folder(in: bare), withIntermediateDirectories: true)
         precondition(StoryTimeline.points(project: bare).isEmpty, "An empty Outline folder")
 
-        print("Passed: beat tag parsing, the default dramatic arc, reading headings from the Outline folder (order, depth, ids, unsaved text), and empty projects.")
+        // What a screen reader says about the points (the timeline is drawn, not listed)
+        precondition(StoryTimelineSummary.label(for: points[3]) == "Chapter 9, Midpoint", "A tagged point is named by its heading and beat: \(StoryTimelineSummary.label(for: points[3]))")
+        precondition(StoryTimelineSummary.label(for: points[0]) == "Act One", "An untagged point is just its heading")
+        precondition(StoryTimelineSummary.value(for: points[4], at: 4, of: points.count) == "Point 5 of 6, high tension", "The climax is the highest point: \(StoryTimelineSummary.value(for: points[4], at: 4, of: points.count))")
+        precondition(StoryTimelineSummary.value(for: points[5], at: 5, of: points.count).hasSuffix("low tension"), "A resolution settles low")
+        let arc = StoryTimelineSummary.arc(points)
+        precondition(arc.hasPrefix("6 headings along the arc, from Act One to Chapter 17."), "The arc starts with its size and ends: \(arc)")
+        precondition(arc.contains("Climax, Chapter 15") && arc.contains("The tensest point is Chapter 15."), "…and names its beats and its peak: \(arc)")
+        precondition(StoryTimelineSummary.arc([]) == "No headings yet.", "An empty arc says so")
+        precondition(StoryTimelineSummary.arc([points[0]]) == "1 heading along the arc, from Act One to Act One. No story beats are tagged yet.", "One untagged heading: \(StoryTimelineSummary.arc([points[0]]))")
+
+        print("Passed: beat tag parsing, the default dramatic arc, reading headings from the Outline folder (order, depth, ids, unsaved text), empty projects, and the timeline's spoken summaries.")
     }
 }

@@ -68,6 +68,14 @@ enum WritingHistory {
         load(defaults: defaults).filter { $0.value > 0 }.count
     }
 
+    /// The record in a few sentences, for a screen reader to read in place of the chart.
+    static func summary(days: [Day], total: Int) -> String {
+        let recentWords = days.reduce(0) { $0 + $1.words }
+        let active = days.filter { $0.words > 0 }.count
+        let today = days.last?.words ?? 0
+        return "Today: \(today.formatted()) \(today == 1 ? "word" : "words"). Last \(days.count) \(days.count == 1 ? "day" : "days"): \(recentWords.formatted()) \(recentWords == 1 ? "word" : "words"), written on \(active) \(active == 1 ? "day" : "days"). All time: \(total.formatted()) \(total == 1 ? "word" : "words")."
+    }
+
     /// Clears the whole record. There's no undo, so callers confirm with the writer first.
     static func reset(defaults: UserDefaults = .standard) { defaults.removeObject(forKey: storageKey) }
 }

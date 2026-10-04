@@ -42,7 +42,7 @@ struct ExportSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(isManuscript ? "Export Manuscript" : "Export Document").font(.title3.weight(.semibold))
+            Text(isManuscript ? "Export Manuscript" : "Export Document").font(.title3.weight(.semibold)).accessibilitySectionHeading()
             // The choices scroll when the window is too short for them, so Export and Cancel stay in view.
             ScrollView {
                 choices.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { choicesHeight = $0 }
@@ -54,7 +54,7 @@ struct ExportSheet: View {
             HStack {
                 Text(isManuscript ? summary : "").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                if working { ProgressView().controlSize(.small) }
+                if working { ProgressView().controlSize(.small).accessibilityLabel("Exporting") }
                 Button("Cancel", role: .cancel, action: close).keyboardShortcut(.cancelAction)
                 Button("Export…", action: save).keyboardShortcut(.defaultAction)
                     .disabled(working || loading || chosen.isEmpty || title.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -62,6 +62,7 @@ struct ExportSheet: View {
         }
         .padding(22).frame(width: 470)
         .task { await load() }
+        .onChange(of: problem) { _, new in if let new { Announce.say(new) } }
     }
 
     private var choices: some View {
@@ -86,7 +87,7 @@ struct ExportSheet: View {
                         }
                     }
                 }
-                Section { layoutRows } header: { Text("Layout").font(.subheadline.weight(.medium)).padding(.top, 6) }
+                Section { layoutRows } header: { Text("Layout").font(.subheadline.weight(.medium)).padding(.top, 6).accessibilitySectionHeading() }
             }.formStyle(.columns)
 
             if isManuscript { chapterList }
@@ -188,10 +189,10 @@ struct ExportSheet: View {
     private var chapterList: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Chapters").font(.subheadline.weight(.medium))
+                Text("Chapters").font(.subheadline.weight(.medium)).accessibilitySectionHeading()
                 Spacer()
-                Button("All") { included = Set(chapters.map(\.id)) }.buttonStyle(.link).font(.caption)
-                Button("None") { included = [] }.buttonStyle(.link).font(.caption)
+                Button("All") { included = Set(chapters.map(\.id)) }.buttonStyle(.link).font(.caption).accessibilityLabel("Include every chapter")
+                Button("None") { included = [] }.buttonStyle(.link).font(.caption).accessibilityLabel("Include no chapters")
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
@@ -205,13 +206,17 @@ struct ExportSheet: View {
                                 Text(chapter.words.formatted()).font(.caption).foregroundStyle(.secondary).monospacedDigit()
                             }
                         }.toggleStyle(.checkbox)
+                            .accessibilityLabel(chapter.title)
+                            .accessibilityValue("\(chapter.words.formatted()) words")
                     }
                     if chapters.isEmpty && !loading { Text("This project has no chapters yet.").font(.caption).foregroundStyle(.secondary) }
                 }.padding(8).frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: 150)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
-            Text("In the order you arranged them in the Manuscript tab.").font(.caption).foregroundStyle(.tertiary)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Chapters to export")
+            Text("In the order you arranged them in the Manuscript tab.").font(.caption).foregroundStyle(.secondary)
         }
     }
 

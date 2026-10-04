@@ -5,7 +5,10 @@ import QuillCore
 @MainActor
 enum MarkdownReading {
     /// Reading Mode draws exactly what the shared Markdown reader finds, the same blocks the exports use.
-    static func render(_ source: String, family: String, size: Double, spacing: Double) -> NSAttributedString {
+    /// `ink`, `muted`, and `quiet` are the body color, the color for quotes and notes, and the color for ornaments; a
+    /// themed page passes its own (see ThemePalette), and the cards use the system's.
+    static func render(_ source: String, family: String, size: Double, spacing: Double,
+                       ink: NSColor = .labelColor, muted: NSColor = .secondaryLabelColor, quiet: NSColor = .tertiaryLabelColor) -> NSAttributedString {
         let base = NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: size) ?? .systemFont(ofSize: size)
         let mono = NSFont.monospacedSystemFont(ofSize: size * 0.88, weight: .regular)
         let output = NSMutableAttributedString()
@@ -18,8 +21,9 @@ enum MarkdownReading {
             if centered { style.alignment = .center }
             return style
         }
-        func append(_ runs: [MarkdownRun], font: NSFont, color: NSColor = .labelColor, indent: CGFloat = 0, centered: Bool = false, prefix: String = "") {
+        func append(_ runs: [MarkdownRun], font: NSFont, color: NSColor? = nil, indent: CGFloat = 0, centered: Bool = false, prefix: String = "") {
             let style = paragraphStyle(indent: indent, centered: centered)
+            let color = color ?? ink
             if !prefix.isEmpty {
                 output.append(NSAttributedString(string: prefix, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: style]))
             }
@@ -46,17 +50,17 @@ enum MarkdownReading {
                 let headingSize = size + Double(max(1, 5 - level)) * 3
                 let font = NSFontManager.shared.font(withFamily: family, traits: .boldFontMask, weight: 9, size: headingSize) ?? .systemFont(ofSize: headingSize, weight: .semibold)
                 append(runs.map { var run = $0; run.bold = false; return run }, font: font)
-            case let .quote(runs): append(runs, font: base, color: .secondaryLabelColor, indent: 18)
+            case let .quote(runs): append(runs, font: base, color: muted, indent: 18)
             case let .bullet(runs, depth): append(runs, font: base, indent: CGFloat(depth) * 18, prefix: "•  ")
             case let .numbered(number, runs, depth): append(runs, font: base, indent: CGFloat(depth) * 18, prefix: "\(number).  ")
             case let .task(done, runs, depth): append(runs, font: base, indent: CGFloat(depth) * 18, prefix: (done ? "☑" : "☐") + "  ")
-            case .sceneBreak: append([MarkdownRun(text: "*  *  *")], font: base, color: .tertiaryLabelColor, centered: true)
+            case .sceneBreak: append([MarkdownRun(text: "*  *  *")], font: base, color: quiet, centered: true)
             case let .code(text):
                 for line in text.components(separatedBy: "\n") { append([MarkdownRun(text: line)], font: mono) }
             case let .table(rows, _):
-                for row in rows { append([MarkdownRun(text: row.joined(separator: "   "))], font: mono, color: .secondaryLabelColor) }
+                for row in rows { append([MarkdownRun(text: row.joined(separator: "   "))], font: mono, color: muted) }
             case let .image(alt, _):
-                append([MarkdownRun(text: alt.isEmpty ? "[Image]" : "[Image: \(alt)]", italic: true)], font: base, color: .tertiaryLabelColor)
+                append([MarkdownRun(text: alt.isEmpty ? "[Image]" : "[Image: \(alt)]", italic: true)], font: base, color: muted)
             }
         }
         return output
@@ -66,6 +70,7 @@ enum MarkdownReading {
 struct ReadingView: NSViewRepresentable {
     @AppStorage("writingTheme") private var themeName = "graphite"
     @AppStorage("editorZoom") private var globalZoom = 1.0
+    @Environment(\.colorSchemeContrast) private var contrast
     var zoom: Double? = nil
     var zoomKey: String = WritingZoom.mainKey
     let text: String
@@ -113,12 +118,13 @@ struct ReadingView: NSViewRepresentable {
         view.drawsBackground = !transparent
         scroll.drawsBackground = !transparent
         scroll.contentView.drawsBackground = !transparent
-        let key = "\(family)|\(size)|\(spacing)|\(zoom)|\(theme.id)|\(text)"
+        let increased = contrast == .increased
+        let key = "\(family)|\(size)|\(spacing)|\(zoom)|\(theme.id)|\(increased)|\(text)"
         if view.renderKey != key {
-            let rendered = NSMutableAttributedString(attributedString: MarkdownReading.render(text, family: family, size: size * zoom, spacing: spacing))
-            rendered.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: rendered.length)) { value, range, _ in
-                if (value as? NSColor) == NSColor.labelColor { rendered.addAttribute(.foregroundColor, value: theme.foreground, range: range) }
-            }
+            // Quotes and ornaments are the theme's ink, quieter by the amounts ThemePalette sets.
+            let levels = ThemePalette.dimLevels(dark: theme.dark, increasedContrast: increased)
+            let rendered = MarkdownReading.render(text, family: family, size: size * zoom, spacing: spacing, ink: theme.foreground,
+                                                  muted: theme.foreground.withAlphaComponent(levels.muted), quiet: theme.foreground.withAlphaComponent(levels.marker))
             view.textStorage?.setAttributedString(rendered)
             view.renderKey = key
         }

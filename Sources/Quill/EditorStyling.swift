@@ -11,7 +11,7 @@ final class EditorStyleState {
     /// The storage settings the text was last styled with; any change restyles everything.
     struct Key: Equatable {
         var size: Double, family: String, spacing: Double, syntaxClasses: Int, colorVersion: Int, theme: String
-        var names: String, dimMarkers: Bool
+        var names: String, dimMarkers: Bool, highContrast: Bool
     }
     var key: Key?
     /// The prose-review words last applied, or nil when review was off.
@@ -74,12 +74,16 @@ extension WritingTextView: @preconcurrency NSTextStorageDelegate {
 
     var nameRanges: [NSRange] { style.nameRanges }
 
+    /// How strongly this theme's dimmed text shows (Markdown symbols, quotes and notes, paragraph focus), at the
+    /// contrast level the system is set to.
+    var dimLevels: ThemePalette.DimLevels { ThemePalette.dimLevels(dark: WritingTheme.named(themeName).dark, increasedContrast: highContrast) }
+
     /// True when the attributes on screen match the text: nothing has been typed since the last pass.
     var isStyleCurrent: Bool { style.previous != nil && style.edits.isClean && textStorage?.delegate === self }
 
     private var styleKey: EditorStyleState.Key {
         EditorStyleState.Key(size: bodySize, family: bodyFontFamily, spacing: lineSpacingRatio, syntaxClasses: syntaxClasses,
-                             colorVersion: colorVersion, theme: themeName, names: nameKey, dimMarkers: dimMarkers)
+                             colorVersion: colorVersion, theme: themeName, names: nameKey, dimMarkers: dimMarkers, highContrast: highContrast)
     }
     private var reviewKey: String? { reviewEnabled ? reviewWords : nil }
 
@@ -156,7 +160,10 @@ extension WritingTextView: @preconcurrency NSTextStorageDelegate {
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = bodySize * lineSpacingRatio
         paragraph.paragraphSpacing = bodySize * 0.25
-        let attributes: [NSAttributedString.Key: Any] = [.font: base, .foregroundColor: WritingTheme.named(themeName).foreground, .paragraphStyle: paragraph]
+        // Dimmed text is the theme's ink at a set strength, so it can be held to a contrast ratio (see ThemePalette).
+        let theme = WritingTheme.named(themeName), levels = dimLevels
+        let markerColor = theme.foreground.withAlphaComponent(levels.marker), muted = theme.foreground.withAlphaComponent(levels.muted)
+        let attributes: [NSAttributedString.Key: Any] = [.font: base, .foregroundColor: theme.foreground, .paragraphStyle: paragraph]
         storage.beginEditing()
         storage.setAttributes(attributes, range: range)
         // Heading sizes precede inline traits so bold/italic can compose with headings.
@@ -190,21 +197,21 @@ extension WritingTextView: @preconcurrency NSTextStorageDelegate {
                     }
                 }
             case .quote:
-                storage.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: span.range)
+                storage.addAttribute(.foregroundColor, value: muted, range: span.range)
             case .strike:
                 storage.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: span.content)
             case .rule:
-                storage.addAttributes([.foregroundColor: NSColor.tertiaryLabelColor, .kern: bodySize * 0.3], range: span.range)
+                storage.addAttributes([.foregroundColor: markerColor, .kern: bodySize * 0.3], range: span.range)
             case .comment:
-                storage.addAttributes([.foregroundColor: NSColor.tertiaryLabelColor, .font: NSFontManager.shared.convert(base, toHaveTrait: .italicFontMask)], range: span.range)
+                storage.addAttributes([.foregroundColor: muted, .font: NSFontManager.shared.convert(base, toHaveTrait: .italicFontMask)], range: span.range)
             case .image:
-                storage.addAttributes([.foregroundColor: NSColor.secondaryLabelColor, .font: NSFontManager.shared.convert(base, toHaveTrait: .italicFontMask)], range: span.range)
+                storage.addAttributes([.foregroundColor: muted, .font: NSFontManager.shared.convert(base, toHaveTrait: .italicFontMask)], range: span.range)
                 if let destination = span.destination {
-                    storage.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: destination)
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: destination)
                 }
             case let .task(done):
                 storage.addAttributes([.foregroundColor: NSColor.linkColor, .font: NSFont.monospacedSystemFont(ofSize: bodySize * 0.9, weight: .regular)], range: span.content)
-                if done { storage.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: NSRange(location: NSMaxRange(span.content), length: NSMaxRange(span.range) - NSMaxRange(span.content))) }
+                if done { storage.addAttribute(.foregroundColor, value: muted, range: NSRange(location: NSMaxRange(span.content), length: NSMaxRange(span.range) - NSMaxRange(span.content))) }
             case .table:
                 storage.addAttribute(.font, value: NSFont.monospacedSystemFont(ofSize: bodySize * 0.86, weight: .regular), range: span.range)
             case .footnote:
@@ -215,12 +222,12 @@ extension WritingTextView: @preconcurrency NSTextStorageDelegate {
         if dimMarkers {
             for span in spans {
                 for marker in span.markers {
-                    storage.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: marker)
+                    storage.addAttribute(.foregroundColor, value: markerColor, range: marker)
                 }
             }
         }
         if syntaxClasses != 0, let tags {
-            let colors = Dictionary(uniqueKeysWithValues: WordClass.allCases.map { ($0, Self.wordColor($0)) })
+            let colors = Dictionary(uniqueKeysWithValues: WordClass.allCases.map { ($0, Self.wordColor($0, highContrast: highContrast)) })
             for word in tags where syntaxClasses & word.kind.rawValue != 0 {
                 storage.addAttribute(.foregroundColor, value: colors[word.kind]!, range: word.range)
             }
@@ -232,7 +239,7 @@ extension WritingTextView: @preconcurrency NSTextStorageDelegate {
         } else if let namer = nameHighlighter, !namer.isEmpty {
             found = namer.matches(in: string, kinds: nameKinds, range: range)
         }
-        let nameColors = Dictionary(uniqueKeysWithValues: CardKind.allCases.map { ($0, Self.nameColor($0)) })
+        let nameColors = Dictionary(uniqueKeysWithValues: CardKind.allCases.map { ($0, Self.nameColor($0, highContrast: highContrast)) })
         for match in found {
             storage.addAttribute(.foregroundColor, value: nameColors[match.kind]!, range: match.range)
         }
