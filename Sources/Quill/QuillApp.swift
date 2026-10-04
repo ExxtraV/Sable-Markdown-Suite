@@ -46,7 +46,7 @@ struct QuillApp: App {
                 .environmentObject(browser)
         }
         .commands {
-            WritingCommands()
+            WritingCommands(openSampleProject: { SampleProjectOpener.open(browser: browser) })
             CommandGroup(replacing: .newItem) {
                 Button("New Markdown File") { SingleDocumentCoordinator.shared.newDocument() }
                     .keyboardShortcut("n")
@@ -300,7 +300,7 @@ struct WritingView: View {
     }
 
     private var folderSetup: some View {
-        WritingFolderSetup().environmentObject(browser)
+        WritingFolderSetup(exploreSample: { SampleProjectOpener.open(browser: browser) }).environmentObject(browser)
     }
 
     private var writingStyleSheet: some View {

@@ -13,6 +13,10 @@ shutil.copy2(binary_dir / 'Quill', contents / 'MacOS/Quill')
 shutil.copy2(root / 'docs/Sable Guide.md', contents / 'Resources/Sable Guide.md')
 shutil.copy2(root / 'LICENSE', contents / 'Resources/LICENSE.txt')
 shutil.copy2(root / 'Assets/Sable.icns', contents / 'Resources/Sable.icns')
+# The sample Fiction Project the app offers on first launch and from Help. Copied as it is, never edited in the bundle.
+sample = contents / 'Resources/Sample Project'
+if sample.exists(): shutil.rmtree(sample)
+shutil.copytree(root / 'Examples/Sable Sample Project', sample)
 shutil.copy2(scratch / 'artifacts/sparkle/Sparkle/LICENSE', contents / 'Resources/Sparkle-LICENSE.txt')
 frameworks = list((scratch / 'artifacts').glob('**/macos-arm64_x86_64/Sparkle.framework'))
 if len(frameworks) != 1:
@@ -43,7 +47,9 @@ if build:
 if preview:
     info.update(CFBundleIdentifier='local.quill.preview.v5', CFBundleName='Sable Markdown Writer Preview', CFBundleDisplayName='Sable Markdown Writer Preview')
     info.pop('SUFeedURL', None); info.pop('SUPublicEDKey', None)
-    shutil.copytree(root / 'Examples', contents / 'Resources/Examples', dirs_exist_ok=True)
+    fixtures = contents / 'Resources/Examples'
+    if fixtures.exists(): shutil.rmtree(fixtures)
+    shutil.copytree(root / 'Examples', fixtures)
 plistlib.dump(info, open(contents / 'Info.plist', 'wb'))
 identity = os.environ.get('SIGNING_IDENTITY', '-')
 flags = ['--force', '--sign', identity, '--preserve-metadata=entitlements,identifier']

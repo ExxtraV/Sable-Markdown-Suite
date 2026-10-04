@@ -69,7 +69,7 @@ swiftc Sources/Quill/RecentFiles.swift scripts/check-recent-files.swift -o /tmp/
 /tmp/quill-recent-files-checks
 ```
 
-Sample manuscript and world-note files these checks read are in `Examples/`.
+The sample project the app ships is the folder `Examples/Sable Sample Project`, and `check-sample-project.swift` reads it. `scripts/package-app.py` copies it into the app as `Contents/Resources/Sample Project`; given the built app, the check also confirms the packaged copy matches the source. It checks that the sample is a valid Fiction Project with the expected cards, scene tags, outline beats, note, and snapshot. It is a real Fiction Project, so change it by opening the folder in Sable. Keep the `_Sample text written by Claude Code._` line on every file in it, and re-run the check after editing.
 
 ### Additional local-only checks (not run in CI)
 
@@ -107,6 +107,9 @@ swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/SafeFile.swift Sources/Quil
 
 swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/Export.swift Sources/Quill/ExportLayout.swift Sources/Quill/FictionProject.swift Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-export.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-export-checks
 /tmp/quill-export-checks
+
+swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/SampleProject.swift Sources/Quill/FictionProject.swift Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/SafeFile.swift Sources/Quill/Revisions.swift Sources/Quill/ProjectSearch.swift Sources/Quill/StoryTimeline.swift scripts/check-sample-project.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-sample-project-checks
+/tmp/quill-sample-project-checks "build/Sable Markdown Writer.app"
 ```
 
 `check-incremental-styling.swift` makes thousands of seeded random edits through the editor's real typing path and, after each one, compares every attribute against a from-scratch restyle of the same text. The editor hands typing to SwiftUI's copy of the text in batches, so the check also settles that copy each of the ways the app does (a pause, the idle timer, a real `NSDocument` save, a SwiftUI redraw with the older text, losing focus, an autosave while typing is pending) and then requires it, and the status bar's word and suggestion counts, to match the editor exactly. On a failure it prints the seed, the edit, and the first differing run, and saves the document to `$TMPDIR/quill-fuzz-failure.md`. `QUILL_FUZZ_SEED` and `QUILL_FUZZ_EDITS` change the seed and length for longer local runs; `QUILL_FUZZ_SABOTAGE=1` corrupts one attribute on purpose to confirm the comparison catches it. Random setting changes (theme, fonts, zoom, colors, sentence-color classes, names) are mixed into the edits, and each configuration ends with a run of setting changes that must all repaint from the spans and sentence tags the editor keeps between passes; `QUILL_FUZZ_SABOTAGE=cache` drops one kept span to confirm a stale cache is caught too. Both it and the benchmark share the generated manuscript in `scripts/typing-fixture.swift`.
