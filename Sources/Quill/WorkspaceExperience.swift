@@ -828,6 +828,8 @@ struct WritingCommands: Commands {
     @AppStorage("spellCheckEnabled") private var spellCheckEnabled = true
     @AppStorage("reviewProse") private var reviewProse = true
     @Environment(\.openWindow) private var openWindow
+    private let openSampleProject: () -> Void
+    init(openSampleProject: @escaping () -> Void = {}) { self.openSampleProject = openSampleProject }
     var body: some Commands {
         CommandGroup(after: .saveItem) {
             Divider()
@@ -870,6 +872,8 @@ struct WritingCommands: Commands {
         CommandGroup(replacing: .help) {
             Button("Sable Guide") { Tutorial.open() }
             Button("Markdown Cheat Sheet") { openWindow(id: "markdown-cheat-sheet") }
+            Divider()
+            Button("Open Sample Project", action: openSampleProject)
         }
     }
 }
@@ -924,6 +928,8 @@ struct WritingFolderSetup: View {
     @Environment(\.dismiss) private var dismiss
     @State private var error: String?
     @State private var includeGuide = true
+    /// Copies the sample project into Documents and opens it (the App supplies it).
+    var exploreSample: () -> Void = {}
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Image(systemName: "folder.badge.plus").font(.largeTitle).foregroundStyle(.secondary).accessibilityHidden(true)
@@ -931,14 +937,23 @@ struct WritingFolderSetup: View {
             Text("A writing folder is optional. Choose or create one to keep your Markdown files together, or just open a file and write. You can open and save documents anywhere either way, and you can set up a folder later in Settings.")
             Text("If you choose a folder, we recommend one in iCloud Drive, Dropbox, or OneDrive so your writing is available on your other devices. Your chosen service handles syncing.").foregroundStyle(.secondary)
             Toggle("Include the Sable guide in the folder", isOn: $includeGuide)
+            Text("Want to look around first? The sample project is a short, finished story to explore. It's copied to your Documents folder, so change anything you like.").font(.callout).foregroundStyle(.secondary)
             if let error { Text(error).font(.caption).foregroundStyle(.red) }
             HStack {
                 Button("Just Open a File") { justOpenAFile() }
                     .help("Skip the writing folder. Sable works as a plain Markdown editor.")
+                Button("Explore a Sample Project") { startExploringSample() }
+                    .help("Copy a small finished story into Documents and open it. This doesn't set your writing folder.")
                 Spacer()
                 Button("Choose or Create Folder…") { choose() }.keyboardShortcut(.defaultAction)
             }
-        }.padding(28).frame(width: 460).interactiveDismissDisabled()
+        }.padding(28).frame(width: 580).interactiveDismissDisabled()
+    }
+    /// Copies the sample into Documents and opens it. Setup closes first so the writer's blank page can be replaced
+    /// by the first chapter; the writing folder stays unset, so setup returns next time unless they choose one.
+    private func startExploringSample() {
+        dismiss()
+        DispatchQueue.main.async { exploreSample() }
     }
     /// Works without a writing folder, and stops asking. The desk starts hidden (⌃⌘S brings it back): with no folder
     /// to show, a quiet page is the calmer start.

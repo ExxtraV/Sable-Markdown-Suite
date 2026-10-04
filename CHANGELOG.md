@@ -2,6 +2,10 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
+## Unreleased
+
+- **A sample project.** `Examples/` is now one real Fiction Project, *Northwatch* (`Examples/Sable Sample Project`), which `scripts/package-app.py` copies into the app as `Contents/Resources/Sample Project` for both the normal and preview builds. First launch's setup sheet offers **Explore a Sample Project** and Help has **Open Sample Project**. Both copy it into `~/Documents/Sable Sample Project` (a number is added if that name is taken, and nothing existing is touched), show it on the desk for this session without changing the saved writing folder, and open its first chapter. The copy is built in a staging folder and moved into place whole, made writable, and its snapshot is dated when the copy is made so the daily automatic snapshot doesn't land on top of it. The copy is remembered, so asking again opens it instead of making another. New `Sources/Quill/SampleProject.swift`; new `check-sample-project.swift` checks the source and, given a built app, the packaged copy: a valid project, the expected seven cards, aliases and a portrait that resolves, scene tags that all match cards, all six outline beats, one note, one snapshot that compares as expected, the label on every file, and the copying rules.
+
 ## 1.0.0-beta.1
 
 The first beta of 1.0, for people who turn on **Get beta updates**. Opening any Markdown file without a writing folder, export layout choices, and a writing goal with a deadline for challenges like 50,000 words in November.

@@ -96,6 +96,11 @@ jobs:
         run: |
           swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-fiction.swift -o /tmp/quill-fiction-checks
           /tmp/quill-fiction-checks
+      - name: Sample project checks
+        run: |
+          QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
+          swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/SampleProject.swift Sources/Quill/FictionProject.swift Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/SafeFile.swift Sources/Quill/Revisions.swift Sources/Quill/ProjectSearch.swift Sources/Quill/StoryTimeline.swift scripts/check-sample-project.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-sample-project-checks
+          /tmp/quill-sample-project-checks "build/Sable Markdown Writer.app"
       - name: Desk project-mode checks
         run: |
           swiftc -parse-as-library Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-project-browser.swift -o /tmp/quill-project-browser-checks

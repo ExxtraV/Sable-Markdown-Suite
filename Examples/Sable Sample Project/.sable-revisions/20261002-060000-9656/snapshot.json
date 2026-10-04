@@ -1,0 +1,17 @@
+{
+  "date" : "2026-10-02T10:00:00Z",
+  "files" : [
+    {
+      "path" : "Manuscript\/Chapter 1.md",
+      "words" : 91
+    },
+    {
+      "path" : "Manuscript\/Chapter 2.md",
+      "words" : 124
+    }
+  ],
+  "id" : "20261002-060000-9656",
+  "kind" : "manual",
+  "name" : "First draft of chapters 1 and 2",
+  "note" : "Before I added the ledger and rewrote the crossing."
+}
