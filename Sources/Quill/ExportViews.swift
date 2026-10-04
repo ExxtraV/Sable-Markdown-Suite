@@ -13,16 +13,21 @@ enum ExportSource: Identifiable {
     }
 }
 
-/// Choose a format, a look, and which chapters, then save one file.
+/// Choose a format, a look and its layout, and which chapters, then save one file.
+/// A project keeps its own layout; exports of a single document share one remembered layout.
 struct ExportSheet: View {
     let source: ExportSource
     let close: () -> Void
     @AppStorage("exportAuthor") private var author = NSFullUserName()
     @AppStorage("exportFormat") private var formatName = ExportFormat.pdf.rawValue
+    // The last look and page size used anywhere, where a project with no layout of its own starts.
     @AppStorage("exportStyle") private var styleName = ExportStyle.manuscript.rawValue
     @AppStorage("exportPageSize") private var pageName = PageSize.regional.rawValue
     @AppStorage("exportTitlePage") private var titlePage = true
     @AppStorage("exportPageBreaks") private var pageBreaks = true
+    @AppStorage("exportDocumentLayout") private var documentLayout = ""
+    @State private var layout = ExportLayout()
+    @State private var choicesHeight: CGFloat = 0
     @State private var title = ""
     @State private var chapters: [ExportChapter] = []
     @State private var included: Set<String> = []
@@ -38,28 +43,12 @@ struct ExportSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(isManuscript ? "Export Manuscript" : "Export Document").font(.title3.weight(.semibold))
-            Form {
-                TextField("Title", text: $title)
-                TextField("Author", text: $author)
-                Picker("Format", selection: $formatName) {
-                    ForEach(ExportFormat.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
-                }.pickerStyle(.segmented)
-                if format.isPaged {
-                    Picker("Style", selection: $styleName) {
-                        ForEach(ExportStyle.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
-                    }.pickerStyle(.segmented)
-                    Text((ExportStyle(rawValue: styleName) ?? .manuscript).detail).font(.caption).foregroundStyle(.secondary)
-                    Picker("Page size", selection: $pageName) {
-                        ForEach(PageSize.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
-                    }.pickerStyle(.segmented)
-                }
-                if isManuscript {
-                    Toggle("Title page", isOn: $titlePage)
-                    if format.isPaged { Toggle("Start each chapter on a new page", isOn: $pageBreaks) }
-                }
-            }.formStyle(.columns)
-
-            if isManuscript { chapterList }
+            // The choices scroll when the window is too short for them, so Export and Cancel stay in view.
+            ScrollView {
+                choices.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { choicesHeight = $0 }
+            }
+            .frame(height: min(choicesHeight, room))
+            .scrollBounceBehavior(.basedOnSize)
 
             if let problem { Text(problem).font(.caption).foregroundStyle(.orange) }
             HStack {
@@ -73,6 +62,123 @@ struct ExportSheet: View {
         }
         .padding(22).frame(width: 470)
         .task { await load() }
+    }
+
+    private var choices: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Form {
+                TextField("Title", text: $title)
+                TextField("Author", text: $author)
+                Picker("Format", selection: $formatName) {
+                    ForEach(ExportFormat.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                }.pickerStyle(.segmented)
+                if format.isPaged {
+                    Picker("Look", selection: Binding(get: { layout.style }, set: { layout.start(from: $0) })) {
+                        ForEach(ExportStyle.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }.pickerStyle(.segmented)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(layout.isAdjusted ? "Adjusted from the \(layout.style.title) look." : layout.style.detail)
+                            .font(.caption).foregroundStyle(.secondary)
+                        if layout.isAdjusted {
+                            Button("Reset") { layout.start(from: layout.style) }
+                                .buttonStyle(.link).font(.caption)
+                                .accessibilityLabel("Reset the layout to the \(layout.style.title) look")
+                        }
+                    }
+                }
+                Section { layoutRows } header: { Text("Layout").font(.subheadline.weight(.medium)).padding(.top, 6) }
+            }.formStyle(.columns)
+
+            if isManuscript { chapterList }
+        }
+    }
+
+    /// Height left for the choices in the window the sheet belongs to, after its title, buttons, and padding.
+    private var room: CGFloat {
+        guard let window = NSApp.mainWindow else { return .infinity }
+        return max(180, window.contentLayoutRect.height - 150)
+    }
+
+    /// The Layout rows, in the sheet's one form so their labels line up with Title, Author, and Format.
+    /// PDF and Word take every choice. EPUB takes the alignment of headings and the title page, since an
+    /// e-reader sets its own type and pages. Markdown takes only the title page.
+    @ViewBuilder private var layoutRows: some View {
+        if format.isPaged {
+            LabeledContent("Page") {
+                HStack {
+                    Picker("Page size", selection: $layout.pageSize) {
+                        ForEach(PageSize.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }.pickerStyle(.segmented).labelsHidden().fixedSize()
+                    Picker("Margins", selection: $layout.margins) {
+                        ForEach(ExportLayout.marginChoices, id: \.self) { Text("\($0.formatted()) in margins").tag($0) }
+                    }.labelsHidden().fixedSize()
+                }
+            }
+            LabeledContent("Text") {
+                HStack {
+                    Picker("Font", selection: $layout.font) {
+                        ForEach(ExportFont.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }.labelsHidden().fixedSize()
+                    Picker("Size", selection: $layout.fontSize) {
+                        ForEach(ExportLayout.fontSizes, id: \.self) { Text("\($0) pt").tag($0) }
+                    }.labelsHidden().fixedSize()
+                }
+            }
+            Picker("Line spacing", selection: $layout.lineSpacing) {
+                ForEach(LineSpacing.allCases, id: \.self) { Text($0.title).tag($0) }
+            }.pickerStyle(.segmented).fixedSize()
+        }
+        if format != .markdown {
+            Picker("Headings", selection: $layout.headingAlignment) {
+                ForEach(ExportAlignment.allCases, id: \.self) { Text($0.title).tag($0) }
+            }.pickerStyle(.segmented).fixedSize()
+        }
+        LabeledContent("Title page") {
+            HStack {
+                Toggle("Include", isOn: $layout.titlePage).toggleStyle(.checkbox)
+                    .accessibilityLabel("Include a title page")
+                if format != .markdown {
+                    Picker("Title page alignment", selection: $layout.titleAlignment) {
+                        ForEach(ExportAlignment.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }.pickerStyle(.segmented).labelsHidden().fixedSize().disabled(!layout.titlePage)
+                }
+            }
+        }
+        if format.isPaged {
+            LabeledContent("On each page") {
+                HStack(spacing: 14) {
+                    Toggle("Page numbers", isOn: $layout.pageNumbers).toggleStyle(.checkbox)
+                    Toggle("Running header", isOn: $layout.runningHeader).toggleStyle(.checkbox)
+                        .help("Your surname and the title at the top of each page, with the page number when page numbers are on.")
+                }
+            }
+            if isManuscript {
+                LabeledContent("Chapters") {
+                    Toggle("Start each on a new page", isOn: $layout.chapterPageBreaks).toggleStyle(.checkbox)
+                }
+            }
+        }
+    }
+
+    /// Where the layout starts before anything was saved: the last look and page size used, with the
+    /// title page and chapter breaks as the Export sheet had them. A single document starts without a title page.
+    private var startingLayout: ExportLayout {
+        var start = ExportLayout(style: ExportStyle(rawValue: styleName) ?? .manuscript)
+        start.pageSize = PageSize(rawValue: pageName) ?? .regional
+        start.titlePage = isManuscript && titlePage
+        start.chapterPageBreaks = pageBreaks
+        return start
+    }
+
+    /// Keeps the layout with the project, or for the next single document, and notes the look and page size for new projects.
+    private func rememberLayout() {
+        switch source {
+        case let .manuscript(project, _, _): try? FictionProject.setExportLayout(layout.saved, in: project)
+        case .document: documentLayout = layout.json
+        }
+        styleName = layout.style.rawValue
+        pageName = layout.pageSize.rawValue
+        if isManuscript { titlePage = layout.titlePage; pageBreaks = layout.chapterPageBreaks }
     }
 
     private var summary: String {
@@ -113,6 +219,7 @@ struct ExportSheet: View {
         switch source {
         case let .manuscript(project, projectTitle, unsaved):
             title = projectTitle
+            layout = ExportLayout(saved: FictionProject.load(project)?.exportLayout?.values, fallback: startingLayout)
             var loaded = await Task.detached { ManuscriptExport.chapters(project: project) }.value
             for (name, markdown) in unsaved {
                 if let index = loaded.firstIndex(where: { $0.name == name }) { loaded[index] = ManuscriptExport.chapter(named: name, markdown: markdown) }
@@ -121,6 +228,7 @@ struct ExportSheet: View {
             included = Set(loaded.map(\.id))
         case let .document(documentTitle, markdown, _):
             title = documentTitle
+            layout = documentLayout.isEmpty ? startingLayout : ExportLayout(json: documentLayout, fallback: startingLayout)
             chapters = [ManuscriptExport.chapter(named: documentTitle + ".md", markdown: markdown)]
             included = Set(chapters.map(\.id))
         }
@@ -147,11 +255,10 @@ struct ExportSheet: View {
         options.title = title.trimmingCharacters(in: .whitespaces)
         options.author = author.trimmingCharacters(in: .whitespaces)
         options.format = format
-        options.style = ExportStyle(rawValue: styleName) ?? .manuscript
-        options.pageSize = PageSize(rawValue: pageName) ?? .regional
-        options.titlePage = isManuscript && titlePage
-        options.chapterPageBreaks = isManuscript ? pageBreaks : true
+        options.layout = layout
+        if !isManuscript { options.layout.chapterPageBreaks = true }
         let selected = chosen
+        rememberLayout()
 
         let panel = NSSavePanel()
         panel.title = "Export"

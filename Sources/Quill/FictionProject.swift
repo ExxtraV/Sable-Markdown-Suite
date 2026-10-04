@@ -241,6 +241,19 @@ enum OutlineStarter {
     """
 }
 
+/// Settings kept as plain strings. A damaged entry reads as empty instead of making the whole marker unreadable.
+struct SavedStrings: Codable, Equatable, Sendable {
+    var values: [String: String]
+    init(_ values: [String: String]) { self.values = values }
+    init(from decoder: Decoder) throws {
+        values = (try? decoder.singleValueContainer().decode([String: String].self)) ?? [:]
+    }
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(values)
+    }
+}
+
 struct FictionProject: Codable, Equatable, Sendable {
     static let markerName = ".sable-project.json"
     /// The name projects made before the app was renamed use. Still recognized, and replaced on the next save.
@@ -258,6 +271,8 @@ struct FictionProject: Codable, Equatable, Sendable {
     var wordGoal: Int? = nil
     /// Chapter file names in the order the writer arranged them. Kept here, not in the files, so chapters are never touched.
     var chapterOrder: [String]? = nil
+    /// The export layout last used for this project (see ExportLayout), as plain strings.
+    var exportLayout: SavedStrings? = nil
 
     // MARK: Detecting and reading
 
@@ -329,6 +344,7 @@ struct FictionProject: Codable, Equatable, Sendable {
         try writeMarker(project, in: folder)
     }
     static func setChapterOrder(_ names: [String], in folder: URL) throws { try update(folder) { $0.chapterOrder = names } }
+    static func setExportLayout(_ values: [String: String], in folder: URL) throws { try update(folder) { $0.exportLayout = SavedStrings(values) } }
     static func setWordGoal(_ goal: Int?, in folder: URL) throws { try update(folder) { $0.wordGoal = (goal ?? 0) > 0 ? goal : nil } }
 
     // MARK: Creating, adopting, converting
