@@ -29,15 +29,16 @@ struct FindReplaceSheet: View {
     /// The open document's text before and after it was replaced on the page, so Undo can tell whether it has changed since.
     @State private var openReplacement: (before: String, after: String)?
     @State private var message: String?
+    @FocusState private var findFocused: Bool
 
     private var included: [FileHits] { results.filter { !skipped.contains($0.url) } }
     private var matchCount: Int { included.reduce(0) { $0 + $1.hits.count } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Find & Replace in \(request.root.lastPathComponent)").font(.title3.weight(.semibold))
+            Text("Find & Replace in \(request.root.lastPathComponent)").font(.title3.weight(.semibold)).accessibilitySectionHeading()
             Form {
-                TextField("Find", text: $options.query)
+                TextField("Find", text: $options.query).focused($findFocused)
                 TextField("Replace with", text: $replacement)
                 HStack(spacing: 18) {
                     Toggle("Match case", isOn: $options.caseSensitive)
@@ -51,7 +52,7 @@ struct FindReplaceSheet: View {
             HStack {
                 Text(summary).font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                if searching { ProgressView().controlSize(.small) }
+                if searching { ProgressView().controlSize(.small).accessibilityLabel("Searching") }
                 if receipt != nil || openReplacement != nil {
                     Button("Undo Replace", action: undo)
                 }
@@ -69,6 +70,11 @@ struct FindReplaceSheet: View {
             }
         }
         .padding(22).frame(width: 580, height: 560)
+        .onAppear { findFocused = true }
+        .onChange(of: message) { _, new in if let new { Announce.say(new) } }
+        .onChange(of: results.count) { _, count in
+            if !options.query.isEmpty, !searching { Announce.say(count == 0 ? "No matches" : summary, priority: .medium) }
+        }
         .task(id: options) { await search() }
     }
 
@@ -90,19 +96,25 @@ struct FindReplaceSheet: View {
                             })) {
                                 Text(file.path).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
                             }.toggleStyle(.checkbox)
+                                .accessibilityLabel("Replace in \(file.path)")
+                                .accessibilityValue("\(file.hits.count) \(file.hits.count == 1 ? "match" : "matches")")
                             Spacer()
-                            Text("\(file.hits.count)").font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                            Text("\(file.hits.count)").font(.caption).foregroundStyle(.secondary).monospacedDigit().accessibilityHidden(true)
                         }
                         ForEach(file.hits.prefix(4)) { hit in
                             Button { open(file.url, hit.range) } label: {
                                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                    Text("\(hit.line)").font(.caption2).foregroundStyle(.tertiary).monospacedDigit().frame(width: 34, alignment: .trailing)
+                                    Text("\(hit.line)").font(.caption2).foregroundStyle(.secondary).monospacedDigit().frame(width: 34, alignment: .trailing)
                                     Text(highlighted(hit)).font(.caption).lineLimit(1).foregroundStyle(.secondary)
                                 }.contentShape(Rectangle())
                             }.buttonStyle(.plain).help("Open this file at the match")
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("Line \(hit.line): \(hit.snippet)")
+                                .accessibilityHint("Closes this window and opens \(file.path) at the match")
+                                .accessibilityAddTraits(.isButton)
                         }
                         if file.hits.count > 4 {
-                            Text("and \(file.hits.count - 4) more").font(.caption2).foregroundStyle(.tertiary).padding(.leading, 42)
+                            Text("and \(file.hits.count - 4) more").font(.caption2).foregroundStyle(.secondary).padding(.leading, 42)
                         }
                     }
                     .opacity(skipped.contains(file.url) ? 0.45 : 1)
@@ -113,6 +125,8 @@ struct FindReplaceSheet: View {
             }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Matches by file")
     }
 
     private func highlighted(_ hit: SearchHit) -> AttributedString {
@@ -233,7 +247,7 @@ struct MarkdownCheatSheet: View {
     ]
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Markdown cheat sheet").font(.title3.weight(.semibold))
+            Text("Markdown cheat sheet").font(.title3.weight(.semibold)).accessibilitySectionHeading()
             Text("Written by Claude Code.").font(.caption).foregroundStyle(.secondary)
             ScrollView {
                 Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 9) {

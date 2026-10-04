@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import QuillCore
 
 /// What a revisions window is looking at: a Fiction Project's manuscript, or the one open document.
 struct RevisionScope {
@@ -58,6 +59,7 @@ struct RevisionsSheet: View {
         }
         .frame(width: 940, height: 640)
         .task { reload(); if request.saving { nameFocused = true } }
+        .onChange(of: message) { _, new in if let new { Announce.say(new) } }
         .alert("Rename Snapshot", isPresented: $renaming) {
             TextField("Name", text: $renameName)
             TextField("Note", text: $renameNote)
@@ -78,11 +80,11 @@ struct RevisionsSheet: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Revisions").font(.title3.weight(.semibold))
+            Text("Revisions").font(.title3.weight(.semibold)).accessibilitySectionHeading()
             VStack(alignment: .leading, spacing: 8) {
                 TextField("Name this draft (e.g. Before the rewrite)", text: $name).textFieldStyle(.roundedBorder).focused($nameFocused)
-                    .onSubmit(saveSnapshot)
-                TextField("Note (optional)", text: $note).textFieldStyle(.roundedBorder)
+                    .onSubmit(saveSnapshot).accessibilityLabel("Snapshot name")
+                TextField("Note (optional)", text: $note).textFieldStyle(.roundedBorder).accessibilityLabel("Snapshot note, optional")
                 Button(action: saveSnapshot) { Label("Save Snapshot of the \(scope.title)", systemImage: "camera") }
                     .disabled(busy || scope.files.isEmpty)
                     .help("Keeps a copy of \(scope.isProject ? "every chapter" : "this document") exactly as it is now")
@@ -104,9 +106,13 @@ struct RevisionsSheet: View {
                             }
                             Text(snapshot.date.formatted(date: .abbreviated, time: .shortened) + " · \(snapshot.words.formatted()) words").font(.caption).foregroundStyle(.secondary)
                         }.tag(snapshot.id).padding(.vertical, 2)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(snapshot.name)
+                            .accessibilityValue(kindPrefix(snapshot) + "saved \(snapshot.date.formatted(date: .abbreviated, time: .shortened)), \(snapshot.words.formatted()) words")
                     }
                 }
                 .listStyle(.sidebar)
+                .accessibilityLabel("Snapshots")
                 .onChange(of: selectedID) { _, _ in loadChanges() }
             }
         }.padding(16)
@@ -119,7 +125,7 @@ struct RevisionsSheet: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(snapshot.name).font(.title3.weight(.semibold))
+                        Text(snapshot.name).font(.title3.weight(.semibold)).accessibilitySectionHeading()
                         Text(snapshot.date.formatted(date: .complete, time: .shortened)).font(.caption).foregroundStyle(.secondary)
                         if !snapshot.note.isEmpty { Text(snapshot.note).font(.callout).foregroundStyle(.secondary) }
                     }
@@ -144,9 +150,9 @@ struct RevisionsSheet: View {
         } else {
             VStack(spacing: 10) {
                 Spacer()
-                Image(systemName: "clock.arrow.circlepath").font(.system(size: 34)).foregroundStyle(.tertiary)
+                Image(systemName: "clock.arrow.circlepath").font(.system(size: 34)).foregroundStyle(.secondary).accessibilityHidden(true)
                 Text("Pick a snapshot to see what has changed since.").foregroundStyle(.secondary)
-                Text("Snapshots are plain copies in a hidden “.sable-revisions” folder, so they sync and back up with everything else.").font(.caption).foregroundStyle(.tertiary).multilineTextAlignment(.center).frame(maxWidth: 380)
+                Text("Snapshots are plain copies in a hidden “.sable-revisions” folder, so they sync and back up with everything else.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 380)
                 Spacer()
                 HStack { Spacer(); Button("Done", action: close).keyboardShortcut(.cancelAction) }
             }.padding(18).frame(maxWidth: .infinity)
@@ -180,11 +186,36 @@ struct RevisionsSheet: View {
                         .background(selectedPath == change.path ? Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 5))
                         .opacity(change.status == .unchanged ? 0.55 : 1)
                     }.buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(change.title)
+                        .accessibilityValue(spokenStatus(change))
+                        .accessibilityHint("Shows what changed in this file")
+                        .accessibilityAddTraits(selectedPath == change.path ? [.isButton, .isSelected] : .isButton)
                 }
             }
         }
         .frame(height: 130)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Files compared with the snapshot")
+    }
+
+    private func kindPrefix(_ snapshot: Snapshot) -> String {
+        switch snapshot.kind {
+        case .manual: return ""
+        case .automatic: return "Automatic snapshot, "
+        case .safety: return "Safety snapshot, "
+        }
+    }
+
+    /// The change in words, not in colors and icons.
+    private func spokenStatus(_ change: FileChange) -> String {
+        switch change.status {
+        case .unchanged: return "Unchanged"
+        case .added: return "Added since, \(change.wordsNow.formatted()) words"
+        case .removed: return "Deleted since, was \(change.wordsThen.formatted()) words"
+        case .changed: return "Changed, " + (change.delta >= 0 ? "\(change.delta.formatted()) words added" : "\((-change.delta).formatted()) words removed")
+        }
     }
 
     @ViewBuilder private var diffArea: some View {
@@ -196,7 +227,7 @@ struct RevisionsSheet: View {
                     Label("new since", systemImage: "plus").foregroundStyle(.green)
                 }.font(.caption)
                 if change.status == .unchanged { Text("This file is the same as the snapshot.").font(.callout).foregroundStyle(.secondary).padding(.top, 6); Spacer() }
-                else { DiffTextView(pieces: pieces, family: family) }
+                else { DiffTextView(pieces: pieces, family: family, label: "Changes in \(change.title)") }
             }
         } else {
             Text(changes.contains { $0.status != .unchanged } ? "Choose a file above to see the changes marked in its text." : "").font(.callout).foregroundStyle(.secondary)
@@ -358,6 +389,8 @@ struct RevisionsSheet: View {
 struct DiffTextView: NSViewRepresentable {
     let pieces: [DiffPiece]
     let family: String
+    /// What a screen reader calls this text.
+    var label = "Changes"
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSTextView.scrollableTextView()
@@ -373,6 +406,10 @@ struct DiffTextView: NSViewRepresentable {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let text = scroll.documentView as? NSTextView else { return }
+        // Color and strike-through don't reach a screen reader, so say how much was added and removed.
+        let added = pieces.filter { $0.kind == .inserted }.reduce(0) { $0 + Prose.wordCount($1.text) }
+        let removed = pieces.filter { $0.kind == .deleted }.reduce(0) { $0 + Prose.wordCount($1.text) }
+        text.setAccessibilityLabel("\(label): \(added.formatted()) words added, \(removed.formatted()) removed. Removed words are read along with the rest, in the order they appear.")
         let font = NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: 14) ?? .systemFont(ofSize: 14)
         let style = NSMutableParagraphStyle()
         style.lineSpacing = 4

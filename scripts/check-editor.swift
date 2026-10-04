@@ -74,7 +74,18 @@ import QuillCore
         precondition(alpha(of: "Paragraph 7 ")! > alpha(of: "Paragraph 4 ")!, "Fades above as well as below")
         editor.focusGradient = false
         editor.updateFocus()
-        precondition(alpha(of: "Paragraph 9 ") == alpha(of: "Paragraph 25 ") && alpha(of: "Paragraph 9 ") == 0.25, "Classic focus dims everything evenly")
+        precondition(alpha(of: "Paragraph 9 ") == alpha(of: "Paragraph 25 ") && alpha(of: "Paragraph 9 ") == CGFloat(editor.dimLevels.focusEven), "Classic focus dims everything evenly")
+        // Increase Contrast keeps even the farthest text readable, and the lines beside the paragraph brighter
+        let ordinary = editor.dimLevels
+        editor.highContrast = true
+        editor.updateFocus()
+        precondition(alpha(of: "Paragraph 9 ") == CGFloat(editor.dimLevels.focusEven) && editor.dimLevels.focusEven > ordinary.focusEven, "Classic focus is brighter with Increase Contrast")
+        editor.focusGradient = true
+        editor.updateFocus()
+        precondition(alpha(of: "Paragraph 25 ")! >= CGFloat(ThemePalette.dimLevels(dark: true, increasedContrast: true).focusFloor) - 0.001 && alpha(of: "Paragraph 25 ")! > 0.3, "…and so is the far end of the gradient: \(alpha(of: "Paragraph 25 ")!)")
+        editor.highContrast = false
+        editor.focusGradient = false
+        editor.updateFocus()
         editor.focusParagraph = false
         editor.updateFocus()
         precondition(alpha(of: "Paragraph 9 ") == nil)
@@ -232,12 +243,23 @@ import QuillCore
         styled.decorate()
         let styledText = styled.string as NSString
         func color(_ needle: String, offset: Int = 0) -> NSColor? { styled.textStorage!.attribute(.foregroundColor, at: styledText.range(of: needle).location + offset, effectiveRange: nil) as? NSColor }
-        precondition(color("* * *") == NSColor.tertiaryLabelColor, "A scene break is quiet")
-        precondition(color("<!-- note -->") == NSColor.tertiaryLabelColor, "A comment is quiet")
-        precondition(color("**bold", offset: 0) == NSColor.tertiaryLabelColor, "Markers are dimmed by default")
+        // Dimmed text is the theme's ink at the strength ThemePalette sets, so check-contrast.swift measures what is drawn.
+        let ink = WritingTheme.named(styled.themeName).foreground
+        let levels = ThemePalette.dimLevels(dark: WritingTheme.named(styled.themeName).dark, increasedContrast: false)
+        precondition(color("* * *") == ink.withAlphaComponent(levels.marker), "A scene break is quiet")
+        precondition(color("<!-- note -->") == ink.withAlphaComponent(levels.muted), "A comment is quiet")
+        precondition(color("**bold", offset: 0) == ink.withAlphaComponent(levels.marker), "Markers are dimmed by default")
+        styled.highContrast = true
+        styled.decorate()
+        let strong = ThemePalette.dimLevels(dark: WritingTheme.named(styled.themeName).dark, increasedContrast: true)
+        precondition(color("**bold", offset: 0) == ink.withAlphaComponent(strong.marker) && strong.marker > levels.marker, "Increase Contrast dims markers less")
+        precondition(color("<!-- note -->") == ink.withAlphaComponent(strong.muted), "…and notes too")
+        styled.highContrast = false
+        styled.decorate()
+        precondition(color("**bold", offset: 0) == ink.withAlphaComponent(levels.marker), "Turning Increase Contrast off brings the default back")
         styled.dimMarkers = false
         styled.decorate()
-        precondition(color("**bold", offset: 0) != NSColor.tertiaryLabelColor, "…and stay normal when dimming is off")
+        precondition(color("**bold", offset: 0) == ink, "…and markers stay normal when dimming is off")
         let taskFont = styled.textStorage!.attribute(.font, at: styledText.range(of: "[ ]").location, effectiveRange: nil) as? NSFont
         precondition(taskFont?.isFixedPitch == true, "A task checkbox is set in a fixed-width font")
 

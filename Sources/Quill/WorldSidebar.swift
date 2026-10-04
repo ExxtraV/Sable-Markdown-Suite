@@ -110,6 +110,7 @@ struct WritingSidebar: View {
                     } label: { Image(systemName: "slider.horizontal.3").frame(width: 24, height: 24) }
                         .buttonStyle(.plain).help(showingFiles ? "Sort, layout, and color labels" : "Name and filter your outline")
                         .accessibilityLabel(showingFiles ? "File list options" : "Outline options")
+                        .accessibilityHint(showingFiles ? "Opens sorting, layout, and color label choices" : "Opens the outline's name and heading filter")
                         .popover(isPresented: $showViewOptions, arrowEdge: .bottom) { SidebarOptions().environmentObject(browser) }
                         .popover(isPresented: $showOutlineOptions, arrowEdge: .bottom) { OutlineControls() }
                 }
@@ -117,6 +118,7 @@ struct WritingSidebar: View {
 
             TextField(searchPrompt, text: $search)
                 .textFieldStyle(.roundedBorder).padding(.horizontal, 14).padding(.bottom, 10)
+                .accessibilityLabel("Search the writing desk").accessibilityHint(searchPrompt)
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -138,6 +140,8 @@ struct WritingSidebar: View {
             exportBar
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Writing desk")
         .onChange(of: tab) { _, _ in search = "" }
     }
 
@@ -160,8 +164,13 @@ struct WritingSidebar: View {
                     .padding(.vertical, 5).padding(.horizontal, 6)
                     .contentShape(Rectangle())
                 }.buttonStyle(.plain)
+                    .accessibilityLabel(heading.title)
+                    .accessibilityValue("Heading level \(heading.level)")
+                    .accessibilityHint("Jumps to this heading in your writing")
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(outlineName)
     }
 }
 
@@ -176,7 +185,7 @@ struct SidebarOptions: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("File list").font(.headline)
+            Text("File list").font(.headline).accessibilitySectionHeading()
             VStack(alignment: .leading, spacing: 8) {
                 Text("Sort by").font(.caption).foregroundStyle(.secondary)
                 Picker("Sort by", selection: $browser.sort) {
@@ -199,9 +208,10 @@ struct SidebarOptions: View {
                 Text("Color labels").font(.caption).foregroundStyle(.secondary)
                 ForEach(MarkColor.allCases, id: \.self) { color in
                     HStack(spacing: 8) {
-                        Circle().fill(color.color).frame(width: 10, height: 10)
+                        Circle().fill(color.color).frame(width: 10, height: 10).accessibilityHidden(true)
                         TextField(color.name, text: Binding(get: { browser.colorLabels[color] ?? "" }, set: { browser.setLabel($0, for: color) }))
                             .textFieldStyle(.roundedBorder)
+                            .accessibilityLabel("What \(color.name) means")
                     }
                 }
                 Text("Name what each color means to you, like Draft or Revised.").font(.caption).foregroundStyle(.secondary)
@@ -255,6 +265,7 @@ private struct ManuscriptTab: View {
     @State private var goalText = ""
     @State private var targetedID: URL?
     @State private var problem: String?
+    @FocusState private var focusedChapter: URL?
     private let poll = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
 
     private func words(_ chapter: ChapterStat) -> Int {
@@ -288,7 +299,7 @@ private struct ManuscriptTab: View {
                     .disabled(model.chapters.isEmpty)
             }.buttonStyle(.bordered).controlSize(.small)
             if !model.chapters.isEmpty {
-                Text("Drag chapters to rearrange them. Your files aren’t renamed or changed.").font(.system(size: 10.5)).foregroundStyle(.tertiary)
+                Text("Drag chapters to rearrange them. Your files aren’t renamed or changed.").font(.system(size: 10.5)).foregroundStyle(.secondary)
             }
             if let problem { Text(problem).font(.caption).foregroundStyle(.orange) }
         }
@@ -310,18 +321,23 @@ private struct ManuscriptTab: View {
         let count = model.chapters.count
         return VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(total.formatted()).font(.system(size: 28, weight: .semibold, design: .serif)).monospacedDigit()
+                Text(total.formatted()).font(.system(size: 28, weight: .semibold, design: .serif)).monospacedDigit().accessibilityHidden(true)
                 Text(total == 1 ? "word" : "words").font(.system(size: 12)).foregroundStyle(.secondary)
+                    .accessibilityLabel("\(total.formatted()) \(total == 1 ? "word" : "words") in the manuscript")
                 Spacer(minLength: 0)
                 Button { goalText = goal.map(String.init) ?? ""; showGoal = true } label: {
                     Label(goal == nil ? "Set goal" : "Goal", systemImage: "flag").font(.system(size: 11))
                 }
                 .buttonStyle(.plain).foregroundStyle(Color.accentColor)
+                .accessibilityLabel(goal == nil ? "Set a manuscript word goal" : "Manuscript word goal")
+                .accessibilityValue(goal.map { "\($0.formatted()) words" } ?? "")
                 .popover(isPresented: $showGoal, arrowEdge: .bottom) { goalEditor }
             }
             if let goal {
                 let fraction = min(1, Double(total) / Double(goal))
                 ProgressView(value: fraction).tint(fraction >= 1 ? .green : .accentColor)
+                    .accessibilityLabel("Progress toward the manuscript goal")
+                    .accessibilityValue("\(Int((Double(total) / Double(goal) * 100).rounded())) percent of \(goal.formatted()) words")
                 HStack {
                     Text("\(Int((Double(total) / Double(goal) * 100).rounded()))% of \(goal.formatted())")
                     Spacer()
@@ -333,6 +349,8 @@ private struct ManuscriptTab: View {
         }
         .padding(12)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Manuscript summary")
     }
 
     private var goalEditor: some View {
@@ -364,8 +382,8 @@ private struct ManuscriptTab: View {
         let count = words(chapter)
         let isCurrent = chapter.url.standardizedFileURL.path == currentURL?.standardizedFileURL.path
         // A tap rather than a Button, so the whole row starts a drag: a Button keeps the mouse-down to itself.
-        return HStack(spacing: 8) {
-            Text("\(number)").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.tertiary).frame(width: 22, alignment: .trailing)
+        let content = HStack(spacing: 8) {
+            Text("\(number)").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.secondary).frame(width: 22, alignment: .trailing)
             VStack(alignment: .leading, spacing: 4) {
                 Text(chapter.title).font(.system(size: 12, weight: isCurrent ? .medium : .regular)).lineLimit(1)
                 GeometryReader { proxy in
@@ -378,23 +396,72 @@ private struct ManuscriptTab: View {
         }
         .padding(.vertical, 6).padding(.horizontal, 8).contentShape(Rectangle())
         .onTapGesture { switchFile(chapter.url) }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { switchFile(chapter.url) }
-        .background(targetedID == chapter.id ? Color.accentColor.opacity(0.22) : (isCurrent ? Color.accentColor.opacity(0.14) : .clear), in: RoundedRectangle(cornerRadius: 6))
-        .draggable(chapter.url)
-        .dropDestination(for: URL.self) { urls, _ in reorder(urls, onto: chapter) } isTargeted: { on in
-            if on { targetedID = chapter.id } else if targetedID == chapter.id { targetedID = nil }
+        return arrange(describe(content, chapter, number: number, count: count, isCurrent: isCurrent), chapter, number: number, isCurrent: isCurrent)
+    }
+
+    /// One element per chapter: "Chapter 3: Title, 1,204 words", with every way of moving it as an action. The row takes
+    /// the keyboard too: Return opens it, ↑ and ↓ move between chapters, ⌥↑ and ⌥↓ move the chapter itself.
+    private func describe<Row: View>(_ row: Row, _ chapter: ChapterStat, number: Int, count: Int, isCurrent: Bool) -> some View {
+        let wordsText = "\(count.formatted()) " + (count == 1 ? "word" : "words")
+        let spoken = wordsText + ", position \(number) of \(model.chapters.count)" + (isCurrent ? ", open now" : "")
+        return row
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Chapter \(number): \(chapter.title)")
+            .accessibilityValue(spoken)
+            .accessibilityHint("Opens this chapter. Custom actions move it.")
+            .accessibilityAddTraits(isCurrent ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAction { switchFile(chapter.url) }
+            .accessibilityAction(named: "Move up") { move(chapter, to: number - 2, spoken: true) }
+            .accessibilityAction(named: "Move down") { move(chapter, to: number, spoken: true) }
+            .accessibilityAction(named: "Move to top") { move(chapter, to: 0, spoken: true) }
+            .accessibilityAction(named: "Move to end") { move(chapter, to: model.chapters.count - 1, spoken: true) }
+            .focusable().focused($focusedChapter, equals: chapter.url).focusEffectDisabled()
+            .onKeyPress(phases: .down) { press in chapterKey(press, chapter: chapter, number: number) }
+    }
+
+    /// Dragging, dropping, the menu, and how the row looks while one of them is under way.
+    private func arrange<Row: View>(_ row: Row, _ chapter: ChapterStat, number: Int, isCurrent: Bool) -> some View {
+        let fill: Color = targetedID == chapter.id ? Color.accentColor.opacity(0.22) : (isCurrent ? Color.accentColor.opacity(0.14) : .clear)
+        return row
+            .background(fill, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.accentColor, lineWidth: focusedChapter == chapter.url ? 2 : 0))
+            .draggable(chapter.url)
+            .dropDestination(for: URL.self) { urls, _ in reorder(urls, onto: chapter) } isTargeted: { on in
+                if on { targetedID = chapter.id } else if targetedID == chapter.id { targetedID = nil }
+            }
+            .help("Drag to rearrange")
+            .contextMenu { chapterMenu(chapter, number: number) }
+    }
+
+    @ViewBuilder private func chapterMenu(_ chapter: ChapterStat, number: Int) -> some View {
+        Button("Move Up") { move(chapter, to: number - 2) }.disabled(number == 1)
+        Button("Move Down") { move(chapter, to: number) }.disabled(number == model.chapters.count)
+        Button("Move to Top") { move(chapter, to: 0) }.disabled(number == 1)
+        Button("Move to End") { move(chapter, to: model.chapters.count - 1) }.disabled(number == model.chapters.count)
+        Divider()
+        Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([chapter.url]) }
+    }
+
+    private func chapterKey(_ press: KeyPress, chapter: ChapterStat, number: Int) -> KeyPress.Result {
+        let shown = model.chapters.filter { search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) }
+        guard let position = shown.firstIndex(of: chapter) else { return .ignored }
+        switch press.key {
+        case .return, .space:
+            switchFile(chapter.url)
+        case .upArrow where press.modifiers.contains(.option):
+            move(chapter, to: number - 2, spoken: true)
+        case .downArrow where press.modifiers.contains(.option):
+            move(chapter, to: number, spoken: true)
+        case .upArrow:
+            guard position > 0 else { return .handled }
+            focusedChapter = shown[position - 1].url
+        case .downArrow:
+            guard position + 1 < shown.count else { return .handled }
+            focusedChapter = shown[position + 1].url
+        default:
+            return .ignored
         }
-        .help("Drag to rearrange")
-        .contextMenu {
-            Button("Move Up") { move(chapter, to: number - 2) }.disabled(number == 1)
-            Button("Move Down") { move(chapter, to: number) }.disabled(number == model.chapters.count)
-            Button("Move to Top") { move(chapter, to: 0) }.disabled(number == 1)
-            Button("Move to End") { move(chapter, to: model.chapters.count - 1) }.disabled(number == model.chapters.count)
-            Divider()
-            Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([chapter.url]) }
-        }
+        return .handled
     }
 
     private func reorder(_ urls: [URL], onto target: ChapterStat) -> Bool {
@@ -404,9 +471,11 @@ private struct ManuscriptTab: View {
         return true
     }
 
-    private func move(_ chapter: ChapterStat, to index: Int) {
+    private func move(_ chapter: ChapterStat, to index: Int, spoken: Bool = false) {
         let target = names[min(max(0, index), names.count - 1)]
-        commit(ManuscriptStats.moved(names, chapter.name, to: target))
+        let order = ManuscriptStats.moved(names, chapter.name, to: target)
+        commit(order)
+        if spoken, let place = order.firstIndex(of: chapter.name) { Announce.say("\(chapter.title) moved to position \(place + 1) of \(order.count)") }
     }
 
     private func commit(_ order: [String]) {
@@ -460,6 +529,7 @@ struct RecentTab: View {
                 }
                 .buttonStyle(.plain).help(url.path)
                 .accessibilityLabel("\(name), in \(folder)")
+                .accessibilityHint("Opens this file")
                 .accessibilityAddTraits(isCurrent ? .isSelected : [])
             }
             if !stored.isEmpty {

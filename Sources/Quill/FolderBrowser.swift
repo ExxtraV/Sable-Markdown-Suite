@@ -1221,6 +1221,8 @@ struct FolderBrowserSection: View {
                     }
                 }
                 .focusable().focused($listFocused).focusEffectDisabled()
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(flat ? "Search results" : "Files and folders")
                 .onKeyPress(phases: .down) { handleKey($0, rows: shown) }
                 .onChange(of: browser.selection) { _, new in if new != nil { listFocused = true } }
                 // A new folder's name field can be below the fold; bring it into view once its row exists.
@@ -1391,6 +1393,9 @@ struct FolderBrowserSection: View {
         Text(header.title.uppercased()).font(.system(size: 9.5, weight: .semibold)).tracking(1.1).foregroundStyle(.secondary)
             .padding(.horizontal, 8).padding(.top, first ? 2 : 12).padding(.bottom, 3)
             .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+            .accessibilityLabel(header.title)
+            .accessibilityValue("\(header.count) \(header.count == 1 ? "item" : "items")")
+            .accessibilityAddTraits(.isHeader)
     }
 
     private func categoryHeader(_ category: FolderCategory, count: Int, first: Bool) -> some View {
@@ -1399,13 +1404,20 @@ struct FolderBrowserSection: View {
                 Image(systemName: category.collapsed ? "chevron.right" : "chevron.down").font(.system(size: 8, weight: .bold)).frame(width: 10)
                 if let color = category.color { Circle().fill(color.color).frame(width: 7, height: 7) }
                 Text(category.name.uppercased()).lineLimit(1)
-                Text("\(count)").foregroundStyle(.tertiary)
+                Text("\(count)").foregroundStyle(.secondary)
                 Spacer(minLength: 0)
             }
             .font(.system(size: 9.5, weight: .semibold)).tracking(1.1).foregroundStyle(.secondary)
             .padding(.horizontal, 8).padding(.vertical, 5).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Category \(category.name)")
+        .accessibilityValue("\(count) \(count == 1 ? "folder" : "folders"), \(category.collapsed ? "collapsed" : "expanded")")
+        .accessibilityHint(category.collapsed ? "Expands the category" : "Collapses the category")
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityAction(named: "Rename") { promptCategory(category) }
+        .accessibilityAction(named: "Move up") { browser.moveCategory(category.id, by: -1) }
+        .accessibilityAction(named: "Move down") { browser.moveCategory(category.id, by: 1) }
         .padding(.top, first ? 2 : 10)
         .background(targetedHeader == "category:\(category.id)" ? Color.accentColor.opacity(0.2) : .clear, in: RoundedRectangle(cornerRadius: 6))
         .dropDestination(for: URL.self) { urls, _ in dropOnHeader(urls, category: category.id) } isTargeted: { setTargeted("category:\(category.id)", $0) }
@@ -1461,11 +1473,13 @@ struct FolderBrowserSection: View {
 
     private func projectHeader(_ project: FictionProject, _ url: URL) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: "books.vertical.fill").font(.system(size: 15)).foregroundStyle(Color.accentColor)
+            Image(systemName: "books.vertical.fill").font(.system(size: 15)).foregroundStyle(Color.accentColor).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(project.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                Text("FICTION PROJECT").font(.system(size: 9, weight: .medium)).tracking(1.2).foregroundStyle(.secondary)
+                Text("FICTION PROJECT").font(.system(size: 9, weight: .medium)).tracking(1.2).foregroundStyle(.secondary).accessibilityHidden(true)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Fiction Project: \(project.title)")
             Spacer(minLength: 0)
             if browser.canLeaveProject {
                 Button { browser.leaveProject() } label: {
@@ -1486,23 +1500,26 @@ struct FolderBrowserSection: View {
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
         .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 9))
+        .accessibilityElement(children: .contain)
     }
 
     /// Focusing a folder narrows the desk to it; the trail shows the way back out.
     private func breadcrumbBar(_ current: URL) -> some View {
         HStack(spacing: 6) {
-            Button { browser.up() } label: { Image(systemName: "arrow.up") }
-                .disabled(current == browser.root).accessibilityLabel("Parent folder")
+            Button { browser.up() } label: { Image(systemName: "arrow.up") }.help("Show the parent folder")
+                .disabled(current == browser.root).accessibilityLabel("Parent folder").accessibilityHint("Shows the folder that holds this one")
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
                     ForEach(Array(browser.breadcrumbs.enumerated()), id: \.element) { index, url in
-                        if index > 0 { Image(systemName: "chevron.right").font(.system(size: 8)).foregroundStyle(.tertiary) }
+                        if index > 0 { Image(systemName: "chevron.right").font(.system(size: 8)).foregroundStyle(.secondary).accessibilityHidden(true) }
                         BreadcrumbChip(url: url, isCurrent: url == current, navigate: { browser.navigate(url) }, drop: move)
                     }
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Folder path")
             Spacer(minLength: 0)
-            if browser.loading || browser.searching { ProgressView().controlSize(.small) }
+            if browser.loading || browser.searching { ProgressView().controlSize(.small).accessibilityLabel(browser.searching ? "Searching" : "Loading") }
             Menu {
                 if browser.projectURL != nil {
                     ForEach(NewProjectItem.allCases, id: \.self) { item in Button(item.title + "…") { promptItem(item) } }
@@ -1566,14 +1583,17 @@ struct FolderBrowserSection: View {
 
     private func trashNotice(_ batch: TrashBatch) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "trash").foregroundStyle(.secondary)
+            Image(systemName: "trash").foregroundStyle(.secondary).accessibilityHidden(true)
             Text("Moved \(batch.summary) to the Trash").lineLimit(1)
             Spacer(minLength: 0)
             Button("Undo") { do { try browser.undoTrash() } catch { problem = error.localizedDescription } }.buttonStyle(.plain).foregroundStyle(Color.accentColor)
+                .accessibilityHint("Puts \(batch.summary) back where it was")
             Button { browser.dismissTrashNotice() } label: { Image(systemName: "xmark") }.buttonStyle(.plain).foregroundStyle(.secondary)
+                .accessibilityLabel("Dismiss")
         }
         .font(.system(size: 11)).padding(8)
         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: Actions
@@ -1779,11 +1799,11 @@ private struct NewProjectSheet: View {
     let cancel: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Image(systemName: "books.vertical").font(.largeTitle).foregroundStyle(.secondary)
-            Text("New Fiction Project").font(.title3.weight(.semibold))
+            Image(systemName: "books.vertical").font(.largeTitle).foregroundStyle(.secondary).accessibilityHidden(true)
+            Text("New Fiction Project").font(.title3.weight(.semibold)).accessibilityAddTraits(.isHeader)
             Text("Creates a folder in “\(location)” with Manuscript, Characters, Locations, World, Notes, and Images inside. It’s all ordinary Markdown files, so any editor can open it.")
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            TextField("Project name", text: $name).textFieldStyle(.roundedBorder).onSubmit(create)
+            TextField("Project name", text: $name).textFieldStyle(.roundedBorder).onSubmit(create).accessibilityLabel("Project name")
             Toggle("Add a sample chapter, character, and location", isOn: $starter)
             HStack {
                 Spacer()
@@ -1806,6 +1826,8 @@ private struct FilterChip<Label: View>: View {
                 .background(active ? Color.accentColor.opacity(0.22) : Color.primary.opacity(0.06), in: Capsule())
                 .overlay(Capsule().strokeBorder(active ? Color.accentColor.opacity(0.6) : .clear, lineWidth: 1))
         }.buttonStyle(.plain).help(help)
+            .accessibilityLabel(help)
+            .accessibilityAddTraits(active ? .isSelected : [])
     }
 }
 
@@ -1822,6 +1844,9 @@ private struct BreadcrumbChip: View {
             .padding(.horizontal, 4).padding(.vertical, 2)
             .background(targeted ? Color.accentColor.opacity(0.25) : .clear, in: RoundedRectangle(cornerRadius: 5))
             .help(isCurrent ? url.path : "\(url.path) — drop items here to move them")
+            .accessibilityLabel(url.lastPathComponent)
+            .accessibilityValue(isCurrent ? "Current folder" : "")
+            .accessibilityHint(isCurrent ? "" : "Shows this folder")
             .disabled(isCurrent)
             .dropDestination(for: URL.self) { urls, _ in drop(urls, url); return true } isTargeted: { targeted = $0 }
     }
@@ -1891,7 +1916,7 @@ private struct BrowserRowView: View {
                 Button { showCard(entry.url) } label: {
                     Image(systemName: "rectangle.stack.person.crop").font(.system(size: 11)).foregroundStyle(Color.secondary).frame(width: 22, height: 20)
                 }.buttonStyle(.plain)
-                .help("Show this \(cardKind.title.lowercased()) as a card").accessibilityLabel("Show as card")
+                .help("Show this \(cardKind.title.lowercased()) as a card").accessibilityLabel("Show \(title) as a card")
             }
             if !entry.isDirectory && !isCurrent && !isRenaming && (hovering || isParallel) {
                 Button { showParallel(entry.url) } label: {
@@ -1900,7 +1925,7 @@ private struct BrowserRowView: View {
                         .frame(width: 22, height: 20)
                 }.buttonStyle(.plain)
                 .help(isParallel ? "Open beside your draft" : "Open beside current document")
-                .accessibilityLabel(isParallel ? "Open beside your draft" : "Open beside current document")
+                .accessibilityLabel(isParallel ? "\(title) is open beside your draft" : "Open \(title) beside current document")
             }
         }
         .font(.system(size: 12)).padding(compact ? 4 : 7).padding(.leading, CGFloat(min(depth, 10)) * 12)
@@ -1947,19 +1972,66 @@ private struct BrowserRowView: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).lineLimit(1).fontWeight(isCurrent ? .medium : .regular)
-                if entry.isProject && detail == nil { Text("Fiction Project").font(.system(size: 10)).foregroundStyle(.tertiary) }
-                if let detail { Text(detail).font(.system(size: 10)).foregroundStyle(.tertiary).lineLimit(1) }
+                if entry.isProject && detail == nil { Text("Fiction Project").font(.system(size: 10)).foregroundStyle(.secondary) }
+                if let detail { Text(detail).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1) }
             }
             Spacer(minLength: 0)
-            if browser.isPinned(entry.url) { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(.tertiary) }
+            if browser.isPinned(entry.url) { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(.secondary) }
             if let mark, !showIcons || !entry.isDirectory {
                 Circle().fill(mark.color).frame(width: 7, height: 7).help(browser.label(for: mark))
             }
             if browser.loadingFolders.contains(entry.url) { ProgressView().controlSize(.mini) }
         }
-        .accessibilityElement(children: .combine)
+        // One element per row: its name, what it is and its state as the value, and the buttons that only show on hover
+        // as actions, so nothing here needs the pointer.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(spokenState)
+        .accessibilityHint(spokenHint)
         .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(isCurrent || isSelected ? .isSelected : [])
         .accessibilityAction { open() }
+        .accessibilityActions { rowActions }
+    }
+
+    /// What a screen reader says after the name: the kind of item and its state.
+    private var spokenState: String {
+        var parts: [String] = []
+        if entry.isProject { parts.append("Fiction Project") }
+        else if entry.isDirectory { parts.append(showPath ? "folder" : (expanded ? "folder, expanded" : "folder, collapsed")) }
+        else if let cardKind { parts.append("\(cardKind.title.lowercased()) card file") }
+        if isCurrent { parts.append("open for writing") }
+        if isParallel { parts.append("open beside your draft") }
+        if browser.isPinned(entry.url) { parts.append("pinned") }
+        if let mark { parts.append("marked \(browser.label(for: mark))") }
+        if let detail { parts.append(detail) }
+        return parts.joined(separator: ", ")
+    }
+    private var spokenHint: String {
+        if !entry.isDirectory { return "Opens this file for writing" }
+        if showPath || entry.isProject { return "Shows this folder in the desk" }
+        return expanded ? "Collapses the folder" : "Expands the folder"
+    }
+
+    @ViewBuilder private var rowActions: some View {
+        if entry.isDirectory {
+            if let addItem { Button(addItem.title) { addToFolder(entry.url, addItem) } }
+            Button("New Markdown file here") { promptNew(.file, entry.url) }
+            Button("New folder here") { promptNew(.folder, entry.url) }
+            if !entry.isProject { Button("Focus on this folder") { browser.navigate(entry.url) } }
+        } else {
+            if !isCurrent { Button("Open beside current document") { showParallel(entry.url) } }
+            if inProject && isMarkdown { Button("Show as card") { showCard(entry.url) } }
+        }
+        if browser.isChapter(entry.url) {
+            let names = browser.chapterNames()
+            let index = names.firstIndex(of: entry.name) ?? 0
+            if index > 0 { Button("Move chapter up") { try? browser.moveChapter(entry.url, to: index - 1) } }
+            if index < names.count - 1 { Button("Move chapter down") { try? browser.moveChapter(entry.url, to: index + 1) } }
+        }
+        Button("Rename") { browser.selection = entry.url; browser.renaming = entry.url }
+        if !browser.isManuscript(entry.url) { Button(browser.isPinned(entry.url) ? "Unpin" : "Pin to top") { browser.togglePin(entry.url) } }
+        Button("Move to Trash") { trash(browser.trashTargets(for: entry)) }
     }
 
     /// The quiet "+" on a hovered folder: a small menu, so a file and a folder are equally near and nothing has to be
@@ -1979,9 +2051,11 @@ private struct BrowserRowView: View {
 
     private var renameField: some View {
         HStack(spacing: 8) {
-            Image(systemName: entry.isDirectory ? "folder.fill" : "doc.text").foregroundStyle(.secondary)
+            Image(systemName: entry.isDirectory ? "folder.fill" : "doc.text").foregroundStyle(.secondary).accessibilityHidden(true)
             TextField("Name", text: $draft)
                 .textFieldStyle(.roundedBorder).focused($editing)
+                .accessibilityLabel("New name for \(title)")
+                .accessibilityHint("Press Return to rename, Escape to cancel")
                 .onSubmit { rename(entry, draft) }
                 .onExitCommand { browser.renaming = nil }
                 .onChange(of: editing) { _, focused in if !focused && isRenaming { browser.renaming = nil } }

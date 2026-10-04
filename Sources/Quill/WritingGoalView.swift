@@ -130,6 +130,7 @@ struct WritingGoalSection: View {
             Text(label).font(.caption2).foregroundStyle(.secondary)
             Text(value).font(.callout.weight(.medium)).monospacedDigit()
         }
+        .accessibilityElement(children: .combine)
     }
 
     private static func dateText(_ key: String) -> String {

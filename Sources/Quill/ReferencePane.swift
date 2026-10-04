@@ -34,16 +34,21 @@ struct ParallelMarkdownPane: View {
                     Text(editing ? "PARALLEL · EDITING" : "PARALLEL · READING")
                         .font(.system(size: 9, weight: .medium)).tracking(1).foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Beside your draft: \(url.deletingPathExtension().lastPathComponent)")
+                .accessibilityValue(editing ? "Editing" : "Reading")
                 Spacer()
                 if abs(zoom - 1) > 0.01 {
                     Button("\(Int((zoom * 100).rounded()))%") { WritingZoom.set(1, for: WritingZoom.parallelKey) }
                         .font(.system(size: 11)).foregroundStyle(.secondary).help("This pane is zoomed on its own. Click to reset it to 100%.")
+                        .accessibilityLabel("Reset zoom, now \(Int((zoom * 100).rounded())) percent")
                 }
                 Button(editing ? "Read" : "Edit") {
                     if editing { document?.saveParallel(); editing = false }
                     else { openForEditing() }
                 }
                 .disabled(loading)
+                .accessibilityHint(editing ? "Saves your changes and goes back to reading" : "Lets you change this document beside your draft")
                 Button { reload = UUID() } label: { Image(systemName: "arrow.clockwise") }
                     .disabled(document != nil).help("Reload saved file").accessibilityLabel("Reload parallel document")
                 Button(action: requestClose) { Image(systemName: "xmark") }

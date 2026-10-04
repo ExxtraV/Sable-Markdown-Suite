@@ -25,6 +25,8 @@ enum ToolbarLayout {
     /// What is stored until the writer changes anything: the minimal toolbar.
     static let defaultToken = "default"
     static let minimal = ["desk", "reading", "style", "focus"]
+    /// Tools that stay on or off, and say which on the toolbar. Reading mode swaps its own label and icon instead.
+    static let switches: Set<String> = ["desk", "focus", "prose", "spelling", "names"]
     static let writers = ["desk", "reading", "bold", "italic", "link", "heading", "bullets", "quote", "scenebreak", "style", "focus", "sentences", "revisions"]
 
     static let all: [ToolbarTool] = [
@@ -74,18 +76,42 @@ enum ToolbarLayout {
     static func encode(_ ids: [String]) -> String { ids.joined(separator: ",") }
 }
 
-/// Choose which tools are on the toolbar and put them in order.
+/// Choose which tools are on the toolbar and put them in order. Dragging puts them in order with the pointer; selecting
+/// a tool and pressing ⌥↑ or ⌥↓ does it from the keyboard, and VoiceOver offers the same moves as actions on each row.
 struct ToolbarCustomizer: View {
     @Binding var stored: String
     let close: () -> Void
+    @State private var selected: String?
+    @State private var picked: String?
 
     private var chosen: [String] { ToolbarLayout.ids(from: stored) }
     private func set(_ ids: [String]) { stored = ToolbarLayout.encode(ids) }
 
+    private func move(_ id: String, by step: Int) {
+        var ids = chosen
+        guard let from = ids.firstIndex(of: id), ids.indices.contains(from + step), let tool = ToolbarLayout.tool(id) else { return }
+        ids.swapAt(from, from + step)
+        set(ids)
+        Announce.say("\(tool.title) moved to position \(from + step + 1) of \(ids.count)")
+    }
+    private func remove(_ id: String) {
+        guard let tool = ToolbarLayout.tool(id) else { return }
+        set(chosen.filter { $0 != id })
+        if selected == id { selected = nil }
+        Announce.say("\(tool.title) taken off the toolbar")
+    }
+    private func add(_ id: String) {
+        guard let tool = ToolbarLayout.tool(id), !chosen.contains(id) else { return }
+        let ids = chosen + [id]
+        set(ids)
+        if picked == id { picked = nil }
+        Announce.say("\(tool.title) added to the toolbar, position \(ids.count) of \(ids.count)")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Customize Toolbar").font(.title3.weight(.semibold))
-            Text("It starts small. Add the tools you reach for, and drag to put them in order. The ⋯ button always stays, so you can come back here.")
+            Text("Customize Toolbar").font(.title3.weight(.semibold)).accessibilitySectionHeading()
+            Text("It starts small. Add the tools you reach for, and drag to put them in order, or select one and press ⌥↑ or ⌥↓. The ⋯ button always stays, so you can come back here.")
                 .font(.callout).foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 Text("Start from").font(.caption).foregroundStyle(.secondary)
@@ -96,50 +122,81 @@ struct ToolbarCustomizer: View {
             }.controlSize(.small)
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("On your toolbar (\(chosen.count))").font(.headline)
-                    List {
-                        ForEach(chosen, id: \.self) { id in
+                    Text("On your toolbar (\(chosen.count))").font(.headline).accessibilitySectionHeading()
+                    List(selection: $selected) {
+                        ForEach(Array(chosen.enumerated()), id: \.element) { index, id in
                             if let tool = ToolbarLayout.tool(id) {
                                 HStack(spacing: 10) {
-                                    Image(systemName: tool.icon).frame(width: 20).foregroundStyle(.secondary)
+                                    Image(systemName: tool.icon).frame(width: 20).foregroundStyle(.secondary).accessibilityHidden(true)
                                     Text(tool.title)
                                     Spacer()
-                                    Button { set(chosen.filter { $0 != id }) } label: { Image(systemName: "minus.circle.fill").foregroundStyle(.secondary) }
+                                    Button { remove(id) } label: { Image(systemName: "minus.circle.fill").foregroundStyle(.secondary) }
                                         .buttonStyle(.plain).help("Take it off the toolbar")
-                                }.padding(.vertical, 1)
+                                        .accessibilityLabel("Take \(tool.title) off the toolbar")
+                                }
+                                .padding(.vertical, 1)
+                                .tag(id)
+                                .accessibilityElement(children: .contain)
+                                .accessibilityLabel("\(tool.title), position \(index + 1) of \(chosen.count)")
+                                .accessibilityAction(named: "Move up") { move(id, by: -1) }
+                                .accessibilityAction(named: "Move down") { move(id, by: 1) }
                             }
                         }
                         .onMove { from, to in var ids = chosen; ids.move(fromOffsets: from, toOffset: to); set(ids) }
                     }
                     .listStyle(.bordered)
+                    .accessibilityLabel("Tools on your toolbar")
                     .overlay { if chosen.isEmpty { Text("Nothing here yet.\nAdd tools from the right.").multilineTextAlignment(.center).foregroundStyle(.secondary) } }
+                    HStack(spacing: 8) {
+                        Button { if let selected { move(selected, by: -1) } } label: { Label("Move Up", systemImage: "arrow.up") }
+                            .keyboardShortcut(.upArrow, modifiers: .option)
+                            .disabled(selected == nil || chosen.first == selected)
+                        Button { if let selected { move(selected, by: 1) } } label: { Label("Move Down", systemImage: "arrow.down") }
+                            .keyboardShortcut(.downArrow, modifiers: .option)
+                            .disabled(selected == nil || chosen.last == selected)
+                    }.controlSize(.small)
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Available").font(.headline)
-                    List {
+                    Text("Available").font(.headline).accessibilitySectionHeading()
+                    List(selection: $picked) {
                         ForEach(ToolbarTool.Group.allCases, id: \.self) { group in
                             let tools = ToolbarLayout.all.filter { $0.group == group && !chosen.contains($0.id) }
                             if !tools.isEmpty {
                                 Section(group.rawValue) {
                                     ForEach(tools) { tool in
                                         HStack(spacing: 10) {
-                                            Image(systemName: tool.icon).frame(width: 20).foregroundStyle(.secondary)
+                                            Image(systemName: tool.icon).frame(width: 20).foregroundStyle(.secondary).accessibilityHidden(true)
                                             VStack(alignment: .leading, spacing: 0) {
                                                 Text(tool.title)
-                                                if let shortcut = tool.shortcut { Text(shortcut).font(.caption2).foregroundStyle(.tertiary) }
+                                                if let shortcut = tool.shortcut { Text(shortcut).font(.caption2).foregroundStyle(.secondary) }
                                             }
                                             Spacer()
-                                            Button { set(chosen + [tool.id]) } label: { Image(systemName: "plus.circle.fill").foregroundStyle(Color.accentColor) }
+                                            Button { add(tool.id) } label: { Image(systemName: "plus.circle.fill").foregroundStyle(Color.accentColor) }
                                                 .buttonStyle(.plain).help(tool.detail)
-                                        }.padding(.vertical, 1)
+                                                .accessibilityLabel("Add \(tool.title) to the toolbar")
+                                        }
+                                        .padding(.vertical, 1)
+                                        .tag(tool.id)
+                                        .accessibilityElement(children: .contain)
+                                        .accessibilityLabel(tool.title)
+                                        .accessibilityHint(tool.detail)
+                                        .accessibilityAction(named: "Add to toolbar") { add(tool.id) }
                                     }
                                 }
                             }
                         }
-                    }.listStyle(.bordered)
+                    }
+                    .listStyle(.bordered)
+                    .accessibilityLabel("Tools you can add")
+                    Button { if let picked { add(picked) } } label: { Label("Add to Toolbar", systemImage: "plus") }
+                        .keyboardShortcut(.return, modifiers: .command)
+                        .disabled(picked == nil || chosen.contains(picked ?? ""))
+                        .controlSize(.small)
                 }
             }
             HStack { Spacer(); Button("Done", action: close).keyboardShortcut(.defaultAction) }
-        }.padding(20).frame(width: 640, height: 560)
+        }
+        .padding(20).frame(width: 640, height: 580)
+        .onExitCommand(perform: close)
     }
 }

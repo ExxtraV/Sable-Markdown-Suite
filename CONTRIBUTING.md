@@ -50,10 +50,11 @@ swiftc -O Sources/QuillCore/MarkdownSyntax.swift Sources/QuillCore/MarkdownEditi
 swiftc Sources/QuillCore/MarkdownEditing.swift Sources/QuillCore/MarkdownDocument.swift scripts/check-markdown-editing.swift -o /tmp/quill-markdown-editing-checks && /tmp/quill-markdown-editing-checks
 swiftc Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-import.swift -o /tmp/quill-import-checks && /tmp/quill-import-checks
 swiftc Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-project-search.swift -o /tmp/quill-search-checks && /tmp/quill-search-checks
+swiftc Sources/QuillCore/ThemePalette.swift scripts/check-contrast.swift -o /tmp/quill-contrast-checks && /tmp/quill-contrast-checks
 swiftc Sources/Quill/ZoomSteps.swift scripts/check-zoom-steps.swift -o /tmp/quill-zoom-step-checks && /tmp/quill-zoom-step-checks
 swiftc Sources/Quill/SafeFile.swift scripts/check-file-safety.swift -o /tmp/quill-file-safety-checks && /tmp/quill-file-safety-checks
 swiftc Sources/Quill/SafeFile.swift Sources/Quill/Revisions.swift scripts/check-revisions.swift -o /tmp/quill-revision-checks && /tmp/quill-revision-checks
-swiftc Sources/Quill/ToolbarTools.swift scripts/check-toolbar.swift -o /tmp/quill-toolbar-checks && /tmp/quill-toolbar-checks
+swiftc Sources/Quill/AccessibilitySupport.swift Sources/Quill/ToolbarTools.swift scripts/check-toolbar.swift -o /tmp/quill-toolbar-checks && /tmp/quill-toolbar-checks
 swiftc Sources/Quill/WritingHistory.swift Sources/Quill/WritingGoal.swift scripts/check-writing-history.swift -o /tmp/quill-writing-history-checks && /tmp/quill-writing-history-checks
 swiftc scripts/check-app-icon.swift -o /tmp/quill-app-icon-checks && /tmp/quill-app-icon-checks
 
@@ -90,16 +91,16 @@ Build once, then run all of these against the same output directory:
 ```sh
 QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
 
-swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-editor.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-editor-checks
+swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/AccessibilitySupport.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-editor.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-editor-checks
 /tmp/quill-editor-checks
 
-swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/check-incremental-styling.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-incremental-styling-checks
+swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/AccessibilitySupport.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/check-incremental-styling.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-incremental-styling-checks
 /tmp/quill-incremental-styling-checks
 
-swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/bench-typing.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-typing-bench
+swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/AccessibilitySupport.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/typing-fixture.swift scripts/bench-typing.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-typing-bench
 /tmp/quill-typing-bench --smoke
 
-swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/ReadingView.swift Sources/Quill/SafeFile.swift Sources/Quill/ReferenceDocument.swift Sources/Quill/ReferencePane.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-reading-reference.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-parallel-checks
+swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/ReadingView.swift Sources/Quill/SafeFile.swift Sources/Quill/ReferenceDocument.swift Sources/Quill/ReferencePane.swift Sources/Quill/AccessibilitySupport.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-reading-reference.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-parallel-checks
 /tmp/quill-parallel-checks
 
 swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/StoryTimeline.swift scripts/check-outline.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-outline-checks
@@ -117,6 +118,8 @@ swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/SampleProject.swift Sources
 `check-styling-ranges.swift` is the pure-logic half: on random Markdown built to hit every construct that crosses a line (fences, notes, front matter, `\r`, U+2028), it proves the range-limited grammar, prose review, sentence colors, outline, formatting exit, and focus paragraph find exactly what verbatim copies of the old whole-text code find, and that whenever the editor would restyle only a region, nothing outside it changes. `QUILL_RANGE_SEED` and `QUILL_RANGE_DOCUMENTS` change the seed and size of a run.
 
 `bench-typing.swift` times keystrokes in a generated 10k-, 50k-, and 100k-word manuscript. CI runs it with `--smoke` only to keep it building; run it without flags for real numbers (`--out file.md` saves them, `--write-fixture path.md` writes the 100k-word manuscript to open in the app). [docs/performance/typing-baseline.md](docs/performance/typing-baseline.md) records the baseline.
+
+`check-contrast.swift` measures the WCAG 2 contrast of every color the editor draws text in against each theme's page, in the default look and with Increase Contrast on. The numbers come from `Sources/QuillCore/ThemePalette.swift`, which the app draws with: each theme's text, the dimmed Markdown symbols, muted words (quotes, notes), paragraph focus (the lines beside the paragraph, "Dim evenly", and the far end of the fade), and the default name and sentence colors, over the paper and over every blend of the edge shading at its default strength and at the slider's maximum. It prints a table and exits non-zero on a failure. The limits are listed at the top of the script. The far end of the paragraph-focus fade has none by default because it is meant to disappear; with Increase Contrast it must stay at 3:1. A color a writer picks themselves isn't checked. Add a theme or change a color in `ThemePalette.swift` and run it; if you add a new kind of text the editor dims or colors, add its row to the script too.
 
 ### Python checks
 
@@ -140,6 +143,37 @@ python3 scripts/check-document-types.py
 `scripts/check-release-config.py` and `scripts/check-appcast.py` run only as part of an actual release (`.github/workflows/release.yml`); they need release-only environment variables and aren't part of the regular check suite. `scripts/verify-update.swift` is invoked by `check-appcast.py`, not run directly.
 
 `scripts/check-updater.swift` (a check that an unconfigured `AppUpdater` stays inactive) isn't currently wired into CI or the README. `AppUpdater` links Sparkle, so this check needs the same release-build/link approach as the checks above rather than a plain `swiftc` invocation. If you touch update-check logic, work out the right compile line for it and add it to `check.yml` alongside your change.
+
+## Accessibility
+
+Sable aims to work with VoiceOver, with the keyboard alone, and with Increase Contrast, Reduce Transparency, and Reduce Motion. The conventions:
+
+- **Name everything.** Give every icon-only button an `accessibilityLabel` that says what it does, and a hint where the label alone isn't enough. A control that switches something on and off reports On or Off as its value (`BarButton(toggles:)`); one that just acts doesn't. Hide purely decorative images with `accessibilityHidden(true)`.
+- **Group what belongs together.** A row in the desk, a chapter, a card, and a timeline point are each one element with a label, a value for its state, and traits. Wrap related controls in `accessibilityElement(children: .contain)` with a label.
+- **Nothing hover-only.** Controls that appear only under the pointer need the same thing as an `accessibilityAction`, and anything you can drag needs a keyboard or action equivalent (see the Customize Tools sheet, the Manuscript tab, and cards).
+- **Every sheet and popover closes with Escape** (a `.cancelAction` button or `.onExitCommand`) and puts focus somewhere sensible when it opens.
+- **Respect the display settings.** Use `quietAnimation(_:value:)` and `withQuietAnimation` instead of `animation` and `withAnimation`, `panelFill(in:)` and `panelOutline(_:)` instead of a bare material, and read `colorSchemeContrast`, `accessibilityReduceTransparency`, and `accessibilityReduceMotion` from the environment. `AccessibilitySupport.swift` has these helpers.
+- **Colors come from `ThemePalette`, and `check-contrast.swift` must pass.** Don't use `tertiaryLabelColor` or other system grays for text on the writing page; they ignore the theme.
+- **Say what changed when nothing else will.** `Announce.say(_:)` speaks a short message to VoiceOver (a chapter moved, a mode switched). Pure strings that a screen reader will read, such as the Story Timeline's, live in the model files so a check can cover them.
+
+The interface can't be tested for VoiceOver by a script, so a person checks it by hand before a release. This is the short version of that pass.
+
+### Manual VoiceOver test
+
+Build and open the app (quit any older copy first), choose Help → Open Sample Project, and turn VoiceOver on with ⌘F5. Move with Control-Option and the arrow keys (VO-Right and VO-Left). Write down anything that is unnamed, read twice, read in the wrong order, or doesn't match what's on screen.
+
+1. **Window order.** VO-Right through the window. Expect the writing desk (tabs, options, search, files), then the toolbar, the writing page, the scene tags, and the status bar, with the cards last. The toolbar should be in view even though auto-hide is on.
+2. **Toolbar.** Writing desk, Paragraph focus, Prose suggestions, Spelling & grammar, and Highlight names read "On" or "Off" and change when pressed (VO-Space). Bold, Link, and Export read no state. The **Toolbar options** button opens a popover you can leave with Escape.
+3. **Writing desk.** On a folder: "name, folder, collapsed", and VO-Space expands it. Open the Actions rotor on a file in the Characters folder and expect Show as card, Open beside current document, Rename, Pin to top, and Move to Trash (don't trash anything). In the Manuscript tab a chapter reads "Chapter 2: title", its word count and position, and offers Move up and Move down. With the row focused, ⌥↓ moves it and VoiceOver says its new position.
+4. **Cards.** Show a character as a card. It reads as a group named "Character card: name". Its actions include Pin or Unpin, Move to each other corner, and Make card larger or smaller; the **Card size** control adjusts with VO-Up and VO-Down. Unpin it, move away, then activate the collapsed card: it opens and stays open.
+5. **Scene tags.** The chips read "Character: name" or "Location: name", and a tag with no card says so. **Tag this scene** opens a list whose items read "name, in this scene" or "not in this scene", and toggle when pressed.
+6. **Story Timeline** (⌥⌘Y). The chart reads "Story arc" with a summary of its headings and beats. Each point reads like "Chapter 3, Midpoint, point 3 of 6, medium tension"; pressing it closes the timeline and jumps to that heading. Escape closes it.
+7. **Writing record** (Settings → General). The chart reads a title and summary first ("Today: … Last 30 days: …"), and its audio graph plays the days as a tone. The goal chart (turn on a goal) reads its own summary.
+8. **Sheets.** *Export* (⇧⌘E): fields are named, each chapter reads as a checkbox with its words, errors are spoken, Escape cancels. *Revisions* (⌥⌘R): snapshots read their name, kind, date, and words; files read "Changed, 40 words added"; the changes text starts with a summary of words added and removed. *Find & Replace* (⌥⇧⌘F): focus lands in Find, the number of matches is spoken as you type, each match reads "Line 12: …", and Escape closes it.
+9. **Customize Tools** (Toolbar options → Customize Tools…). Select a tool in "Tools on your toolbar" and press ⌥↑ or ⌥↓: it moves and VoiceOver says "moved to position 3 of 9". Each row also offers Move up and Move down; each available tool offers Add to toolbar.
+10. **Writing Style** (⌥⌘,). Sliders read their name and a spoken value ("Font size, 19 points") and adjust with VO-Up and VO-Down. Each theme reads its name, "Dark theme" or "Light theme", and "selected" on the current one.
+11. **Keyboard only.** Turn VoiceOver off and turn on System Settings → Keyboard → Keyboard navigation. Tab reaches the toolbar, the desk, and each sheet's controls; Escape closes every sheet and popover, including the first-launch folder sheet ("Not Now").
+12. **Display settings.** Turn on each in System Settings → Accessibility → Display and look at the writing page, a card, and the toolbar. *Increase Contrast*: dimmed symbols and paragraph focus are clearly brighter, outlines are firmer, and the page is flat. *Reduce Transparency*: the toolbar, cards, and scene tags are solid. *Reduce Motion*: nothing slides or fades, and there are no particles or name shimmer.
 
 ## Preview build
 

@@ -17,7 +17,7 @@ struct StoryTimelineWindow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Story Timeline").font(.title3.weight(.semibold))
+                Text("Story Timeline").font(.title3.weight(.semibold)).accessibilitySectionHeading()
                 Spacer()
                 Button("Done", action: close).keyboardShortcut(.cancelAction)
             }
@@ -29,6 +29,9 @@ struct StoryTimelineWindow: View {
                 ScrollView(.horizontal) {
                     chart.padding(.top, 10).padding(.bottom, 4)
                 }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Story arc")
+                .accessibilityValue(arcSummary)
                 legend
             }
         }
@@ -40,10 +43,10 @@ struct StoryTimelineWindow: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Spacer()
-            Image(systemName: "chart.line.uptrend.xyaxis").font(.system(size: 32)).foregroundStyle(.tertiary)
+            Image(systemName: "chart.line.uptrend.xyaxis").font(.system(size: 32)).foregroundStyle(.secondary).accessibilityHidden(true)
             Text("Nothing in the Outline folder yet.").foregroundStyle(.secondary)
             Text("Add headings there — chapters, acts, or beats — and they'll show up here. Tag one in parentheses, like “(Climax)”, to pin it to its place on the arc.")
-                .font(.caption).foregroundStyle(.tertiary).multilineTextAlignment(.center).frame(maxWidth: 420)
+                .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 420)
             Spacer()
         }.frame(maxWidth: .infinity)
     }
@@ -58,6 +61,7 @@ struct StoryTimelineWindow: View {
                 }
             }
             .stroke(Color.accentColor.opacity(0.55), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            .accessibilityHidden(true)
 
             ForEach(Array(points.enumerated()), id: \.element.id) { index, point in
                 let position = self.position(index, point, width: width)
@@ -68,16 +72,22 @@ struct StoryTimelineWindow: View {
                 }
                 .fixedSize()
                 .position(x: position.x, y: max(20, position.y - 34))
+                // The point's own button speaks the title and beat, so the written label isn't read a second time.
+                .accessibilityHidden(true)
 
-                Button {} label: {
+                Button { open(point.url, point.range) } label: {
                     Circle().fill(point.beat != nil ? color(for: point.beat!) : Color.accentColor)
                         .frame(width: point.beat != nil ? 11 : 7, height: point.beat != nil ? 11 : 7)
                         .overlay(Circle().strokeBorder(.background, lineWidth: 1.5))
+                        // A bigger target than the dot, for the pointer and for a keyboard focus ring.
+                        .frame(width: 22, height: 22).contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .position(position)
                 .help(point.beat != nil ? "\(point.title) — \(point.beat!.rawValue)" : point.title)
-                .onTapGesture { open(point.url, point.range) }
+                .accessibilityLabel(StoryTimelineSummary.label(for: point))
+                .accessibilityValue(StoryTimelineSummary.value(for: point, at: index, of: points.count))
+                .accessibilityHint("Closes the timeline and jumps to this heading in your writing")
             }
         }
         .frame(width: width, height: chartHeight, alignment: .bottomLeading)
@@ -88,6 +98,9 @@ struct StoryTimelineWindow: View {
         let y = chartHeight - 16 - CGFloat(point.height) * (chartHeight - 60)
         return CGPoint(x: x, y: y)
     }
+
+    /// What the arc says, for VoiceOver before it reaches any one point.
+    private var arcSummary: String { StoryTimelineSummary.arc(points) }
 
     private func color(for beat: StoryBeat) -> Color {
         switch beat {
@@ -106,9 +119,10 @@ struct StoryTimelineWindow: View {
                 Label(beat.rawValue, systemImage: "circle.fill").font(.caption2).foregroundStyle(.secondary)
                     .labelStyle(.titleAndIcon).imageScale(.small)
                     .foregroundColor(color(for: beat))
+                    .accessibilityHidden(true)
             }
             Spacer()
-            Text("Click a point to jump to it.").font(.caption2).foregroundStyle(.tertiary)
+            Text("Click a point, or Tab to one and press Space, to jump to it.").font(.caption2).foregroundStyle(.secondary)
         }
     }
 

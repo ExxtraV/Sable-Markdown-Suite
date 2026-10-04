@@ -248,6 +248,8 @@ struct EditorSettings {
     var nameKinds = Set(CardKind.allCases)
     var nameShimmer = true
     var dimMarkers = true
+    /// Increase Contrast is on.
+    var highContrast = false
     var smartTypography = false
     var spellCheck = true
 
@@ -368,6 +370,7 @@ final class HostedEditor {
         editor.nameKinds = settings.nameKinds
         editor.nameCards = ManuscriptFixture.cards
         editor.dimMarkers = settings.dimMarkers
+        editor.highContrast = settings.highContrast
         editor.smartTypography = settings.smartTypography
         editor.reviewEnabled = settings.review
         editor.reviewWords = settings.words

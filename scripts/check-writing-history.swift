@@ -39,7 +39,12 @@ import Foundation
         goalChecks(defaults: defaults)
 
         defaults.removePersistentDomain(forName: "quill-history-checks-\(getpid())")
-        print("Passed: writing history (adding, same-day totals, filled ranges, best day, active days, boundaries, reset) and writing goals (pace math, date edges, presets, storage).")
+        // The spoken summary of the chart
+        precondition(WritingHistory.summary(days: recent, total: 500) == "Today: 300 words. Last 5 days: 500 words, written on 2 days. All time: 500 words.", "The record in words: \(WritingHistory.summary(days: recent, total: 500))")
+        precondition(WritingHistory.summary(days: [], total: 0) == "Today: 0 words. Last 0 days: 0 words, written on 0 days. All time: 0 words.", "An empty record still reads")
+        precondition(WritingHistory.summary(days: [.init(date: date(2026, 3, 3), words: 1)], total: 1) == "Today: 1 word. Last 1 day: 1 word, written on 1 day. All time: 1 word.", "One word, one day: \(WritingHistory.summary(days: [.init(date: date(2026, 3, 3), words: 1)], total: 1))")
+
+        print("Passed: writing history (adding, same-day totals, filled ranges, best day, active days, boundaries, reset, spoken summary) and writing goals (pace math, date edges, presets, storage).")
     }
 
     static func makeCalendar(_ zone: String) -> Calendar {

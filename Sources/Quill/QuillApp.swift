@@ -139,6 +139,9 @@ struct WritingView: View {
     private let savePoll = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     @State private var reading = false
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+    @ObservedObject private var assistive = AssistiveTechnology.shared
     @AppStorage("syntaxClasses") private var syntaxClasses = 0
     @AppStorage("wordColorVersion") private var colorVersion = 0
     @AppStorage("spellCheckEnabled") private var spellCheckEnabled = true
@@ -249,12 +252,24 @@ struct WritingView: View {
                 parallelPane
             }
         }
-        .animation(.smooth(duration: 0.3), value: sidebar)
+        .quietAnimation(.smooth(duration: 0.3), value: sidebar)
     }
 
-    /// A thin strip on the desk's edge; drag it to make the desk wider or narrower.
+    /// A thin strip on the desk's edge; drag it to make the desk wider or narrower. VoiceOver adjusts it up and down
+    /// like a slider.
     private var sidebarResizeHandle: some View {
         Color.clear.frame(width: 8).contentShape(Rectangle())
+            .accessibilityElement()
+            .accessibilityLabel("Writing desk width")
+            .accessibilityValue("\(Int(deskWidth)) points")
+            .accessibilityHint("Swipe up to widen the desk, down to narrow it.")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: sidebarWidth = min(420, deskWidth + 20)
+                case .decrement: sidebarWidth = max(240, deskWidth - 20)
+                @unknown default: break
+                }
+            }
             .onHover { inside in
                 if inside && !resizeCursorActive { NSCursor.resizeLeftRight.push(); resizeCursorActive = true }
                 else if !inside && resizeCursorActive { NSCursor.pop(); resizeCursorActive = false }
@@ -306,7 +321,7 @@ struct WritingView: View {
     private var writingStyleSheet: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Writing Style").font(.title3.weight(.semibold))
+                Text("Writing Style").font(.title3.weight(.semibold)).accessibilitySectionHeading()
                 Spacer()
                 Button("Done") { showStyle = false }.keyboardShortcut(.defaultAction)
             }.padding(.horizontal, 20).padding(.vertical, 14)
@@ -314,6 +329,7 @@ struct WritingView: View {
             Form { WritingStyleControls() }.formStyle(.grouped)
         }
         .frame(width: 540, height: 660)
+        .onExitCommand { showStyle = false }
     }
 
     private var writingActions: WritingActions {
@@ -502,7 +518,7 @@ struct WritingView: View {
         // Spread new cards across the top corners first so they don't pile up.
         let loads = Dictionary(grouping: openCards, by: \.corner).mapValues(\.count)
         let corner = [CardCorner.topTrailing, .topLeading, .bottomTrailing, .bottomLeading].min { (loads[$0] ?? 0) < (loads[$1] ?? 0) } ?? .topTrailing
-        withAnimation(.smooth) { openCards.append(OpenCard(url: url, corner: corner)) }
+        withQuietAnimation { openCards.append(OpenCard(url: url, corner: corner)) }
     }
 
     /// Edits one front-matter field. When the card's file is the open document the change goes through the
@@ -523,15 +539,19 @@ struct WritingView: View {
     }
 
     /// Dark themes shade toward the edges of the page when that is on.
-    private var shadedPage: Bool { edgeShading && WritingTheme.named(themeName).edgeColor != nil }
+    private var shadedPage: Bool { edgeShading && !flatPage && WritingTheme.named(themeName).edgeColor != nil }
+    /// Increase Contrast and Reduce Transparency get a flat page: no edge shading and no drifting motes behind the words.
+    private var flatPage: Bool { reduceTransparency || contrast == .increased }
     /// A theme with particles wants the page painted behind the text even if edge shading itself is off.
-    private var wantsPaperBehindText: Bool { shadedPage || (themeParticles && WritingTheme.named(themeName).particles) }
+    private var wantsPaperBehindText: Bool { shadedPage || (themeParticles && !flatPage && WritingTheme.named(themeName).particles) }
 
     private var toolbarEdge: ToolbarEdge { ToolbarEdge(rawValue: toolbarEdgeName) ?? .top }
+    /// The toolbar stays put for anyone using VoiceOver or Full Keyboard Access, who can't summon it with the pointer.
+    private var effectiveAutoHide: Bool { toolbarAutoHide && !assistive.keepsToolbarVisible }
 
     private var hoverToolbar: some View {
         let edge = toolbarEdge
-        return HoverToolbar(edge: edge, enabled: toolbarEnabled, autoHide: toolbarAutoHide, keepOpen: showToolbarOptions) {
+        return HoverToolbar(edge: edge, enabled: toolbarEnabled, autoHide: effectiveAutoHide, keepOpen: showToolbarOptions) {
             AnyLayout(edge.vertical ? AnyLayout(VStackLayout(spacing: 4)) : AnyLayout(HStackLayout(spacing: 2))) {
                 let tools = ToolbarLayout.tools(from: toolbarTools)
                 ForEach(Array(tools.enumerated()), id: \.element.id) { index, tool in
@@ -548,7 +568,8 @@ struct WritingView: View {
     /// One toolbar button, wired to what it does.
     @ViewBuilder private func toolButton(_ tool: ToolbarTool) -> some View {
         let format: (Selector) -> () -> Void = { selector in { commands.format(selector) } }
-        BarButton(icon: toolIcon(tool), label: toolLabel(tool), detail: tool.detail, shortcut: tool.shortcut, active: toolActive(tool), action: toolAction(tool.id, format))
+        BarButton(icon: toolIcon(tool), label: toolLabel(tool), detail: tool.detail, shortcut: tool.shortcut, active: toolActive(tool),
+                  toggles: ToolbarLayout.switches.contains(tool.id), action: toolAction(tool.id, format))
             .disabled(tool.editsText && reading)
     }
 
@@ -618,6 +639,7 @@ struct WritingView: View {
         Rectangle().fill(.separator)
             .frame(width: toolbarEdge.vertical ? 22 : 1, height: toolbarEdge.vertical ? 1 : 20)
             .padding(toolbarEdge.vertical ? .vertical : .horizontal, 5)
+            .accessibilityHidden(true)
     }
 
     private var errorPresented: Binding<Bool> {
@@ -780,13 +802,15 @@ struct WritingView: View {
     /// A pinned toolbar reserves its own strip so it never covers the page; an auto-hiding one floats above it.
     private var editorPanel: some View {
         let edge = toolbarEdge
-        let reserve: CGFloat = (toolbarAutoHide || !toolbarEnabled) ? 0 : 68
+        let reserve: CGFloat = (effectiveAutoHide || !toolbarEnabled) ? 0 : 68
+        // Read in this order: the toolbar, then the page, then the cards over it.
         return editorColumn
             .padding(.top, edge == .top ? reserve : 0)
             .padding(.leading, edge == .left ? reserve : 0)
             .padding(.trailing, edge == .right ? reserve : 0)
-            .overlay { cardDock }
-            .overlay { hoverToolbar }
+            .accessibilitySortPriority(2)
+            .overlay { cardDock.accessibilitySortPriority(1) }
+            .overlay { hoverToolbar.accessibilitySortPriority(3) }
             .sheet(item: $exportSource) { source in ExportSheet(source: source, close: { exportSource = nil }) }
             .sheet(item: $findRequest) { request in
                 FindReplaceSheet(request: request,
@@ -810,8 +834,8 @@ struct WritingView: View {
             .alert("Import", isPresented: Binding(get: { importMessage != nil }, set: { if !$0 { importMessage = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: { Text(importMessage ?? "") }
-            .animation(.smooth(duration: 0.3), value: reserve)
-            .animation(.smooth(duration: 0.3), value: edge)
+            .quietAnimation(.smooth(duration: 0.3), value: reserve)
+            .quietAnimation(.smooth(duration: 0.3), value: edge)
     }
 
     private var editorColumn: some View {
@@ -841,22 +865,26 @@ struct WritingView: View {
             .onChange(of: reading) { _, value in
                 if value { commands.editor?.window?.makeFirstResponder(nil) }
                 else { commands.editor?.window?.makeFirstResponder(commands.editor) }
+                Announce.say(value ? "Reading mode. The Markdown marks are hidden." : "Editing mode")
             }
             fileNotice
             Divider().opacity(0.5)
             HStack(spacing: 12) {
                 Text(commands.selectionWords > 0 ? "\(commands.selectionWords) of \(count) words selected" : "\(count) words")
-                Text("\(Int(zoom * 100))%")
+                Text("\(Int(zoom * 100))%").accessibilityLabel("Zoom \(Int(zoom * 100)) percent")
                 Button { saveFeedback.save(commands.editor?.window?.windowController?.document as? NSDocument) } label: {
                     Text(saveFeedback.message.isEmpty ? (edited ? "Unsaved changes" : (hasSavedFile ? "Saved" : "Not saved yet")) : saveFeedback.message)
-                }.buttonStyle(.plain).help("Save document (⌘S)")
+                }.buttonStyle(.plain).help("Save document (⌘S)").accessibilityHint("Saves the document")
                 if sessionGoal > 0 { Text("\(sessionWords) / \(sessionGoal) this session").help("Net words added since this document window opened.") }
                 if let goalFooter { Text(goalFooter).help("Words written today toward your goal, against what finishes it on time.") }
                 Spacer(minLength: 0)
-                if focus && !reading { Image(systemName: "scope").help("Paragraph focus is on") }
-                if review && !reading { Text("\(commands.cuts(in: document.text, words: words)) cuts") }
+                if focus && !reading { Image(systemName: "scope").help("Paragraph focus is on").accessibilityLabel("Paragraph focus is on") }
+                if review && !reading {
+                    let cuts = commands.cuts(in: document.text, words: words)
+                    Text("\(cuts) cuts").accessibilityLabel("\(cuts) prose \(cuts == 1 ? "suggestion" : "suggestions") to consider cutting")
+                }
                 Button { showHelp.toggle() } label: { Image(systemName: "questionmark.circle") }
-                    .buttonStyle(.plain).accessibilityLabel("Writing shortcuts")
+                    .buttonStyle(.plain).accessibilityLabel("Writing shortcuts").accessibilityHint("Shows the keyboard shortcuts for writing")
                     .popover(isPresented: $showHelp) {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Keep your hands on the story").font(.headline)
@@ -867,6 +895,8 @@ struct WritingView: View {
                     }
             }.font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 18).padding(.vertical, 12)
             .background(WritingTheme.named(themeName).chromeColor)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Status bar")
         }
     }
 }
@@ -927,6 +957,7 @@ struct PreferencesView: View {
             Form {
                 Section("Words and phrases to consider cutting") {
                     TextEditor(text: $words).font(.body).frame(height: 160)
+                        .accessibilityLabel("Words and phrases to consider cutting, separated by commas")
                     Text("Separate entries with commas. These are style suggestions; dialogue and narrative voice may need them.")
                         .font(.caption).foregroundStyle(.secondary)
                     Button("Restore default words") { words = Prose.defaultWords }

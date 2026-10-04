@@ -20,6 +20,7 @@ final class RoomClipView: NSClipView {
 struct NativeEditor: NSViewRepresentable {
     @AppStorage("writingTheme") private var themeName = "graphite"
     @AppStorage("editorZoom") private var globalZoom = 1.0
+    @Environment(\.colorSchemeContrast) private var contrast
     /// A surface that scales on its own (the parallel pane) passes its own zoom and key.
     var zoom: Double? = nil
     var zoomKey: String = WritingZoom.mainKey
@@ -90,6 +91,7 @@ struct NativeEditor: NSViewRepresentable {
         commands.editor = editor
         editor.isIncrementalSearchingEnabled = true
         editor.usesFindBar = true
+        editor.setAccessibilityLabel("Writing page")
         editor.delegate = context.coordinator
         editor.string = text
         context.coordinator.attach(editor, text: text)
@@ -126,6 +128,7 @@ struct NativeEditor: NSViewRepresentable {
         editor.openNameFile = openNameFile
         editor.showNameCard = showNameCard
         editor.dimMarkers = dimMarkers
+        editor.highContrast = contrast == .increased
         editor.smartTypography = smartTypography
         editor.updatePageMargins()
         editor.updateScrollRoom()
@@ -330,6 +333,8 @@ final class WritingTextView: NSTextView {
     var openNameFile: ((URL) -> Void)?
     var showNameCard: ((URL) -> Void)?
     var dimMarkers = true
+    /// Increase Contrast is on: dimmed text, names, and sentence colors use their stronger levels (see `ThemePalette`).
+    var highContrast = false
     var smartTypography = false
     var nameKey: String {
         (nameHighlighter?.signature ?? "") + (nameShimmer ? "#shimmer" : "#color") + nameKinds.map(\.rawValue).sorted().joined(separator: ",")
@@ -542,13 +547,9 @@ final class WritingTextView: NSTextView {
     @objc func exitFormatting(_ sender: Any?) { _ = leaveFormatting() }
 
     /// The color for a kind of name: your own choice, or a warm gold for characters, teal for places, violet for world notes.
-    static func nameColor(_ kind: CardKind) -> NSColor {
+    static func nameColor(_ kind: CardKind, highContrast: Bool = false) -> NSColor {
         if let hex = UserDefaults.standard.string(forKey: "nameColor.\(kind.rawValue)"), let custom = NSColor(quillHex: hex) { return custom }
-        switch kind {
-        case .character: return pastel(light: NSColor(red: 0.64, green: 0.40, blue: 0.02, alpha: 1), dark: NSColor(red: 1.00, green: 0.83, blue: 0.42, alpha: 1))
-        case .location: return pastel(light: NSColor(red: 0.02, green: 0.47, blue: 0.52, alpha: 1), dark: NSColor(red: 0.45, green: 0.93, blue: 0.96, alpha: 1))
-        case .lore: return pastel(light: NSColor(red: 0.44, green: 0.26, blue: 0.72, alpha: 1), dark: NSColor(red: 0.82, green: 0.70, blue: 1.00, alpha: 1))
-        }
+        return highlightColor(kind.rawValue, highContrast: highContrast)
     }
 
     // MARK: Name shimmer
@@ -592,7 +593,7 @@ final class WritingTextView: NSTextView {
         let time = Date().timeIntervalSince(shimmerStart) * speed
         for (index, range) in nameRanges.enumerated() where NSMaxRange(range) <= length && NSIntersectionRange(range, visible).length > 0 {
             if let active = focusActive, NSIntersectionRange(range, active).length == 0 { continue }
-            var base = Self.nameColor(style.nameKinds[index])
+            var base = Self.nameColor(style.nameKinds[index], highContrast: highContrast)
             effectiveAppearance.performAsCurrentDrawingAppearance { base = base.usingColorSpace(.sRGB) ?? base }
             let target = dark ? NSColor.white : NSColor.black
             // A band of light travels along the name, once every couple of seconds, with a rest between passes.
@@ -607,25 +608,19 @@ final class WritingTextView: NSTextView {
         }
     }
 
-    static func wordColor(_ kind: WordClass) -> NSColor {
+    static func wordColor(_ kind: WordClass, highContrast: Bool = false) -> NSColor {
         if let hex = UserDefaults.standard.string(forKey: "wordColor.\(kind.rawValue)"), let custom = NSColor(quillHex: hex) {
             return custom
         }
-        return defaultWordColor(kind)
+        return highlightColor(kind.paletteKey, highContrast: highContrast)
     }
-    private static func defaultWordColor(_ kind: WordClass) -> NSColor {
-        // Soft, low-saturation defaults so highlighted parts of speech read as gentle tints, not neon.
-        switch kind {
-        case .noun: pastel(light: NSColor(red: 0.20, green: 0.47, blue: 0.49, alpha: 1), dark: NSColor(red: 0.62, green: 0.85, blue: 0.86, alpha: 1))
-        case .verb: pastel(light: NSColor(red: 0.62, green: 0.42, blue: 0.14, alpha: 1), dark: NSColor(red: 0.93, green: 0.78, blue: 0.55, alpha: 1))
-        case .adjective: pastel(light: NSColor(red: 0.24, green: 0.38, blue: 0.62, alpha: 1), dark: NSColor(red: 0.68, green: 0.78, blue: 0.95, alpha: 1))
-        case .adverb: pastel(light: NSColor(red: 0.62, green: 0.30, blue: 0.46, alpha: 1), dark: NSColor(red: 0.93, green: 0.70, blue: 0.83, alpha: 1))
-        case .pronoun: pastel(light: NSColor(red: 0.30, green: 0.50, blue: 0.32, alpha: 1), dark: NSColor(red: 0.72, green: 0.88, blue: 0.73, alpha: 1))
-        }
-    }
-    private static func pastel(light: NSColor, dark: NSColor) -> NSColor {
-        NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+    /// The default tint for a name or part of speech: soft on dark pages, darker on light ones so it still reads
+    /// (`ThemePalette` holds the numbers, and `scripts/check-contrast.swift` holds them to a contrast ratio).
+    private static func highlightColor(_ key: String, highContrast: Bool) -> NSColor {
+        let dark = ThemePalette.highlightColor(key, dark: true, increasedContrast: highContrast) ?? .white
+        let light = ThemePalette.highlightColor(key, dark: false, increasedContrast: highContrast) ?? .black
+        return NSColor(name: nil) { appearance in
+            NSColor(rgb: appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light)
         }
     }
     @objc func saveDocument(_ sender: Any?) {
@@ -679,14 +674,15 @@ final class WritingTextView: NSTextView {
         // happens to be current, so resolve under this view's own appearance for correct fades.
         var base = NSColor.labelColor
         effectiveAppearance.performAsCurrentDrawingAppearance { base = WritingTheme.named(themeName).foreground }
+        let levels = dimLevels
         func fade(_ alpha: CGFloat, _ range: NSRange) {
             guard range.length > 0 else { return }
             focusPainted = true
             layoutManager.addTemporaryAttribute(.foregroundColor, value: base.withAlphaComponent(alpha), forCharacterRange: range)
         }
         guard focusGradient else {
-            fade(0.25, NSRange(location: 0, length: active.location))
-            fade(0.25, NSRange(location: NSMaxRange(active), length: max(0, length - NSMaxRange(active))))
+            fade(CGFloat(levels.focusEven), NSRange(location: 0, length: active.location))
+            fade(CGFloat(levels.focusEven), NSRange(location: NSMaxRange(active), length: max(0, length - NSMaxRange(active))))
             return
         }
 
@@ -706,7 +702,7 @@ final class WritingTextView: NSTextView {
 
         // Fade smoothly with distance from that paragraph. Only lines near the screen are computed;
         // everything farther away sits at the floor.
-        let floorAlpha: CGFloat = 0.07, nearAlpha: CGFloat = 0.62
+        let floorAlpha = CGFloat(levels.focusFloor), nearAlpha = CGFloat(levels.focusNear)
         let span = CGFloat(bodySize) * 20
         func alpha(forDistance d: CGFloat) -> CGFloat {
             let t = min(1, max(0, d / span))
@@ -887,7 +883,15 @@ final class WritingTextView: NSTextView {
     }
 }
 
+extension WordClass {
+    /// Its name in `ThemePalette`, which keeps the default sentence colors.
+    var paletteKey: String {
+        switch self { case .noun: "noun"; case .verb: "verb"; case .adjective: "adjective"; case .adverb: "adverb"; case .pronoun: "pronoun" }
+    }
+}
+
 extension NSColor {
+    convenience init(rgb: RGB) { self.init(srgbRed: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1) }
     convenience init?(quillHex hex: String) {
         let trimmed = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
         guard trimmed.count == 6 else { return nil }
