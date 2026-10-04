@@ -68,7 +68,11 @@ swiftc Sources/Quill/DefaultAppStatus.swift scripts/check-default-app.swift -o /
 /tmp/quill-default-app-checks
 swiftc Sources/Quill/RecentFiles.swift scripts/check-recent-files.swift -o /tmp/quill-recent-files-checks
 /tmp/quill-recent-files-checks
+swiftc Sources/Quill/BugReport.swift scripts/check-bug-report.swift -o /tmp/quill-bug-report-checks
+/tmp/quill-bug-report-checks
 ```
+
+`check-bug-report.swift` guards Help → Report a Bug…. Run from the repository root, it confirms the GitHub link carries only the writer's words and, if the checkbox is on, the three version fields; that `&`, `#`, `+`, accents, flags, and line breaks survive the trip; that the link stays under 6,000 characters, cutting long text at a word with a note and sharing the room fairly between the two boxes; that every field in the link has a matching `id:` in `.github/ISSUE_TEMPLATE/bug_report.yml`; and that the crash-report finder only looks at names and dates (a report it can't read is still found, and reading is a separate call made only when the writer clicks). If you add a field to the link, add it to the template too. Nothing in this feature may touch the network.
 
 The sample project the app ships is the folder `Examples/Sable Sample Project`, and `check-sample-project.swift` reads it. `scripts/package-app.py` copies it into the app as `Contents/Resources/Sample Project`; given the built app, the check also confirms the packaged copy matches the source. It checks that the sample is a valid Fiction Project with the expected cards, scene tags, outline beats, note, and snapshot. It is a real Fiction Project, so change it by opening the folder in Sable. Keep the `_Sample text written by Claude Code._` line on every file in it, and re-run the check after editing.
 

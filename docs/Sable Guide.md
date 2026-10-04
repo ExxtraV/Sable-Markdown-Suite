@@ -119,6 +119,14 @@ Turn on **Show today's share in the footer** to see a small "1,204 / 1,667 today
 
 Sable checks for updates while it's open: every day, every 3 days, or every week, as you choose in Settings → General, where you can also turn automatic checks off. **Check for Updates…** in the Sable Markdown Writer menu checks right away. Either way, you choose when to install and restart. **Get beta updates**, off by default, also offers early builds published ahead of a stable release; they may be rougher. If you turn it off again, you keep the build you have until a newer stable release arrives.
 
+## Reporting a problem, or sharing an idea
+
+**Help → Report a Bug…** opens a small window with two boxes, *What happened?* and *Steps to reproduce*. A checkbox, on by default, adds your Sable version, macOS version, and Mac model to the report; the exact values are shown beneath it, so you can see what would be included. **Open in GitHub** then opens your browser to a bug report with your words already filled in. Nothing is sent from Sable: you read the report on GitHub and decide whether to submit it, which needs a free GitHub account. If your text is too long to fit in a link, the end is cut with a note, and you can paste the rest on GitHub.
+
+If Sable has closed unexpectedly in the last seven days, the window also offers **Show Latest Crash Report**. Sable doesn't open that report until you click. Then it shows it in the window, where you can read it and copy it into the GitHub report yourself. It can include file paths on your Mac, and nothing is attached for you.
+
+**Help → Send Feedback or Ideas** opens the Ideas category of Sable's GitHub Discussions in your browser.
+
 ## Your toolbar
 
 The toolbar starts with only the essentials. Click **⋯ → Customize Tools** to add the tools you use (headings, bold, italic, lists, quotes, scene breaks, revisions, and more) and drag them into the order you like. Dark themes shade toward the page edges to keep your eye on the text; Writing Style lets you turn that off or change how deep it is.

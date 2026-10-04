@@ -40,6 +40,14 @@ body:
     validations:
       required: true
   - type: input
+    id: mac-model
+    attributes:
+      label: Mac model
+      description: Apple menu → About This Mac. Sable's Help → Report a Bug… fills this in if you choose.
+      placeholder: e.g. Mac14,2, Apple M2
+    validations:
+      required: false
+  - type: input
     id: sable-version
     attributes:
       label: Sable version
