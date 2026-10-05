@@ -2,6 +2,10 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
+## Unreleased
+
+- **Two new writing themes: Starfall and Mist.** Starfall is a deep-blue dark theme, a relative of Midnight (paper `0E1A30`, ink `DAE5F5`, bottom bar `08111F`, edge shade `030810`). It reuses Arcane's particle field with faint icy motes that fall slowly instead of rising. `ParticleField` gained a `drift` multiplier (1 is Arcane's upward pace, negative falls) and `ThemeSpec` gained `particleDrift` (Starfall uses -0.5) and `particlesSetting`. Each particle theme now has its own on/off switch: Arcane keeps `themeParticles` and Starfall uses `themeParticles-starfall`. The "Faint drifting particles" toggle follows the chosen theme. Like Arcane, the motes stop under Reduce Motion, Increase Contrast, and Reduce Transparency. Mist is a cool grey-blue light theme (paper `E8EDF3`, ink `27303A`), distinct from Paper's neutral white and Parchment's warm cream; like the other light themes it has no edge shading. Both pass `check-contrast.swift`, including with Increase Contrast on. Mist's paper was lightened from its first draft (`E4EAF0`) because a few name and sentence colors fell just under 7:1 with Increase Contrast.
+
 ## 1.0.0-beta.2
 
 The second beta of 1.0, for people who turn on **Get beta updates**. A sample project, readable dimmed text, VoiceOver and keyboard support, and Help → Report a Bug.

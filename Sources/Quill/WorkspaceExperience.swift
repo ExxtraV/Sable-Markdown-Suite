@@ -18,6 +18,9 @@ struct WritingTheme: Identifiable {
     var edge: String? { spec.edge }
     /// A theme that drifts faint motes of light behind the text, for a quiet fantasy feel.
     var particles: Bool { spec.particles }
+    var particleDrift: Double { spec.particleDrift }
+    /// The setting that turns this theme's particles on or off.
+    var particlesSetting: String { spec.particlesSetting }
     var background: NSColor { NSColor(quillHex: paper)! }
     var foreground: NSColor { NSColor(quillHex: ink)! }
     var chromeColor: Color { chrome.flatMap { NSColor(quillHex: $0) }.map(Color.init(nsColor:)) ?? Color(nsColor: .windowBackgroundColor) }
@@ -62,17 +65,20 @@ private struct SeededGenerator: RandomNumberGenerator {
     }
 }
 
-/// Faint motes of light drifting slowly upward behind the text, for the Arcane theme. Off entirely under
-/// Reduce Motion, and never intercepts clicks.
+/// Faint motes of light drifting slowly behind the text, for themes with a quiet fantasy touch: rising for Arcane,
+/// falling for Starfall. Off entirely under Reduce Motion, and never intercepts clicks.
 struct ParticleField: View {
     let color: Color
     var count: Int = 44
+    /// 1 is Arcane's upward pace; a negative number falls instead.
+    var drift: Double = 1
     private struct Mote { let x, y, size, speed, phase: Double }
     private let motes: [Mote]
 
-    init(color: Color, count: Int = 44) {
+    init(color: Color, count: Int = 44, drift: Double = 1) {
         self.color = color
         self.count = count
+        self.drift = drift
         var generator = SeededGenerator(seed: 7)
         motes = (0..<count).map { _ in
             Mote(x: Double.random(in: 0...1, using: &generator), y: Double.random(in: 0...1, using: &generator),
@@ -89,7 +95,7 @@ struct ParticleField: View {
                 Canvas { context, size in
                     let t = timeline.date.timeIntervalSinceReferenceDate
                     for mote in motes {
-                        let travelled = (mote.y - t * mote.speed).truncatingRemainder(dividingBy: 1)
+                        let travelled = (mote.y - t * mote.speed * drift).truncatingRemainder(dividingBy: 1)
                         let y = travelled < 0 ? travelled + 1 : travelled
                         let twinkle = 0.35 + 0.5 * (0.5 + 0.5 * sin(t * 0.6 + mote.phase * .pi * 2))
                         let point = CGPoint(x: mote.x * size.width, y: y * size.height)

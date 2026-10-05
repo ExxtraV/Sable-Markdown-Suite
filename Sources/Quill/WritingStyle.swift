@@ -19,7 +19,8 @@ struct WritingStyleControls: View {
     @AppStorage("dimMarkers") private var dimMarkers = true
     @AppStorage("edgeShading") private var edgeShading = true
     @AppStorage("edgeStrength") private var edgeStrength = 0.65
-    @AppStorage("themeParticles") private var themeParticles = true
+    @AppStorage("themeParticles") private var arcaneParticles = true
+    @AppStorage("themeParticles-starfall") private var starfallParticles = true
     @AppStorage("smartTypography") private var smartTypography = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -46,7 +47,7 @@ struct WritingStyleControls: View {
                 .accessibilityLabel("Themes")
                 Toggle("Darken toward the edges (dark themes)", isOn: $edgeShading)
                 if WritingTheme.named(theme).particles {
-                    Toggle("Faint drifting particles", isOn: $themeParticles)
+                    Toggle("Faint drifting particles", isOn: WritingTheme.named(theme).particlesSetting == "themeParticles" ? $arcaneParticles : $starfallParticles)
                 }
                 LabeledContent("Edge darkness") {
                     HStack {
