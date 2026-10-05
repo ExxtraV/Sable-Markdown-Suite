@@ -180,6 +180,7 @@ struct WritingView: View {
     @State private var showStoryTimeline = false
     @AppStorage("autoSnapshots") private var autoSnapshots = true
     @State private var importMessage: String?
+    @State private var scrivenerImport: ScrivenerImportRequest?
     @AppStorage("dimMarkers") private var dimMarkers = true
     @AppStorage("smartTypography") private var smartTypography = false
     @AppStorage("sceneTagsPlacement") private var sceneTagsPlacement = "bottom"
@@ -347,6 +348,7 @@ struct WritingView: View {
             canExportManuscript: browser.projectURL != nil,
             findInProject: startFindInProject,
             importDocument: startImport,
+            importScrivener: startScrivenerImport,
             revisions: { startRevisions(saving: false) },
             saveSnapshot: { startRevisions(saving: true) },
             storyTimeline: startStoryTimeline,
@@ -498,6 +500,23 @@ struct WritingView: View {
         } catch {
             importMessage = "Could not import “\(source.lastPathComponent)”: \(error.localizedDescription)"
         }
+    }
+
+    /// Reads a Scrivener project and shows what importing it would make. Nothing is written until the writer agrees.
+    private func startScrivenerImport() {
+        do {
+            scrivenerImport = try ScrivenerImportStarter.choose()
+        } catch {
+            importMessage = error.localizedDescription
+        }
+    }
+
+    /// Puts the new Fiction Project on the desk and opens its first chapter (or the import report, with no chapters).
+    private func openImported(_ project: URL) {
+        if let root = browser.root, FolderMove.isInside(project, of: root) { browser.reload() } else { browser.visit(project) }
+        let first = ScrivenerImportWriter.firstChapter(in: project) ?? project.appendingPathComponent(ScrivenerImportPlanner.reportName)
+        commands.flushText()
+        commands.switchTo(first) { errorMessage = $0?.localizedDescription }
     }
 
     private func startDocumentExport() {
@@ -832,6 +851,9 @@ struct WritingView: View {
                                filesChanged: { browser.reload() },
                                restoreOrder: { order in if let project = browser.projectURL { try? FictionProject.setChapterOrder(order, in: project); browser.reload() } },
                                close: { revisionsRequest = nil })
+            }
+            .sheet(item: $scrivenerImport) { request in
+                ScrivenerImportSheet(request: request, finished: { project in scrivenerImport = nil; openImported(project) }, close: { scrivenerImport = nil })
             }
             .sheet(isPresented: $showStoryTimeline) {
                 if let project = browser.projectURL {

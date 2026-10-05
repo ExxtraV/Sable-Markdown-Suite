@@ -58,6 +58,18 @@ A **Fiction Project** is a folder that Sable treats as one story world. Every ne
 - **Names & places.** Character, location, and world names take a color and a soft shimmer as you write: full names, first and last names, file names, and `aliases:`. Turn it on or off in View → Highlight Names & Places, or pick the color in Writing Style. Right-click a highlighted name to open its file or show its card.
 - **Export.** On the Manuscript tab press **Export…** (⇧⌘E) to make one PDF, EPUB, Word, or Markdown file from your chapters, in your order. Choose the chapters and a Manuscript or Book look, then adjust the look under **Layout**: headings left or centered, a title page (on or off, left or centered), the font and size, single, 1.5, or double line spacing, margins, and page numbers and a running header. PDF and Word follow every choice; EPUB takes the heading and title page alignment. Picking a look again, or **Reset**, starts over from it. A project remembers its layout. File → Export This Document… exports only the open page, and remembers its own layout for the next document.
 
+## Coming from Scrivener
+
+**File → Import Scrivener Project…** turns a Scrivener 3 project into a new Fiction Project. Choose the project (its name ends in .scriv) and Sable shows what it found before writing anything: how many scenes, chapters, characters, locations, and notes, and anything that can't become Markdown.
+
+- **You choose where each part goes.** Every top-level item in the binder has a menu: Manuscript, Characters, Locations, World, Notes, or Don't Import. Sable suggests the manuscript folder for Manuscript, character and location sheets for cards, Research for Notes, and leaves out the Trash and Scrivener's blank template sheets. If your project holds more than one book, send each extra book's folder wherever suits you.
+- **A folder of scenes becomes one chapter file.** Scenes are divided by a scene break, in binder order. Each scene's title, synopsis, status, label, keywords, and document notes sit above it as a note to yourself (`<!-- like this -->`), which Reading Mode and exports leave out. Those notes do count toward the chapter's word count.
+- **Italics, bold, and scene breaks carry over.** Fonts, colors, and spacing are left behind. A chapter's own synopsis, status, label, and keywords go at the top of its file, between the `---` lines.
+- **Pictures, PDFs, and saved web pages are copied as they are**, pictures into Images and the rest into Notes. Pictures pasted into the middle of a document's text can't come along. **Import Report.md**, in the new project, lists every one.
+- **Your Scrivener project is never changed.** Sable only reads it, and writes a new folder where you choose.
+
+Projects last saved by Scrivener 2 can't be read yet; opening one in Scrivener 3 updates it.
+
 ## A little Markdown
 
 Use **two asterisks for bold**, *one for italics*, and [a link label](https://www.markdownguide.org). Start a line with # for a heading, or ## for a smaller heading.
