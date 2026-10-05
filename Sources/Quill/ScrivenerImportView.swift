@@ -80,6 +80,11 @@ struct ScrivenerImportSheet: View {
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
 
+            if request.project.isScrivener2 {
+                Label("This project was saved by Scrivener 2. Sable’s reading of that older format is newer and less tested, so look the result over against your project.", systemImage: "exclamationmark.triangle")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+
             if let failure {
                 Text(failure).font(.callout).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
             }

@@ -109,6 +109,21 @@ import Foundation
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: dir) }
 
+        // MARK: Scrivener 2, the older layout
+        let two = try ScrivenerReader.read(fixtures.appendingPathComponent("Scrivener 2.scriv"))
+        precondition(two.isScrivener2 && two.formatVersion == "1.0" && !novel.isScrivener2 && two.warnings.isEmpty, "Recognised as Scrivener 2: \(two.warnings)")
+        precondition(two.binder.map(\.title) == ["Draft", "Characters", "Research", "Template Sheets", "Trash"] && two.allItems.count == 13, "Binder order: \(two.binder.map(\.title))")
+        let arrival = two.draft!.children[0].children[0]
+        precondition(arrival.text == "Hesper came down the hill road with the dust behind her.\n\nThe village had *one* well, and it was dry.\n", "Text from Files/Docs: \(arrival.text ?? "nil")")
+        precondition(arrival.synopsis == "Hesper arrives and finds the well dry." && arrival.notes == "Which month is this?\n", "Synopsis and notes sit beside it")
+        precondition(arrival.label == "Hesper" && arrival.status == "To Do" && arrival.keywords == ["drought"], "Label, status, keywords: \(arrival)")
+        precondition(two.draft!.children[0].synopsis == "A stranger and a dry well." && two.draft!.children[0].children[1].text!.contains("anyway.\n\n* * *\n\nIt came up **heavy**."), "Folder synopsis; scene break")
+        precondition(two.research!.children.map { $0.attachment?.lastPathComponent } == ["10.pdf", "11.png"], "Research files")
+        precondition(two.binder[3].isTemplate && two.binder[3].children[0].isTemplate, "Template sheets by TemplateFolderID")
+        let twoPlan = ScrivenerImportPlanner.plan(two)
+        precondition(twoPlan.summary == "3 scenes in 2 chapters, 1 character" && twoPlan.chapterOrder == ["Chapter One.md", "Epilogue.md"], "It imports like any other: \(twoPlan.summary) \(twoPlan.chapterOrder)")
+        precondition(twoPlan.files.map(\.path).contains("Notes/Research/Well survey.pdf") && twoPlan.files.map(\.path).contains("Images/Village plan.png"), "\(twoPlan.files.map(\.path))")
+
         // MARK: Planning the import
         precondition(ScrivenerImportPlanner.suggestedDestinations(for: novel) == [.skip, .manuscript, .characters, .locations, .notes, .notes, .notes, .skip, .skip], "Where each top-level item is offered: \(ScrivenerImportPlanner.suggestedDestinations(for: novel))")
         let plan = ScrivenerImportPlanner.plan(novel)
@@ -218,7 +233,16 @@ import Foundation
         precondition(failure(package("NoBinder", binder: nil)) == .noBinder, "No .scrivx")
         precondition(failure(package("Cut", binder: String(project("<BinderItem UUID=\"A1\" Type=\"Text\"><Title>Half").dropLast(40)))) == .unreadableBinder, "Truncated XML")
         precondition(failure(package("Wrong", binder: "<?xml version=\"1.0\"?><html><body/></html>")) == .unreadableBinder, "Some other XML")
-        precondition(failure(package("Two", binder: project(version: "1.0", ""))) == .scrivener2, "Scrivener 2 is named as such")
+        let emptyTwo = try ScrivenerReader.read(package("Two", binder: project(version: "1.0", "")))
+        precondition(emptyTwo.isScrivener2 && emptyTwo.binder.isEmpty, "An empty Scrivener 2 project is an empty tree")
+        // Scrivener 2 keeps every item's files side by side, so a numbered item must not pick up a neighbour's.
+        let crowded = try ScrivenerReader.read(package("Crowded", binder: project(version: "1.0", """
+            <BinderItem ID="1" Type="Text"><Title>One</Title></BinderItem>
+            <BinderItem ID="11" Type="Text"><Title>Eleven</Title></BinderItem>
+            <BinderItem ID="1_notes" Type="Text"><Title>Impostor</Title></BinderItem>
+            <BinderItem ID="2" Type="PDF"><Title>Text in disguise</Title><MetaData><FileExtension>rtf</FileExtension></MetaData></BinderItem>
+            """), files: ["Files/Docs/1.rtf": rtf, "Files/Docs/1_notes.rtf": rtf.replacingOccurrences(of: "Inside", with: "Noted"), "Files/Docs/2.rtf": rtf]))
+        precondition(crowded.binder.map(\.text) == ["Inside.\n", nil, nil, "Inside.\n"] && crowded.binder[0].notes == "Noted.\n" && crowded.binder[3].attachment == nil, "Each item reads only its own files: \(crowded.binder.map(\.text)), \(crowded.warnings)")
         precondition(failure(package("Nine", binder: project(version: "9.0", ""))) == .unsupportedVersion("9.0"), "A format from the future")
         let bomb = "<?xml version=\"1.0\"?><!DOCTYPE x [<!ENTITY a \"aaaaaaaaaa\"><!ENTITY b \"&a;&a;&a;&a;&a;&a;&a;&a;\"><!ENTITY f SYSTEM \"file:///etc/hosts\">]>"
             + "<ScrivenerProject Version=\"2.0\"><Binder><BinderItem UUID=\"A1\" Type=\"Text\"><Title>&b;&f;</Title></BinderItem></Binder></ScrivenerProject>"

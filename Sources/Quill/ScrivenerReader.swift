@@ -3,12 +3,11 @@ import Foundation
 
 /// Why a Scrivener project couldn't be read at all. Trouble with a single document is a warning instead.
 enum ScrivenerError: LocalizedError, Equatable {
-    case notPackage, noBinder, scrivener2, unsupportedVersion(String), unreadableBinder
+    case notPackage, noBinder, unsupportedVersion(String), unreadableBinder
     var errorDescription: String? {
         switch self {
         case .notPackage: return "That isn’t a Scrivener project. Choose the project itself, the item whose name ends in .scriv."
         case .noBinder: return "This Scrivener project has no binder file (.scrivx), so there is nothing to read."
-        case .scrivener2: return "This project was last saved by Scrivener 2, which Sable can’t read yet. Opening it in Scrivener 3 updates it."
         case .unsupportedVersion(let version): return "This project uses a Scrivener format Sable doesn’t know (version \(version))."
         case .unreadableBinder: return "This Scrivener project’s binder file is damaged and couldn’t be read."
         }
@@ -66,6 +65,8 @@ struct ScrivenerProject: Equatable, Sendable {
     /// The app that last saved it, e.g. "SCRMAC-3.5.2-17487".
     var creator: String
     var formatVersion: String
+    /// The older layout Scrivener 2 saved. Sable reads it from public descriptions of the format, not from real projects.
+    var isScrivener2 = false
     var labels: [String] = []
     var statuses: [String] = []
     var binder: [ScrivenerItem] = []
@@ -78,7 +79,7 @@ struct ScrivenerProject: Equatable, Sendable {
     var trash: ScrivenerItem? { binder.first { $0.kind == .trashFolder } }
 }
 
-/// Reads a Scrivener 3 project (`docs/scrivener-format.md` describes the format). It only ever reads: nothing in
+/// Reads a Scrivener 3 or Scrivener 2 project (`docs/scrivener-format.md` describes the formats). It only ever reads: nothing in
 /// the project is created, changed, or removed. A project is someone else's file, so nothing in it is trusted.
 enum ScrivenerReader {
     static let maxBinderBytes = 64 * 1024 * 1024
@@ -102,19 +103,20 @@ enum ScrivenerReader {
         let version = root.attributes["Version"] ?? ""
         let hasDocs = fm.fileExists(atPath: package.appendingPathComponent("Files/Docs").path)
         let hasData = fm.fileExists(atPath: package.appendingPathComponent("Files/Data").path)
-        if version.hasPrefix("1.") || (hasDocs && !hasData) { throw ScrivenerError.scrivener2 }
-        guard version.hasPrefix("2.") else { throw ScrivenerError.unsupportedVersion(version.isEmpty ? "unknown" : String(version.prefix(20))) }
+        // Scrivener 2 (and Scrivener 1 for Windows) numbers its items and keeps their files side by side in Files/Docs.
+        let legacy = version.hasPrefix("1.") || (hasDocs && !hasData)
+        guard legacy || version.hasPrefix("2.") else { throw ScrivenerError.unsupportedVersion(version.isEmpty ? "unknown" : String(version.prefix(20))) }
 
-        var context = Context(files: files, dataFolder: package.appendingPathComponent("Files/Data", isDirectory: true))
+        var context = Context(files: files, dataFolder: package.appendingPathComponent(legacy ? "Files/Docs" : "Files/Data", isDirectory: true), legacy: legacy)
         context.labels = titles(in: root.child("LabelSettings")?.child("Labels"), element: "Label")
         context.statuses = titles(in: root.child("StatusSettings")?.child("StatusItems"), element: "Status")
         context.sectionTypes = titles(in: root.child("SectionTypes")?.child("TypeDefinitions"), element: "Type")
         for keyword in root.child("Keywords")?.children(named: "Keyword") ?? [] {
             if let id = keyword.attributes["ID"] { context.keywords[id] = keyword.child("Title")?.trimmedText ?? keyword.trimmedText }
         }
-        context.templateFolder = root.child("TemplateFolderUUID")?.trimmedText
+        context.templateFolder = (root.child("TemplateFolderUUID") ?? root.child("TemplateFolderID"))?.trimmedText
 
-        var project = ScrivenerProject(title: name, creator: root.attributes["Creator"] ?? "", formatVersion: version)
+        var project = ScrivenerProject(title: name, creator: root.attributes["Creator"] ?? "", formatVersion: version, isScrivener2: legacy)
         // "No Label" and "No Status" (ID -1) are the absence of one, not a choice.
         project.labels = context.labels.filter { $0.id != "-1" }.map(\.title)
         project.statuses = context.statuses.filter { $0.id != "-1" }.map(\.title)
@@ -128,6 +130,7 @@ enum ScrivenerReader {
     private struct Context {
         var files: Files
         var dataFolder: URL
+        var legacy = false
         var labels: [(id: String, title: String)] = []
         var statuses: [(id: String, title: String)] = []
         var sectionTypes: [(id: String, title: String)] = []
@@ -212,13 +215,19 @@ enum ScrivenerReader {
     // MARK: An item's files
 
     private static func load(_ item: inout ScrivenerItem, fileExtension: String?, cardExtension: String?, _ context: inout Context) {
-        let folder = context.dataFolder.appendingPathComponent(item.uuid, isDirectory: true)
+        // Scrivener 3: Files/Data/<UUID>/content.rtf. Scrivener 2: Files/Docs/<ID>.rtf, <ID>_synopsis.txt, <ID>_notes.rtf.
+        let legacy = context.legacy
+        let folder = legacy ? context.dataFolder : context.dataFolder.appendingPathComponent(item.uuid, isDirectory: true)
+        func file(_ part: String, _ ext: String) -> URL {
+            let stem = legacy ? item.uuid + (part == "content" ? "" : "_" + part) : part
+            return folder.appendingPathComponent(ext.isEmpty ? stem : stem + "." + ext)
+        }
         let files = context.files
-        if let data = files.data(folder.appendingPathComponent("synopsis.txt"), limit: maxSynopsisBytes) {
+        if let data = files.data(file("synopsis", "txt"), limit: maxSynopsisBytes) {
             item.synopsis = String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\r\n", with: "\n").trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty
         }
-        for (name, isNotes) in [("content.rtf", false), ("notes.rtf", true)] {
-            let url = folder.appendingPathComponent(name)
+        for (part, isNotes) in [("content", false), ("notes", true)] {
+            let url = file(part, "rtf"), name = url.lastPathComponent
             guard files.exists(url) else { continue }
             guard let data = files.data(url, limit: maxDocumentBytes) else {
                 context.warnings.append(ScrivenerWarning(uuid: item.uuid, message: "\(name) is too large or couldn’t be opened, and was left out."))
@@ -228,6 +237,10 @@ enum ScrivenerReader {
                 context.warnings.append(ScrivenerWarning(uuid: item.uuid, message: "\(name) isn’t readable rich text, and was left out."))
                 continue
             }
+            // Inline annotations and footnotes are a part of the format Sable hasn't seen; say so if any slipped through.
+            if converted.markdown.contains("Scrv_") {
+                context.warnings.append(ScrivenerWarning(uuid: item.uuid, message: "A document has Scrivener annotations or footnotes, which may show as stray marks in its text."))
+            }
             if isNotes { item.notes = converted.markdown.nonEmpty } else {
                 item.text = converted.markdown.nonEmpty
                 item.embeddedPictures = converted.pictures
@@ -236,12 +249,10 @@ enum ScrivenerReader {
         // A file's extension comes from the binder, so it gets the same scrutiny as the identifier.
         if [.image, .pdf, .webArchive, .other].contains(item.kind) {
             let ext = fileExtension ?? ""
-            let url = folder.appendingPathComponent(ext.isEmpty ? "content" : "content." + ext)
-            if ext.isEmpty || isSafeName(ext), files.exists(url) { item.attachment = url }
+            let url = file("content", ext)
+            if ext.isEmpty && !legacy || isSafeName(ext), ext.lowercased() != "rtf", files.exists(url) { item.attachment = url }
         }
-        if let ext = cardExtension, isSafeName(ext), files.exists(folder.appendingPathComponent("card-image." + ext)) {
-            item.cardImage = folder.appendingPathComponent("card-image." + ext)
-        }
+        if !legacy, let ext = cardExtension, isSafeName(ext), files.exists(file("card-image", ext)) { item.cardImage = file("card-image", ext) }
     }
 
     /// Reads ordinary files that really are inside the project: a link pointing out of it is treated as missing.
