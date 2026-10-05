@@ -138,7 +138,7 @@ Sable is free and open source, and downloading it from GitHub or [sablewriter.ap
 
 [MIT](LICENSE). Bundled Sparkle retains its own license notice.
 
-The Sable Markdown Writer name and logo aren't covered by the MIT License. Forks are welcome under their own name and icon; see [TRADEMARK.md](TRADEMARK.md).
+The Sable Writer Suite and Sable Markdown Writer names and the Sable logo aren't covered by the MIT License. Forks are welcome under their own name and icon; see [TRADEMARK.md](TRADEMARK.md).
 
 ## Minimalist editor
 
