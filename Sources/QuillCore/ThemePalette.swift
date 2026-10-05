@@ -51,6 +51,10 @@ public struct ThemeSpec: Identifiable, Equatable, Sendable {
     public var edge: String? = nil
     /// A theme that drifts faint motes of light behind the text, for a quiet fantasy feel.
     public var particles: Bool = false
+    /// How the motes move, as a multiple of Arcane's upward pace: 1 rises like Arcane's, a negative number falls.
+    public var particleDrift: Double = 1
+    /// The setting that turns this theme's particles on or off. Arcane keeps the key it has always used.
+    public var particlesSetting: String { id == "arcane" ? "themeParticles" : "themeParticles-\(id)" }
     public var paperColor: RGB { RGB(hex: paper)! }
     public var inkColor: RGB { RGB(hex: ink)! }
     public var edgeColor: RGB? { edge.flatMap { RGB(hex: $0) } }
@@ -66,8 +70,10 @@ public enum ThemePalette {
         ThemeSpec(id: "forest", name: "Forest", paper: "1D2925", ink: "DCE4D9", dark: true, edge: "0A100E"),
         ThemeSpec(id: "obsidian", name: "Obsidian", paper: "070707", ink: "D7D3CB", dark: true, chrome: "020202", edge: "000000"),
         ThemeSpec(id: "arcane", name: "Arcane", paper: "1B1330", ink: "E9DFFB", dark: true, chrome: "120B22", edge: "07040D", particles: true),
+        ThemeSpec(id: "starfall", name: "Starfall", paper: "0E1A30", ink: "DAE5F5", dark: true, chrome: "08111F", edge: "030810", particles: true, particleDrift: -0.5),
         ThemeSpec(id: "parchment", name: "Parchment", paper: "F3EBDD", ink: "40382E", dark: false),
-        ThemeSpec(id: "paper", name: "Paper", paper: "FAFAF8", ink: "30302E", dark: false)
+        ThemeSpec(id: "paper", name: "Paper", paper: "FAFAF8", ink: "30302E", dark: false),
+        ThemeSpec(id: "mist", name: "Mist", paper: "E8EDF3", ink: "27303A", dark: false)
     ]
     public static func named(_ id: String) -> ThemeSpec { all.first { $0.id == id } ?? all[0] }
 

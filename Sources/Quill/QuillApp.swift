@@ -121,7 +121,8 @@ struct WritingView: View {
     @State private var showToolbarCustomizer = false
     @AppStorage("edgeShading") private var edgeShading = true
     @AppStorage("edgeStrength") private var edgeStrength = 0.65
-    @AppStorage("themeParticles") private var themeParticles = true
+    @AppStorage("themeParticles") private var arcaneParticles = true
+    @AppStorage("themeParticles-starfall") private var starfallParticles = true
     @AppStorage("toolbarTools") private var toolbarTools = ToolbarLayout.defaultToken
     @StateObject private var commands = EditorCommands()
     @AppStorage("writingTheme") private var themeName = "graphite"
@@ -545,7 +546,12 @@ struct WritingView: View {
     /// Increase Contrast and Reduce Transparency get a flat page: no edge shading and no drifting motes behind the words.
     private var flatPage: Bool { reduceTransparency || contrast == .increased }
     /// A theme with particles wants the page painted behind the text even if edge shading itself is off.
-    private var wantsPaperBehindText: Bool { shadedPage || (themeParticles && !flatPage && WritingTheme.named(themeName).particles) }
+    private var wantsPaperBehindText: Bool { shadedPage || (showsParticles && !flatPage) }
+    /// Whether the chosen theme has particles and its own "Faint drifting particles" setting is on.
+    private var showsParticles: Bool {
+        let theme = WritingTheme.named(themeName)
+        return theme.particles && (theme.particlesSetting == "themeParticles" ? arcaneParticles : starfallParticles)
+    }
 
     private var toolbarEdge: ToolbarEdge { ToolbarEdge(rawValue: toolbarEdgeName) ?? .top }
     /// The toolbar stays put for anyone using VoiceOver or Full Keyboard Access, who can't summon it with the pointer.
@@ -848,7 +854,7 @@ struct WritingView: View {
                     let theme = WritingTheme.named(themeName)
                     Color(nsColor: theme.background)
                     if shadedPage, let edge = theme.edgeColor { VignetteOverlay(color: edge, strength: edgeStrength) }
-                    if themeParticles, theme.particles { ParticleField(color: Color(nsColor: theme.foreground)) }
+                    if showsParticles { ParticleField(color: Color(nsColor: theme.foreground), drift: theme.particleDrift) }
                 }
                 NativeEditor(text: $document.text, review: review, words: words, fontSize: fontSize,
                              pageWidth: pageWidth, commands: commands, fontFamily: fontFamily,
