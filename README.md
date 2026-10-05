@@ -142,7 +142,7 @@ The Sable Markdown Writer name and logo aren't covered by the MIT License. Forks
 
 ## Minimalist editor
 
-- First launch opens a blank document and asks you to choose or create a writing folder, or to just open a file. Cloud folders are recommended; normal files elsewhere remain supported, and no folder is required.
+- First launch opens a blank document and asks you to choose or create a writing folder, to just open a file, or to explore a sample project. **Not Now** closes the sheet and Sable asks again next time. Cloud folders are recommended; normal files elsewhere remain supported, and no folder is required.
 - Setup can include an editable **Sable Guide.md**. Open it again from Help; existing guide edits are never overwritten.
 - **Help → Report a Bug…** opens a small window for what happened and the steps, with an optional line of Sable, macOS, and Mac model details shown exactly as they would be included. **Open in GitHub** opens a bug report in your browser with those words filled in; nothing is sent from Sable, and the end of a very long report is cut with a note to fit the link. If Sable crashed in the last seven days, **Show Latest Crash Report** displays it for you to review and copy, and it is read only when you click. **Help → Send Feedback or Ideas** opens GitHub Discussions' Ideas category.
 - Writing Style includes Graphite, Midnight, Chalk, Forest, Obsidian, Arcane, Parchment, and Paper themes.
