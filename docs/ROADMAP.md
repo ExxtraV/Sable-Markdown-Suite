@@ -42,7 +42,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 - Localization.
 - Shareable themes.
 - Shortcuts and Spotlight integration.
-- Optional Mac App Store distribution.
+- A Mac App Store version at a small price, for the convenience of App Store installs and to help cover Apple's yearly developer fee. It has the same features; downloading from GitHub or sablewriter.app stays free.
 
 ## Phase 4: Exploring
 

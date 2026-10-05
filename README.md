@@ -132,7 +132,7 @@ The app now includes Sparkle, a Check for Updates menu item, and automatic-check
 
 ## Support Sable
 
-Sable is free and always will be. If you'd like to chip in toward the Apple developer fee and ongoing work, you can [buy Sable a book](https://buymeacoffee.com/sablewriter). There's no need to, and nothing in the app is held back.
+Sable is free and open source, and downloading it from GitHub or [sablewriter.app](https://sablewriter.app) always will be. If Sable comes to the Mac App Store, it may cost a small amount there, for the convenience of App Store installs and updates and to help cover Apple's $99 yearly developer fee. Every version has exactly the same features: nothing is held back or sold separately, and there are no subscriptions or in-app purchases. If you'd like to chip in anyway, you can [buy Sable a book](https://buymeacoffee.com/sablewriter). There's no need to.
 
 ## License
 
