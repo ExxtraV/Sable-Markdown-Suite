@@ -85,6 +85,8 @@ struct QuillApp: App {
             .windowResizability(.contentSize)
         Window("Markdown Cheat Sheet", id: "markdown-cheat-sheet") { MarkdownCheatSheet() }
             .windowResizability(.contentMinSize)
+        Window("Report a Bug", id: "report-a-bug") { BugReportView() }
+            .windowResizability(.contentSize)
         Settings { PreferencesView(updater: updater).environmentObject(browser) }
     }
     private func send(_ selector: Selector) {

@@ -102,6 +102,7 @@ For an iPad edition, reuse `QuillCore` and the document model, add a UIKit text 
 - `Sources/Quill/MarkdownFileTypes.swift`: which file extensions count as Markdown or text, shared by the desk, search, import, and the Open panel.
 - `Sources/Quill/RecentFiles.swift`: the optional Recent tab's list (newest first, capped, only recorded while the tab is on).
 - `Sources/Quill/FileHandlingSettings.swift`, `Sources/Quill/DefaultAppStatus.swift`: Settings → General sections for the default Markdown app and the optional writing folder.
+- `Sources/Quill/BugReport.swift`, `Sources/Quill/BugReportView.swift`: Help → Report a Bug…, which builds a GitHub bug report link from what the writer types (and, only if they leave the checkbox on, their Sable and macOS versions and Mac model), and finds a recent Sable crash report to show only when asked. Nothing is sent; the writer submits the report in their browser. `scripts/check-bug-report.swift` checks it.
 - `Sources/Quill/SampleProject.swift`, `Examples/Sable Sample Project`: the sample Fiction Project (*Northwatch*) that ships in the app; it is copied into Documents on first launch or from Help → Open Sample Project, never edited in the app. `scripts/check-sample-project.swift` checks it.
 - `Sources/Quill/ReferencePane.swift`: general parallel Markdown reading and editing pane.
 - `Sources/Quill/ReferenceDocument.swift`: tracked parallel document saving, and stopping when the file changed outside Sable.
@@ -143,6 +144,7 @@ The Sable Markdown Writer name and logo aren't covered by the MIT License. Forks
 
 - First launch opens a blank document and asks you to choose or create a writing folder, or to just open a file. Cloud folders are recommended; normal files elsewhere remain supported, and no folder is required.
 - Setup can include an editable **Sable Guide.md**. Open it again from Help; existing guide edits are never overwritten.
+- **Help → Report a Bug…** opens a small window for what happened and the steps, with an optional line of Sable, macOS, and Mac model details shown exactly as they would be included. **Open in GitHub** opens a bug report in your browser with those words filled in; nothing is sent from Sable, and the end of a very long report is cut with a note to fit the link. If Sable crashed in the last seven days, **Show Latest Crash Report** displays it for you to review and copy, and it is read only when you click. **Help → Send Feedback or Ideas** opens GitHub Discussions' Ideas category.
 - Writing Style includes Graphite, Midnight, Chalk, Forest, Obsidian, Arcane, Parchment, and Paper themes.
 - Zoom with Command-Plus/Minus, reset with Command-0, pinch the trackpad, or hold Command and turn a mouse wheel (5% per notch, 65%–200%). Pinch zoom can be disabled in Writing Style.
 - Move the pointer to the top edge to reveal the toolbar. Reading mode, focus, sidebar, styling, and sentence colors remain available from the View menu.

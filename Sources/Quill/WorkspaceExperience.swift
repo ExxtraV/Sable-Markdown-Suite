@@ -882,6 +882,9 @@ struct WritingCommands: Commands {
             Button("Markdown Cheat Sheet") { openWindow(id: "markdown-cheat-sheet") }
             Divider()
             Button("Open Sample Project", action: openSampleProject)
+            Divider()
+            Button("Report a Bug…") { openWindow(id: "report-a-bug") }
+            Button("Send Feedback or Ideas") { NSWorkspace.shared.open(BugReport.ideasURL) }
         }
     }
 }
