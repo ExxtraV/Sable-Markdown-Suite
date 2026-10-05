@@ -14,9 +14,9 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 - Apple notarization, so first launch no longer needs a Privacy & Security workaround.
 - ~~A monthly word goal, alongside the existing per-window session count.~~ Done in 1.0.0-beta.1, as a goal with any start and end dates, including a November preset.
 - Scrivener import.
-- A sample project new users can open immediately.
-- Accessibility pass (VoiceOver, keyboard navigation, contrast).
-- Report a Bug, built into the app.
+- ~~A sample project new users can open immediately.~~ Done in 1.0.0-beta.2.
+- ~~Accessibility pass (VoiceOver, keyboard navigation, contrast).~~ Done in 1.0.0-beta.2.
+- ~~Report a Bug, built into the app.~~ Done in 1.0.0-beta.2.
 - ~~Fixes: renaming a file inside Sable no longer shows the "deleted outside Sable" notice, and desk rows can be dragged from anywhere on the row.~~ Done in 0.10.1.
 - ~~New folders inside folders from the writing desk.~~ Done in 0.10.1.
 - Two new themes: a deep-blue fantasy theme and another light theme.
