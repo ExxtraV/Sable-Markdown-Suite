@@ -119,7 +119,9 @@ For an iPad edition, reuse `QuillCore` and the document model, add a UIKit text 
 - `Sources/Quill/EditorStyling.swift`: Markdown styling, name highlights, sentence colors, and prose suggestions in the editor, restyling only the lines you edit.
 - `Sources/QuillCore/IncrementalStyling.swift`: how much of the text an edit needs restyled.
 - `Sources/Quill/QuillApp.swift`: document handling, settings, and interface.
+- `Sources/Quill/ScrivenerReader.swift`: reads a Scrivener 3 project into memory (binder, text, synopses, notes) without changing it. The format notes are in `docs/scrivener-format.md`. Not yet connected to a menu.
 - `Tests/QuillCoreTests`: Unicode and Markdown-protection checks.
+- `Tests/Fixtures/Scrivener`: small hand-built Scrivener projects, with invented text, for `scripts/check-scrivener.swift`.
 - `Assets/LOGO.md`: how the logo was made with Codex, the logo files, and how `scripts/build-icon.sh` fits the icon to the macOS grid; the icon is packaged with the app.
 
 Apple references: [document-based apps](https://developer.apple.com/documentation/swiftui/building-a-document-based-app/) and [native grammar checking](https://developer.apple.com/documentation/appkit/nstextview/isgrammarcheckingenabled).
