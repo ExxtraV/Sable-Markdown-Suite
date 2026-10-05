@@ -57,13 +57,20 @@ enum BugReport {
         let happened = happened.trimmingCharacters(in: .whitespacesAndNewlines)
         let steps = steps.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        var fixed = [("template", template)]
+        var fixed: [(String, String)] = [("template", template)]
         if let details {
             fixed += [("sable-version", details.sable), ("macos-version", details.macOS), ("mac-model", details.mac)]
         }
-        let fixedLength = issuesNew.count + 1 + fixed.map { encoded($0.0).count + 1 + encoded($0.1).count + 1 }.reduce(0, +)
+        // Spelled out as a loop: older compilers time out type-checking this sum as one map/reduce expression.
+        var fixedLength: Int = issuesNew.count + 1
+        for (name, value) in fixed {
+            let nameLength: Int = encoded(name).count
+            let valueLength: Int = encoded(value).count
+            fixedLength += nameLength + valueLength + 2
+        }
         // Each long field costs its own name and "=" and "&" on top of its text
-        let overhead = ["description", "steps"].map { encoded($0).count + 2 }.reduce(0, +)
+        var overhead: Int = 0
+        for name in ["description", "steps"] { overhead += encoded(name).count + 2 }
         let room = max(0, maxLinkLength - fixedLength - overhead)
 
         let (happenedText, stepsText) = share(room, happened, steps)
