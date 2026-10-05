@@ -52,6 +52,8 @@ struct QuillApp: App {
                     .keyboardShortcut("n")
                 Button("Open Markdown File…") { SingleDocumentCoordinator.shared.chooseDocument() }
                     .keyboardShortcut("o")
+                Button("Open Fiction Project…") { FictionProjectOpener.open(browser: browser) }
+                    .keyboardShortcut("o", modifiers: [.command, .shift])
             }
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…", action: updater.check).disabled(!updater.canCheck)
@@ -520,7 +522,7 @@ struct WritingView: View {
             // Outside the writing folder the desk can only show it for now, so say how to find it again.
             browser.visit(project)
             if let writing = browser.writingFolder {
-                importMessage = "“\(project.lastPathComponent)” is saved outside your writing folder, so the desk is showing it only for now. To keep it with your other projects, move it into “\(writing.lastPathComponent)” in Finder, or make its folder your writing folder in Settings."
+                importMessage = "“\(project.lastPathComponent)” is saved outside your writing folder, so the desk is showing it only for now. File → Open Fiction Project… brings it back any time. To keep it with your other projects, move it into “\(writing.lastPathComponent)” in Finder."
             }
         }
         let first = ScrivenerImportWriter.firstChapter(in: project) ?? project.appendingPathComponent(ScrivenerImportPlanner.reportName)

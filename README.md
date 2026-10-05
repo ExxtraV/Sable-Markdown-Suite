@@ -122,6 +122,7 @@ For an iPad edition, reuse `QuillCore` and the document model, add a UIKit text 
 - `Sources/QuillCore/IncrementalStyling.swift`: how much of the text an edit needs restyled.
 - `Sources/Quill/QuillApp.swift`: document handling, settings, and interface.
 - `Sources/Quill/ScrivenerReader.swift`, `Sources/Quill/ScrivenerImport.swift`, `Sources/Quill/ScrivenerImportView.swift`: File → Import Scrivener Project…. The reader turns a Scrivener 3 project into memory without changing it; the importer plans the Fiction Project (what goes where, under which names) and writes it as a new folder; the view is the preview sheet. The format notes are in `docs/scrivener-format.md`.
+- `Sources/Quill/FictionProjectOpener.swift`: File → Open Fiction Project…, which shows a project from anywhere on the desk for the session.
 - `Tests/QuillCoreTests`: Unicode and Markdown-protection checks.
 - `Tests/Fixtures/Scrivener`: small hand-built Scrivener projects, with invented text, for `scripts/check-scrivener.swift`.
 - `Assets/LOGO.md`: how the logo was made with Codex, the logo files, and how `scripts/build-icon.sh` fits the icon to the macOS grid; the icon is packaged with the app.
