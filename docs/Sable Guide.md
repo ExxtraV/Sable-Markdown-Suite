@@ -66,7 +66,7 @@ A **Fiction Project** is a folder that Sable treats as one story world. Every ne
 - **A folder of scenes becomes one chapter file.** Scenes are divided by a scene break, in binder order. Each scene's title, synopsis, status, label, keywords, and document notes sit above it as a note to yourself (`<!-- like this -->`), which Reading Mode and exports leave out. Those notes do count toward the chapter's word count.
 - **Italics, bold, and scene breaks carry over.** Fonts, colors, and spacing are left behind. A chapter's own synopsis, status, label, and keywords go at the top of its file, between the `---` lines.
 - **Pictures, PDFs, and saved web pages are copied as they are**, pictures into Images and the rest into Notes. Pictures pasted into the middle of a document's text can't come along. **Import Report.md**, in the new project, lists every one.
-- **Your Scrivener project is never changed.** Sable only reads it, and writes a new folder where you choose.
+- **Your Scrivener project is never changed.** Sable only reads it, and writes a new folder where you choose. The save panel starts in your writing folder: saved there, the new project stays on your desk with the others. Saved anywhere else, the desk shows it only for now, and Sable says so.
 
 Projects last saved by Scrivener 2 can't be read yet; opening one in Scrivener 3 updates it.
 

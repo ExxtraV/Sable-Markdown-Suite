@@ -513,7 +513,16 @@ struct WritingView: View {
 
     /// Puts the new Fiction Project on the desk and opens its first chapter (or the import report, with no chapters).
     private func openImported(_ project: URL) {
-        if let root = browser.root, FolderMove.isInside(project, of: root) { browser.reload() } else { browser.visit(project) }
+        if let writing = browser.writingFolder, FolderMove.isInside(project, of: writing) {
+            browser.endVisit()
+            browser.reload()
+        } else {
+            // Outside the writing folder the desk can only show it for now, so say how to find it again.
+            browser.visit(project)
+            if let writing = browser.writingFolder {
+                importMessage = "“\(project.lastPathComponent)” is saved outside your writing folder, so the desk is showing it only for now. To keep it with your other projects, move it into “\(writing.lastPathComponent)” in Finder, or make its folder your writing folder in Settings."
+            }
+        }
         let first = ScrivenerImportWriter.firstChapter(in: project) ?? project.appendingPathComponent(ScrivenerImportPlanner.reportName)
         commands.flushText()
         commands.switchTo(first) { errorMessage = $0?.localizedDescription }
@@ -853,7 +862,7 @@ struct WritingView: View {
                                close: { revisionsRequest = nil })
             }
             .sheet(item: $scrivenerImport) { request in
-                ScrivenerImportSheet(request: request, finished: { project in scrivenerImport = nil; openImported(project) }, close: { scrivenerImport = nil })
+                ScrivenerImportSheet(request: request, writingFolder: browser.writingFolder, finished: { project in scrivenerImport = nil; openImported(project) }, close: { scrivenerImport = nil })
             }
             .sheet(isPresented: $showStoryTimeline) {
                 if let project = browser.projectURL {

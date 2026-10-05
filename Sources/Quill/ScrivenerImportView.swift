@@ -11,14 +11,17 @@ struct ScrivenerImportRequest: Identifiable {
 /// binder goes, and only then asks where to save. The Scrivener project itself is never changed.
 struct ScrivenerImportSheet: View {
     let request: ScrivenerImportRequest
+    /// Where the save panel starts, so the new project lands on the writer's desk unless they choose otherwise.
+    let writingFolder: URL?
     /// Called with the new Fiction Project once it is written.
     let finished: (URL) -> Void
     let close: () -> Void
     @State private var destinations: [ScrivenerDestination]
     @State private var failure: String?
 
-    init(request: ScrivenerImportRequest, finished: @escaping (URL) -> Void, close: @escaping () -> Void) {
+    init(request: ScrivenerImportRequest, writingFolder: URL?, finished: @escaping (URL) -> Void, close: @escaping () -> Void) {
         self.request = request
+        self.writingFolder = writingFolder
         self.finished = finished
         self.close = close
         _destinations = State(initialValue: ScrivenerImportPlanner.suggestedDestinations(for: request.project))
@@ -82,7 +85,7 @@ struct ScrivenerImportSheet: View {
             }
 
             HStack {
-                Text("Your Scrivener project isn’t changed. Sable makes a new folder of Markdown files.").font(.caption).foregroundStyle(.secondary)
+                Text("Your Scrivener project isn’t changed. Sable makes a new folder of Markdown files" + (writingFolder.map { ", in “\($0.lastPathComponent)” unless you choose somewhere else." } ?? ".")).font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Button("Cancel", action: close).keyboardShortcut(.cancelAction)
@@ -97,7 +100,9 @@ struct ScrivenerImportSheet: View {
     private func save(_ plan: ScrivenerImportPlan) {
         let panel = NSSavePanel()
         panel.title = "Save the Imported Project"
-        panel.message = "Sable makes a new folder with this name for the Fiction Project."
+        panel.message = writingFolder == nil ? "Sable makes a new folder with this name for the Fiction Project."
+            : "Sable makes a new folder with this name for the Fiction Project. Saved inside your writing folder, it stays on your desk."
+        if let writingFolder { panel.directoryURL = writingFolder }
         panel.prompt = "Import"
         panel.nameFieldLabel = "Project name:"
         panel.nameFieldStringValue = ScrivenerImportPlanner.fileName(for: request.project.title)
