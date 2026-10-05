@@ -18,6 +18,8 @@ struct WritingSidebar: View {
     var exportManuscript: () -> Void = {}
     var exportDocument: () -> Void = {}
     var showRevisions: () -> Void = {}
+    /// Puts a Fiction Project from anywhere on the desk (the Recent Projects section).
+    var openProject: (URL) -> Void = { _ in }
     @EnvironmentObject private var browser: FolderBrowser
     @AppStorage("outlineTitle") private var outlineTitle = "Outline"
     @AppStorage("outlineLevel") private var outlineLevel = 0
@@ -125,9 +127,12 @@ struct WritingSidebar: View {
                     Group {
                         switch section {
                         case .files:
-                            FolderBrowserSection(currentURL: currentURL, search: search, chooseFolder: chooseFolder,
-                                switchFile: switchFile, showParallel: showParallel, parallelURL: parallelURL, showCard: showCard,
-                                releaseCurrentDocument: releaseCurrentDocument)
+                            VStack(alignment: .leading, spacing: 0) {
+                                FolderBrowserSection(currentURL: currentURL, search: search, chooseFolder: chooseFolder,
+                                    switchFile: switchFile, showParallel: showParallel, parallelURL: parallelURL, showCard: showCard,
+                                    releaseCurrentDocument: releaseCurrentDocument)
+                                if browser.projectURL == nil, search.isEmpty { RecentProjectsSection(open: openProject) }
+                            }
                         case .outline: outline
                         case .recent: RecentTab(currentURL: currentURL, search: search, switchFile: switchFile)
                         case .manuscript: ManuscriptTab(currentURL: currentURL, liveText: text, search: search, switchFile: switchFile, exportManuscript: exportManuscript)
@@ -548,5 +553,68 @@ struct RecentTabToggle: View {
     var body: some View {
         Toggle("Recent tab", isOn: Binding(get: { enabled }, set: { enabled = $0; if !$0 { stored = "" } }))
             .help("Adds a Recent tab to the writing desk with the files you have open. Turning it off forgets the list.")
+    }
+}
+
+/// Fiction Projects opened lately, wherever they live, under the desk's own list. One quiet line until it is
+/// opened; nothing at all when there are none, or inside a project.
+struct RecentProjectsSection: View {
+    let open: (URL) -> Void
+    @AppStorage(RecentProjects.storageKey) private var stored = ""
+    @AppStorage(RecentProjects.expandedKey) private var expanded = false
+
+    var body: some View {
+        let projects = RecentProjects.existing(in: stored, isProject: FictionProject.isProject)
+        if !projects.isEmpty {
+            VStack(alignment: .leading, spacing: 1) {
+                Button { withQuietAnimation { expanded.toggle() } } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 8, weight: .bold)).frame(width: 10)
+                        Text("RECENT PROJECTS").lineLimit(1)
+                        Text("\(projects.count)").foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                    }
+                    .font(.system(size: 9.5, weight: .semibold)).tracking(1.1).foregroundStyle(.secondary)
+                    .padding(.horizontal, 8).padding(.vertical, 5).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Recent projects")
+                .accessibilityValue("\(projects.count) \(projects.count == 1 ? "project" : "projects"), \(expanded ? "expanded" : "collapsed")")
+                .accessibilityHint(expanded ? "Collapses the list" : "Expands the list")
+                .accessibilityAddTraits(.isHeader)
+                if expanded {
+                    ForEach(projects, id: \.path) { project in
+                        Button { open(project) } label: {
+                            HStack(spacing: 7) {
+                                Image(systemName: "books.vertical").font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 16).accessibilityHidden(true)
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(FictionProject.load(project)?.title ?? project.lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                                    Text(RecentProjectsSection.place(of: project)).font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 8).padding(.vertical, 3).contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(project.path)
+                        .accessibilityLabel("Open \(project.lastPathComponent)")
+                        .accessibilityValue("In \(RecentProjectsSection.place(of: project))")
+                        .contextMenu {
+                            Button("Open") { open(project) }
+                            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([project]) }
+                            Divider()
+                            Button("Remove from Recent Projects") { stored = RecentProjects.removing(project, from: stored) }
+                        }
+                        .accessibilityAction(named: "Remove from Recent Projects") { stored = RecentProjects.removing(project, from: stored) }
+                    }
+                }
+            }
+            .padding(.top, 8)
+        }
+    }
+
+    /// Where a project is, said the way Finder would: "~/Documents/Novels".
+    static func place(of project: URL) -> String {
+        (project.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath
     }
 }

@@ -94,6 +94,24 @@ import PDFKit
         precondition(ManuscriptExport.chapters(project: project, include: ["Chapter 2.md", "Chapter 3.md"]).map(\.title) == ["Three", "Two"], "…and can be limited to a selection")
         precondition(ManuscriptExport.chapters(project: project).allSatisfy { !$0.body.contains("---") && !$0.body.contains("location") }, "Tag blocks never reach the export")
 
+        // Another folder of the project can stand in for Manuscript: a second book, an older draft.
+        let second = project.appendingPathComponent("Notes/Book Two", isDirectory: true)
+        try FileManager.default.createDirectory(at: second.appendingPathComponent("Part 10"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: second.appendingPathComponent("Part 2"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: project.appendingPathComponent("Notes/Empty/.hidden"), withIntermediateDirectories: true)
+        try "---\nstatus: Draft\n---\n\n# Opening\n\nFirst words.\n".write(to: second.appendingPathComponent("Part 2/Scene.md"), atomically: true, encoding: .utf8)
+        try "Later words.\n".write(to: second.appendingPathComponent("Part 10/Scene.md"), atomically: true, encoding: .utf8)
+        try "# Preface\n\nBefore.\n".write(to: second.appendingPathComponent("A Preface.md"), atomically: true, encoding: .utf8)
+        try Data([0x89]).write(to: second.appendingPathComponent("map.png"))
+        let offered = ManuscriptExport.sourceFolders(project: project)
+        precondition(offered.first?.isManuscript == true && offered.first?.name == "Manuscript", "Manuscript is offered first: \(offered.map(\.name))")
+        precondition(offered.map(\.name).contains("Notes") && offered.map(\.name).contains("Notes/Book Two") && offered.map(\.name).contains("Notes/Book Two/Part 2"), "Folders that hold writing are offered: \(offered.map(\.name))")
+        precondition(!offered.map(\.name).contains("Images") && !offered.map(\.name).contains("Notes/Empty") && offered.filter(\.isManuscript).count == 1, "Pictures and empty folders are not: \(offered.map(\.name))")
+        let bookTwo = ManuscriptExport.chapters(in: second)
+        precondition(bookTwo.map(\.name) == ["A Preface.md", "Part 2/Scene.md", "Part 10/Scene.md"], "Its files and its subfolders', in the order Finder shows: \(bookTwo.map(\.name))")
+        precondition(bookTwo.map(\.title) == ["Preface", "Opening", "Scene"] && bookTwo[1].body == "First words." && Set(bookTwo.map(\.id)).count == 3, "Titles, bodies, and distinct identities: \(bookTwo)")
+        precondition(ManuscriptExport.chapters(project: project).map(\.title) == ["Three", "One", "Two"], "The Manuscript itself is unchanged by any of it")
+
         // ---- Zip container
         var zip = ZipWriter()
         zip.add("mimetype", "application/epub+zip")

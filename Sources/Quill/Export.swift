@@ -36,6 +36,16 @@ struct ExportChapter: Equatable, Sendable, Identifiable {
     var words: Int { ManuscriptStats.wordCount(in: body) }
 }
 
+/// A folder of a project that a manuscript export can be made from: the Manuscript folder, or any other that
+/// holds writing (a second book, an old draft).
+struct ExportFolder: Equatable, Sendable, Identifiable {
+    let url: URL
+    /// The path inside the project, e.g. "Notes/Old Drafts".
+    let name: String
+    let isManuscript: Bool
+    var id: String { name }
+}
+
 enum ExportError: LocalizedError {
     case nothingToExport, couldNotBuild(String)
     var errorDescription: String? {
@@ -69,6 +79,55 @@ enum ManuscriptExport {
         return ManuscriptStats.load(folder: folder, order: order).compactMap { stat in
             guard include?.contains(stat.name) ?? true, let text = try? String(contentsOf: stat.url, encoding: .utf8) else { return nil }
             return chapter(named: stat.name, markdown: text)
+        }
+    }
+
+    /// The folders an export can be made from: Manuscript first, then every other folder of the project, up to
+    /// three levels down, with a Markdown or text file somewhere inside it. Pictures and hidden folders are left out.
+    static func sourceFolders(project: URL, limit: Int = 80) -> [ExportFolder] {
+        let fm = FileManager.default
+        let manuscript = FictionProject.folder(for: .chapter, in: project)
+        var found: [ExportFolder] = []
+        func visit(_ folder: URL, path: [String]) {
+            let entries = ((try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])) ?? [])
+                .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
+                .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+            for entry in entries where found.count < limit {
+                let name = entry.lastPathComponent
+                if path.isEmpty, name == manuscript.lastPathComponent || name == FictionProject.imagesFolder { continue }
+                guard !files(under: entry).isEmpty else { continue }
+                found.append(ExportFolder(url: entry, name: (path + [name]).joined(separator: "/"), isManuscript: false))
+                if path.count < 2 { visit(entry, path: path + [name]) }
+            }
+        }
+        visit(project, path: [])
+        return [ExportFolder(url: manuscript, name: manuscript.lastPathComponent, isManuscript: true)] + found
+    }
+
+    /// Every Markdown or text file in `folder` and its subfolders, in name order the way Finder sorts.
+    static func files(under folder: URL) -> [URL] {
+        let walker = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles, .skipsPackageDescendants])
+        let urls = (walker?.compactMap { $0 as? URL } ?? []).filter {
+            ManuscriptStats.fileExtensions.contains($0.pathExtension.lowercased()) && (try? $0.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
+        }
+        let base = folder.standardizedFileURL.pathComponents.count
+        func parts(_ url: URL) -> [String] { Array(url.standardizedFileURL.pathComponents.dropFirst(base)) }
+        return urls.sorted { a, b in
+            let left = parts(a), right = parts(b)
+            for (l, r) in zip(left, right) where l != r { return l.localizedStandardCompare(r) == .orderedAscending }
+            return left.count < right.count
+        }
+    }
+
+    /// The chapters of a folder other than Manuscript: each file is one, subfolders included. The Manuscript tab's
+    /// order doesn't reach here, so they come in name order.
+    static func chapters(in folder: URL) -> [ExportChapter] {
+        let base = folder.standardizedFileURL.pathComponents.count
+        return files(under: folder).compactMap { url in
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+            let made = chapter(named: url.lastPathComponent, markdown: text)
+            // Two files can share a name in different subfolders; the path inside the folder tells them apart.
+            return ExportChapter(name: url.standardizedFileURL.pathComponents.dropFirst(base).joined(separator: "/"), title: made.title, body: made.body)
         }
     }
 
