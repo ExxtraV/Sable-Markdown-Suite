@@ -52,6 +52,8 @@ struct QuillApp: App {
                     .keyboardShortcut("n")
                 Button("Open Markdown File…") { SingleDocumentCoordinator.shared.chooseDocument() }
                     .keyboardShortcut("o")
+                Button("Open Fiction Project…") { FictionProjectOpener.open(browser: browser) }
+                    .keyboardShortcut("o", modifiers: [.command, .shift])
             }
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…", action: updater.check).disabled(!updater.canCheck)
@@ -180,6 +182,7 @@ struct WritingView: View {
     @State private var showStoryTimeline = false
     @AppStorage("autoSnapshots") private var autoSnapshots = true
     @State private var importMessage: String?
+    @State private var scrivenerImport: ScrivenerImportRequest?
     @AppStorage("dimMarkers") private var dimMarkers = true
     @AppStorage("smartTypography") private var smartTypography = false
     @AppStorage("sceneTagsPlacement") private var sceneTagsPlacement = "bottom"
@@ -347,6 +350,7 @@ struct WritingView: View {
             canExportManuscript: browser.projectURL != nil,
             findInProject: startFindInProject,
             importDocument: startImport,
+            importScrivener: startScrivenerImport,
             revisions: { startRevisions(saving: false) },
             saveSnapshot: { startRevisions(saving: true) },
             storyTimeline: startStoryTimeline,
@@ -498,6 +502,32 @@ struct WritingView: View {
         } catch {
             importMessage = "Could not import “\(source.lastPathComponent)”: \(error.localizedDescription)"
         }
+    }
+
+    /// Reads a Scrivener project and shows what importing it would make. Nothing is written until the writer agrees.
+    private func startScrivenerImport() {
+        do {
+            scrivenerImport = try ScrivenerImportStarter.choose()
+        } catch {
+            importMessage = error.localizedDescription
+        }
+    }
+
+    /// Puts the new Fiction Project on the desk and opens its first chapter (or the import report, with no chapters).
+    private func openImported(_ project: URL) {
+        if let writing = browser.writingFolder, FolderMove.isInside(project, of: writing) {
+            browser.endVisit()
+            browser.reload()
+        } else {
+            // Outside the writing folder the desk can only show it for now, so say how to find it again.
+            browser.visit(project)
+            if let writing = browser.writingFolder {
+                importMessage = "“\(project.lastPathComponent)” is saved outside your writing folder, so the desk is showing it only for now. File → Open Fiction Project… brings it back any time. To keep it with your other projects, move it into “\(writing.lastPathComponent)” in Finder."
+            }
+        }
+        let first = ScrivenerImportWriter.firstChapter(in: project) ?? project.appendingPathComponent(ScrivenerImportPlanner.reportName)
+        commands.flushText()
+        commands.switchTo(first) { errorMessage = $0?.localizedDescription }
     }
 
     private func startDocumentExport() {
@@ -832,6 +862,9 @@ struct WritingView: View {
                                filesChanged: { browser.reload() },
                                restoreOrder: { order in if let project = browser.projectURL { try? FictionProject.setChapterOrder(order, in: project); browser.reload() } },
                                close: { revisionsRequest = nil })
+            }
+            .sheet(item: $scrivenerImport) { request in
+                ScrivenerImportSheet(request: request, writingFolder: browser.writingFolder, finished: { project in scrivenerImport = nil; openImported(project) }, close: { scrivenerImport = nil })
             }
             .sheet(isPresented: $showStoryTimeline) {
                 if let project = browser.projectURL {

@@ -62,6 +62,10 @@ import Foundation
         precondition(FictionProject.projectRoot(containing: deepFile, within: root) == project.standardizedFileURL)
         precondition(FictionProject.projectRoot(containing: project, within: root) == project.standardizedFileURL)
         precondition(FictionProject.projectRoot(containing: root, within: root) == nil)
+        // Open Fiction Project… finds the project from any folder inside it, with no writing folder to search within.
+        precondition(FictionProject.enclosingProject(of: project) == project.standardizedFileURL)
+        precondition(FictionProject.enclosingProject(of: deepFile.deletingLastPathComponent()) == project.standardizedFileURL)
+        precondition(FictionProject.enclosingProject(of: root) == nil)
         try fm.createDirectory(at: root.appendingPathComponent("Plain/Sub"), withIntermediateDirectories: true)
         precondition(FictionProject.projectRoot(containing: root.appendingPathComponent("Plain/Sub"), within: root) == nil)
         precondition(FictionProject.projectRoot(containing: deepFile, within: root.appendingPathComponent("Plain")) == nil, "Never searches above the writing folder")

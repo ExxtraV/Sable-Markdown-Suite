@@ -819,6 +819,7 @@ struct WritingActions {
     var canExportManuscript = false
     var findInProject: () -> Void = {}
     var importDocument: () -> Void = {}
+    var importScrivener: () -> Void = {}
     var revisions: () -> Void = {}
     var saveSnapshot: () -> Void = {}
     var storyTimeline: () -> Void = {}
@@ -850,6 +851,7 @@ struct WritingCommands: Commands {
             Button("Export Manuscript…") { actions?.exportManuscript() }.keyboardShortcut("e", modifiers: [.command, .shift]).disabled(actions?.canExportManuscript != true)
             Button("Export This Document…") { actions?.exportDocument() }.disabled(actions == nil)
             Button("Import Document…") { actions?.importDocument() }.disabled(actions == nil)
+            Button("Import Scrivener Project…") { actions?.importScrivener() }.disabled(actions == nil)
             Divider()
             Button("Save Snapshot…") { actions?.saveSnapshot() }.keyboardShortcut("s", modifiers: [.command, .option]).disabled(actions == nil)
             Button("Revision History…") { actions?.revisions() }.keyboardShortcut("r", modifiers: [.command, .option]).disabled(actions == nil)

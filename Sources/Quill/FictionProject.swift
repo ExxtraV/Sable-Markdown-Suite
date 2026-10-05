@@ -336,6 +336,19 @@ struct FictionProject: Codable, Equatable, Sendable {
         return nil
     }
 
+    /// The project `folder` is, or sits inside, wherever on disk that is: choosing a project's Manuscript
+    /// folder, say, finds the project it belongs to.
+    static func enclosingProject(of folder: URL) -> URL? {
+        var directory = folder.standardizedFileURL
+        while directory.path != "/" {
+            if isProject(directory) { return directory }
+            let parent = directory.deletingLastPathComponent()
+            if parent == directory { break }
+            directory = parent
+        }
+        return nil
+    }
+
     /// Changes the project's settings in place, keeping everything else in the marker.
     static func update(_ folder: URL, _ change: (inout FictionProject) -> Void) throws {
         guard isProject(folder) else { throw FictionProjectError.notProject }

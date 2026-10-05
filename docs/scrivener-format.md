@@ -164,6 +164,46 @@ What the reader does with it:
   indentation are dropped.
 - A document that is empty or all white space has no text at all (`nil`), the same as one with no file.
 
+## What the importer does with the tree
+
+The reader stops at an in-memory tree. `Sources/Quill/ScrivenerImport.swift` turns that into a Fiction
+Project, in two steps: a plan (every file, its path, its text; nothing on disk) and a writer.
+
+Each top-level binder item gets a destination, suggested here and changeable in the preview sheet:
+
+| Top-level item | Suggested destination |
+| --- | --- |
+| The `DraftFolder` | Manuscript |
+| A name Sable already reads as a card folder (Characters, People, Places, Locations, World, Lore…), or Cast, Settings | Characters, Locations, or World |
+| At least half its documents carry the character-sheet or location-sheet icon | Characters or Locations |
+| The `ResearchFolder`, and anything else | Notes (`Notes/<name>/…`, folders kept) |
+| The `TrashFolder`, the template-sheets folder, a top-level "… Format" page with the Information icon | Don't import |
+
+- **Manuscript.** Sable's Manuscript folder is flat, one file per chapter. A container whose children
+  are all single documents is one chapter file: its own text first, then each child as a scene, divided
+  by `* * *`. A container holding other containers is a part: it has no file unless it has text, and
+  its title is written to its chapters as `part:`. A single document directly in the Draft is a
+  chapter by itself. Chapter order goes in the project's `chapterOrder`.
+- **Scene details** (title, status, label, keywords, synopsis, document notes) go in a `<!-- -->` note
+  above the scene, since Sable has no per-scene metadata and a scene's working title should not reach
+  an export. `-->` inside a note is defused with a zero-width space.
+- **Front matter** carries what belongs to the whole file: `type` for cards, `synopsis` (up to 500
+  characters; longer ones become a note in the text, so a card's opening stays within what Sable
+  indexes), `status`, `label`, `tags` from keywords, `part`, and `image` for a card with an index-card
+  picture. Only `type`, `tags`, and `image` mean anything to Sable today; the rest are kept for the
+  writer and for later.
+- **Document notes** become a `<!-- Notes: … -->` block under the heading. Comments were chosen over a
+  sidecar file because Sable already dims them, hides them in Reading Mode, and drops them on export.
+- **Names.** A title becomes a file name with `/ : \` turned into `-`, `* ? " < > |` and control
+  characters removed, leading periods dropped, and length capped at 80; a clash gets ` 2`, ` 3`. The
+  untouched title is the file's `#` heading.
+- **Files that can't convert** are copied: pictures to `Images/`, the rest to `Notes/`. Every one is
+  listed in `Import Report.md`, with pasted pictures, missing or unreadable documents, and what was left
+  out.
+- **Writing.** The project is built in a hidden folder beside its destination and renamed into place
+  only when complete. A destination that exists is refused. Every planned path is checked once more
+  before it is written.
+
 ## Untrusted input
 
 A `.scriv` can come from anywhere, so:
