@@ -31,6 +31,9 @@ struct ExportSheet: View {
     @State private var title = ""
     @State private var chapters: [ExportChapter] = []
     @State private var included: Set<String> = []
+    /// The project's folders that hold writing, and the one this export is made from (Manuscript unless changed).
+    @State private var folders: [ExportFolder] = []
+    @State private var folderID = ""
     @State private var loading = true
     @State private var working = false
     @State private var problem: String?
@@ -190,6 +193,14 @@ struct ExportSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Chapters").font(.subheadline.weight(.medium)).accessibilitySectionHeading()
+                if folders.count > 1 {
+                    Picker("Export chapters from", selection: $folderID) {
+                        ForEach(folders) { Text($0.name).tag($0.id) }
+                    }
+                    .labelsHidden().fixedSize().controlSize(.small)
+                    .help("The folder whose files are the chapters. Manuscript is your project’s own; choose another for a second book or an older draft.")
+                    .onChange(of: folderID) { _, _ in Task { await loadChapters() } }
+                }
                 Spacer()
                 Button("All") { included = Set(chapters.map(\.id)) }.buttonStyle(.link).font(.caption).accessibilityLabel("Include every chapter")
                 Button("None") { included = [] }.buttonStyle(.link).font(.caption).accessibilityLabel("Include no chapters")
@@ -209,14 +220,15 @@ struct ExportSheet: View {
                             .accessibilityLabel(chapter.title)
                             .accessibilityValue("\(chapter.words.formatted()) words")
                     }
-                    if chapters.isEmpty && !loading { Text("This project has no chapters yet.").font(.caption).foregroundStyle(.secondary) }
+                    if chapters.isEmpty && !loading { Text(chosenFolder?.isManuscript == false ? "This folder has no Markdown files." : "This project has no chapters yet.").font(.caption).foregroundStyle(.secondary) }
                 }.padding(8).frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: 150)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Chapters to export")
-            Text("In the order you arranged them in the Manuscript tab.").font(.caption).foregroundStyle(.secondary)
+            Text(chosenFolder?.isManuscript == false ? "Every file in “\(chosenFolder?.name ?? "")” and its subfolders, in name order." : "In the order you arranged them in the Manuscript tab.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -225,12 +237,11 @@ struct ExportSheet: View {
         case let .manuscript(project, projectTitle, unsaved):
             title = projectTitle
             layout = ExportLayout(saved: FictionProject.load(project)?.exportLayout?.values, fallback: startingLayout)
-            var loaded = await Task.detached { ManuscriptExport.chapters(project: project) }.value
-            for (name, markdown) in unsaved {
-                if let index = loaded.firstIndex(where: { $0.name == name }) { loaded[index] = ManuscriptExport.chapter(named: name, markdown: markdown) }
-            }
-            chapters = loaded
-            included = Set(loaded.map(\.id))
+            _ = unsaved
+            let found = await Task.detached { ManuscriptExport.sourceFolders(project: project) }.value
+            folders = found
+            folderID = found.first?.id ?? ""
+            await loadChapters()
         case let .document(documentTitle, markdown, _):
             title = documentTitle
             layout = documentLayout.isEmpty ? startingLayout : ExportLayout(json: documentLayout, fallback: startingLayout)
@@ -240,18 +251,36 @@ struct ExportSheet: View {
         loading = false
     }
 
+    private var chosenFolder: ExportFolder? { folders.first { $0.id == folderID } }
+
+    /// Reads the chapters of the chosen folder. In Manuscript, a chapter open with unsaved changes is exported as it is on screen.
+    private func loadChapters() async {
+        guard case let .manuscript(project, _, unsaved) = source else { return }
+        let folder = chosenFolder
+        var loaded = await Task.detached { folder?.isManuscript == false ? ManuscriptExport.chapters(in: folder!.url) : ManuscriptExport.chapters(project: project) }.value
+        guard folder?.id == chosenFolder?.id else { return }
+        if folder?.isManuscript != false {
+            for (name, markdown) in unsaved {
+                if let index = loaded.firstIndex(where: { $0.name == name }) { loaded[index] = ManuscriptExport.chapter(named: name, markdown: markdown) }
+            }
+        }
+        chapters = loaded
+        included = Set(loaded.map(\.id))
+    }
+
     /// The files this export is made from.
     private var sourceFiles: [URL] {
         switch source {
         case let .manuscript(project, _, _):
             let folder = FictionProject.folder(for: .chapter, in: project)
+            if let chosen = chosenFolder, !chosen.isManuscript { return ManuscriptExport.files(under: chosen.url) }
             return (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
         case let .document(_, _, url): return url.map { [$0] } ?? []
         }
     }
 
     private var protectedFolders: [URL] {
-        if case let .manuscript(project, _, _) = source { return [FictionProject.folder(for: .chapter, in: project)] }
+        if case let .manuscript(project, _, _) = source { return [FictionProject.folder(for: .chapter, in: project)] + (chosenFolder.map { [$0.url] } ?? []) }
         return []
     }
 

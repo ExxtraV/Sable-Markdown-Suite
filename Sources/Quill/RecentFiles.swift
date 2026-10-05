@@ -12,7 +12,7 @@ enum RecentFiles {
         return paths
     }
 
-    private static func encode(_ paths: [String]) -> String {
+    fileprivate static func encode(_ paths: [String]) -> String {
         guard let data = try? JSONEncoder().encode(paths), let text = String(data: data, encoding: .utf8) else { return "" }
         return text
     }
@@ -32,5 +32,27 @@ enum RecentFiles {
     /// The files still on disk, newest first. A file that was moved or deleted simply drops out of the list.
     static func existing(in stored: String, fileManager: FileManager = .default) -> [URL] {
         paths(in: stored).filter { fileManager.fileExists(atPath: $0) }.map { URL(fileURLWithPath: $0) }
+    }
+}
+
+/// The Fiction Projects opened lately, newest first, wherever they live. This is how a project outside the
+/// writing folder is found again: the desk's Recent Projects section and File → Open Recent Project read it.
+enum RecentProjects {
+    static let storageKey = "recentProjects"
+    static let expandedKey = "recentProjectsExpanded"
+    static let limit = 8
+
+    static func adding(_ project: URL, to stored: String) -> String { RecentFiles.adding(project, to: stored, limit: limit) }
+
+    static func removing(_ project: URL, from stored: String) -> String {
+        let path = project.standardizedFileURL.path
+        let paths = RecentFiles.paths(in: stored)
+        return paths.contains(path) ? RecentFiles.encode(paths.filter { $0 != path }) : stored
+    }
+
+    /// The ones that are still Fiction Projects. A project that was moved, deleted, or turned back into a plain
+    /// folder simply drops out of the list.
+    static func existing(in stored: String, isProject: (URL) -> Bool) -> [URL] {
+        RecentFiles.paths(in: stored).map { URL(fileURLWithPath: $0, isDirectory: true) }.filter(isProject)
     }
 }

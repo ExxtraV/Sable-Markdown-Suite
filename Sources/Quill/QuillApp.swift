@@ -54,6 +54,7 @@ struct QuillApp: App {
                     .keyboardShortcut("o")
                 Button("Open Fiction Project…") { FictionProjectOpener.open(browser: browser) }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
+                RecentProjectsMenu(browser: browser)
             }
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…", action: updater.check).disabled(!updater.canCheck)
@@ -189,6 +190,7 @@ struct WritingView: View {
     @State private var errorMessage: String?
     @AppStorage(RecentFiles.enabledKey) private var showRecentTab = false
     @AppStorage(RecentFiles.storageKey) private var recentOpens = ""
+    @AppStorage(RecentProjects.storageKey) private var recentProjects = ""
 
     /// The editor counts as you type, so the status bar never has to count a whole manuscript itself.
     private var count: Int { commands.words(in: document.text) }
@@ -302,7 +304,8 @@ struct WritingView: View {
             releaseCurrentDocument: releaseCurrentDocument,
             exportManuscript: startManuscriptExport,
             exportDocument: startDocumentExport,
-            showRevisions: { startRevisions(saving: false) }
+            showRevisions: { startRevisions(saving: false) },
+            openProject: { FictionProjectOpener.show($0, browser: browser) }
         )
     }
 
@@ -872,6 +875,12 @@ struct WritingView: View {
                 }
             }
             .task(id: browser.projectURL) { await takeDailySnapshot() }
+            .onChange(of: browser.projectURL, initial: true) { _, project in
+                // Entering a project, by any road, is what makes it recent. The sample that ships with Sable isn't the writer's.
+                guard let project, project.lastPathComponent.hasPrefix(SampleProject.copyName) == false else { return }
+                let updated = RecentProjects.adding(project, to: recentProjects)
+                if updated != recentProjects { recentProjects = updated }
+            }
             .alert("Import", isPresented: Binding(get: { importMessage != nil }, set: { if !$0 { importMessage = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: { Text(importMessage ?? "") }
@@ -1024,5 +1033,22 @@ struct PreferencesView: View {
             guideMessage = "Saved “\(url.lastPathComponent)” in \(guideFolder.lastPathComponent)."
             browser.reload()
         } catch { guideMessage = "Could not write the guide: \(error.localizedDescription)" }
+    }
+}
+
+/// File → Open Recent Project: the same list as the desk's Recent Projects section.
+struct RecentProjectsMenu: View {
+    let browser: FolderBrowser
+    @AppStorage(RecentProjects.storageKey) private var stored = ""
+
+    var body: some View {
+        let projects = RecentProjects.existing(in: stored, isProject: FictionProject.isProject)
+        Menu("Open Recent Project") {
+            ForEach(projects, id: \.path) { project in
+                Button(FictionProject.load(project)?.title ?? project.lastPathComponent) { FictionProjectOpener.show(project, browser: browser) }
+            }
+            if !projects.isEmpty { Divider() }
+            Button("Clear Menu") { stored = "" }.disabled(projects.isEmpty)
+        }
     }
 }
