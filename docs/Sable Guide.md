@@ -61,7 +61,7 @@ A **Fiction Project** is a folder that Sable treats as one story world. Every ne
 
 ## Coming from Scrivener
 
-**File → Import Scrivener Project…** turns a Scrivener 3 project into a new Fiction Project. Choose the project (its name ends in .scriv) and Sable shows what it found before writing anything: how many scenes, chapters, characters, locations, and notes, and anything that can't become Markdown.
+**File → Import Scrivener Project…** turns a Scrivener project into a new Fiction Project. Choose the project (its name ends in .scriv) and Sable shows what it found before writing anything: how many scenes, chapters, characters, locations, and notes, and anything that can't become Markdown.
 
 - **You choose where each part goes.** Every top-level item in the binder has a menu: Manuscript, Characters, Locations, World, Notes, or Don't Import. Sable suggests the manuscript folder for Manuscript, character and location sheets for cards, Research for Notes, and leaves out the Trash and Scrivener's blank template sheets. If your project holds more than one book, send each extra book's folder wherever suits you.
 - **A folder of scenes becomes one chapter file.** Scenes are divided by a scene break, in binder order. Each scene's title, synopsis, status, label, keywords, and document notes sit above it as a note to yourself (`<!-- like this -->`), which Reading Mode and exports leave out. Those notes do count toward the chapter's word count.
@@ -69,7 +69,7 @@ A **Fiction Project** is a folder that Sable treats as one story world. Every ne
 - **Pictures, PDFs, and saved web pages are copied as they are**, pictures into Images and the rest into Notes. Pictures pasted into the middle of a document's text can't come along. **Import Report.md**, in the new project, lists every one.
 - **Your Scrivener project is never changed.** Sable only reads it, and writes a new folder where you choose. The save panel starts in your writing folder: saved there, the new project stays on your desk with the others. Saved anywhere else, the desk shows it only for now; File → Open Fiction Project… brings it back.
 
-Projects last saved by Scrivener 2 can't be read yet; opening one in Scrivener 3 updates it.
+Projects from Scrivener 3 and Scrivener 2 can both be read. Scrivener 2's older format is less tested, and Sable says so in the preview; look the result over against your project.
 
 ## A little Markdown
 

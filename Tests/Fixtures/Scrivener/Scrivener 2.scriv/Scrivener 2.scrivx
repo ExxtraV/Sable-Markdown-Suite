@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ScrivenerProject Template="No" Version="1.0" Identifier="F1C70002-0000-4000-8000-000000000002" Creator="SCRMAC-2.9-27900" Device="Fixture" Modified="2014-05-02 10:30:00 -0500">
+    <Binder>
+        <BinderItem ID="1" Type="DraftFolder" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Draft</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+            </MetaData>
+            <Children>
+        <BinderItem ID="4" Type="Folder" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Chapter One</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+            </MetaData>
+            <Children>
+        <BinderItem ID="5" Type="Text" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Arrival</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+                <LabelID>2</LabelID>
+                <StatusID>1</StatusID>
+            </MetaData>
+            <Keywords>
+                <KeywordID>1</KeywordID>
+            </Keywords>
+        </BinderItem>
+        <BinderItem ID="6" Type="Text" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>The Well</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+            </MetaData>
+        </BinderItem>
+            </Children>
+        </BinderItem>
+        <BinderItem ID="7" Type="Text" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Epilogue</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+            </MetaData>
+        </BinderItem>
+            </Children>
+        </BinderItem>
+        <BinderItem ID="8" Type="Folder" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Characters</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+            </MetaData>
+            <Children>
+        <BinderItem ID="9" Type="Text" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Hesper Vane</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+            </MetaData>
+        </BinderItem>
+            </Children>
+        </BinderItem>
+        <BinderItem ID="2" Type="ResearchFolder" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Research</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+            </MetaData>
+            <Children>
+        <BinderItem ID="10" Type="PDF" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Well survey</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+                <FileExtension>pdf</FileExtension>
+            </MetaData>
+        </BinderItem>
+        <BinderItem ID="11" Type="Image" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Village plan</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+                <FileExtension>png</FileExtension>
+            </MetaData>
+        </BinderItem>
+            </Children>
+        </BinderItem>
+        <BinderItem ID="12" Type="Folder" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Template Sheets</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+            </MetaData>
+            <Children>
+        <BinderItem ID="13" Type="Text" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Character Sketch</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+            </MetaData>
+        </BinderItem>
+            </Children>
+        </BinderItem>
+        <BinderItem ID="3" Type="TrashFolder" Created="2014-05-01 09:00:00 -0500" Modified="2014-05-02 10:30:00 -0500">
+            <Title>Trash</Title>
+            <MetaData>
+                <IncludeInCompile>Yes</IncludeInCompile>
+            </MetaData>
+        </BinderItem>
+    </Binder>
+    <Keywords>
+        <Keyword ID="1">
+            <Title>drought</Title>
+            <Color>0.5 0.5 0.5</Color>
+        </Keyword>
+    </Keywords>
+    <LabelSettings>
+        <Title>Label</Title>
+        <DefaultLabelID>-1</DefaultLabelID>
+        <Labels>
+            <Label ID="-1">No Label</Label>
+            <Label ID="2" Color="0.2 0.4 0.8">Hesper</Label>
+        </Labels>
+    </LabelSettings>
+    <StatusSettings>
+        <Title>Status</Title>
+        <DefaultStatusID>-1</DefaultStatusID>
+        <StatusItems>
+            <Status ID="-1">N/A</Status>
+            <Status ID="1">To Do</Status>
+        </StatusItems>
+    </StatusSettings>
+    <TemplateFolderID>12</TemplateFolderID>
+</ScrivenerProject>

@@ -18,6 +18,8 @@ Those real projects are private. Nothing from them is in this repository: the fi
 
 Sable only ever reads a Scrivener project. It never writes into one.
 
+Most of this document is about the Scrivener 3 format. Scrivener 2's older layout has its own section near the end.
+
 ## The package
 
 A project is a folder whose name ends in `.scriv`, shown by Finder as a single file.
@@ -224,11 +226,29 @@ A `.scriv` can come from anywhere, so:
 
 ## Scrivener 2
 
-Unverified: no Scrivener 2 project was available. Public descriptions say the binder has
-`Version="1.0"`, items are numbered (`ID="12"`) instead of having UUIDs, and the files are flat in
-`Files/Docs` as `12.rtf`, `12_synopsis.txt`, and `12_notes.rtf`. The reader recognises such a project
-(a `1.x` version, or `Files/Docs` without `Files/Data`) and says it can't read it yet. Supporting it
-needs a real Scrivener 2 project to check against, or a writer willing to test.
+**Everything in this section is assumed.** No real Scrivener 2 project was available, so the reader
+follows public descriptions of the format, and `Tests/Fixtures/Scrivener/Scrivener 2.scriv` was built by
+hand from the same descriptions. It proves the reader does what this section says, not that the section
+is right. The preview sheet and the import report tell the writer the format is less tested.
+
+| Fact | Mark |
+| --- | --- |
+| The binder has `Version="1.0"`; the reader also treats `Files/Docs` without `Files/Data` as this layout | Assumed |
+| Items are numbered, `<BinderItem ID="12" Type="Text">`, with the same `Type` names as Scrivener 3 | Assumed |
+| Files sit side by side in `Files/Docs`: `12.rtf`, `12_synopsis.txt`, `12_notes.rtf`, and `12.<ext>` for a picture or PDF | Assumed |
+| `Title`, `MetaData` (`LabelID`, `StatusID`, `IncludeInCompile`, `FileExtension`), `Children`, `LabelSettings`, `StatusSettings`, and keywords are shaped as in Scrivener 3 | Assumed |
+| The template-sheets folder is named by `TemplateFolderID` | Assumed |
+| Index-card pictures, section types | Not known; not read |
+| Inline annotations and footnotes are written into the RTF as `{\Scrv_annot …}` and `{\Scrv_fn=…}` | Assumed, not converted. If `Scrv_` survives into a document's Markdown, the reader adds a warning that stray marks may show |
+| Scrivener 1 for Windows uses this same layout | Assumed |
+
+Because one folder holds every item's files, the reader builds each file name from the item's own
+identifier and nothing else: item `1` reads `1.rtf` and `1_notes.rtf`, never `11.rtf`, and an identifier
+that isn't plain letters, digits, and hyphens (`1_notes`, say) reads nothing. A media item whose
+extension is `rtf` is not given another item's text as its file.
+
+A writer with a real Scrivener 2 project can check this section by running the check below over a
+copy; what it prints is counts only.
 
 ## Checking this document
 

@@ -388,6 +388,7 @@ enum ScrivenerImportPlanner {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
         var lines = ["# Import Report", "", "Imported from the Scrivener project “\(project.title)” on \(formatter.string(from: date)). The Scrivener project was only read; nothing in it was changed.", ""]
+        if project.isScrivener2 { lines += ["This project was saved by Scrivener 2. Sable’s reading of that older format is newer and less tested, so it is worth comparing this project against the original.", ""] }
         lines += ["## What was imported", "", "- " + plan.summary]
         let copied = plan.files.filter { $0.source != nil }.count
         if copied > 0 { lines.append("- \(copied) \(copied == 1 ? "file" : "files") copied as they were (pictures, PDFs, and the like)") }
