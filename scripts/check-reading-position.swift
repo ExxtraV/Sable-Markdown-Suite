@@ -188,10 +188,18 @@ import QuillCore
         guard let editor = commands.editor, let editorScroll = editor.enclosingScrollView else { preconditionFailure("The editor is on screen") }
         let editorClip = editorScroll.contentView
 
+        // SwiftUI builds and removes the reading page a beat after the mode changes, and a slow machine takes longer.
+        func waitFor(_ condition: () -> Bool, timeout: TimeInterval = 10) -> Bool {
+            let deadline = Date().addingTimeInterval(timeout)
+            while true {
+                host.layoutSubtreeIfNeeded()
+                spin()
+                if condition() { return true }
+                if Date() > deadline { return false }
+            }
+        }
         func readingView() -> ReadingTextView {
-            host.layoutSubtreeIfNeeded()
-            spin()
-            guard let view = find(ReadingTextView.self, in: host) else { preconditionFailure("The reading page is on screen") }
+            guard waitFor({ find(ReadingTextView.self, in: host)?.topLine() != nil }), let view = find(ReadingTextView.self, in: host) else { preconditionFailure("The reading page is on screen") }
             return view
         }
         func scrollEditor(toParagraph number: Int, below: CGFloat) {
@@ -206,7 +214,12 @@ import QuillCore
             let top = view.topLine()!
             return (paragraphNumber(at: view.map.sourceOffset(forPage: top.character), in: mode.text), top.below)
         }
-        func setReading(_ on: Bool) { mode.reading = on; host.layoutSubtreeIfNeeded(); spin() }
+        func setReading(_ on: Bool) {
+            mode.reading = on
+            host.layoutSubtreeIfNeeded()
+            spin()
+            if !on { precondition(waitFor { find(ReadingTextView.self, in: host) == nil }, "The reading page is gone") }
+        }
 
         for (width, size) in [(900.0, 19.0), (620.0, 15.0), (1300.0, 26.0)] {
             window.setContentSize(NSSize(width: width, height: 700))
