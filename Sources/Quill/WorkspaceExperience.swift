@@ -162,6 +162,7 @@ final class WritingScrollView: NSScrollView {
             return
         }
         if phase.contains(.began) || livePinch == nil {
+            (documentView as? PageHolding)?.letGoOfPlace()
             finishSettling()
             livePinch?.remove(from: self, fade: false)
             livePinch = PagePinch(in: self, zoom: WritingZoom.value(for: zoomKey), at: windowPoint)
@@ -200,9 +201,24 @@ final class WritingScrollView: NSScrollView {
     /// True while a picture of the page stands in for it.
     var isPinching: Bool { livePinch != nil || settling != nil }
 
+    private var liveScrollObserver: NSObjectProtocol?
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil, let liveScrollObserver {
+            NotificationCenter.default.removeObserver(liveScrollObserver)
+            self.liveScrollObserver = nil
+        } else if window != nil, liveScrollObserver == nil {
+            // Dragging the scroller is scrolling too, and sends no scroll-wheel event.
+            liveScrollObserver = NotificationCenter.default.addObserver(forName: NSScrollView.willStartLiveScrollNotification, object: self, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { (self?.documentView as? PageHolding)?.letGoOfPlace() }
+            }
+        }
+    }
+
     override func scrollWheel(with event: NSEvent) {
         // Scrolling under the picture would move the text away from where the pinch will put it back.
         if livePinch != nil { return }
+        (documentView as? PageHolding)?.letGoOfPlace()
         if ZoomSteps.wheelZooms(command: event.modifierFlags.contains(.command), preciseDeltas: event.hasPreciseScrollingDeltas,
                                 deltaX: event.scrollingDeltaX, deltaY: event.scrollingDeltaY) {
             wheelZoom(with: event)
@@ -253,6 +269,68 @@ final class WritingScrollView: NSScrollView {
         pendingWheelZoom = nil
         lastWheelZoomCommit = ProcessInfo.processInfo.systemUptime
         if zoom != WritingZoom.value(for: zoomKey) { WritingZoom.set(zoom, for: zoomKey) }
+    }
+}
+
+/// A place on a page: a spot in the file's text (UTF-16), and how far below the top of the visible page the line
+/// holding it starts (negative when the line begins above the top edge).
+struct PageAnchor: Equatable {
+    var offset: Int
+    var below: CGFloat
+    /// Where the caret should go as well, when the reader clicked somewhere on the reading page.
+    var caret: Int? = nil
+}
+
+/// Carries the writer's place between an editor and the Reading Mode page shown in its stead, so switching either way
+/// keeps the same paragraph at the same height. One per pair of surfaces (the manuscript, the parallel pane).
+/// A page that is holding a place it was opened at, until the person scrolls it themselves.
+@MainActor protocol PageHolding: AnyObject {
+    func letGoOfPlace()
+}
+
+@MainActor final class PagePlace {
+    weak var editor: WritingTextView?
+    /// A place for an editor that isn't on screen yet (the parallel pane makes its editor on the first Edit).
+    var waiting: PageAnchor?
+    /// How the editor was laid out and where the reading page was put when Reading Mode opened. If neither has
+    /// changed when it closes, the editor is already exactly where the writer left it.
+    var opened: (editor: String, readingY: CGFloat)?
+}
+
+extension NSTextView {
+    /// The first line showing at the top of the visible page: the character it starts with, and how far below the top
+    /// edge it begins.
+    func topLine() -> (character: Int, below: CGFloat)? {
+        guard let scroll = enclosingScrollView, let layout = layoutManager, let container = textContainer, layout.numberOfGlyphs > 0 else { return nil }
+        let clip = scroll.contentView
+        let origin = textContainerOrigin
+        let top = convert(NSPoint(x: clip.bounds.midX, y: clip.bounds.minY), from: clip)
+        let glyph = layout.glyphIndex(for: NSPoint(x: top.x - origin.x, y: top.y - origin.y), in: container)
+        var glyphs = NSRange()
+        let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: &glyphs)
+        let lineTop = clip.convert(NSPoint(x: 0, y: line.minY + origin.y), from: self).y
+        return (layout.characterIndexForGlyph(at: glyphs.location), lineTop - clip.bounds.minY)
+    }
+
+    /// Scrolls, at once and without animation, so the line holding `character` begins `below` the top of the visible
+    /// page. Returns false when the view has no size or text to do it with yet.
+    @discardableResult func showLine(holding character: Int, below: CGFloat) -> Bool {
+        guard let scroll = enclosingScrollView, let layout = layoutManager, let container = textContainer,
+              layout.numberOfGlyphs > 0, scroll.contentView.bounds.height > 1 else { return false }
+        let clip = scroll.contentView
+        let length = textStorage?.length ?? 0
+        let glyph = layout.glyphIndexForCharacter(at: min(max(0, character), max(0, length - 1)))
+        let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+        // Layout is lazy, so the page may not yet be known to reach a full window past this line. Lay out that much
+        // (no more: a whole novel is not needed to show one window of it) before asking how far the page can scroll.
+        layout.ensureLayout(forBoundingRect: NSRect(x: 0, y: line.minY, width: container.size.width, height: clip.bounds.height * 2), in: container)
+        sizeToFit()
+        scroll.reflectScrolledClipView(clip)
+        let lineTop = clip.convert(NSPoint(x: 0, y: line.minY + textContainerOrigin.y), from: self).y
+        let wanted = NSRect(x: clip.bounds.minX, y: lineTop - below, width: clip.bounds.width, height: clip.bounds.height)
+        clip.scroll(to: clip.constrainBoundsRect(wanted).origin)
+        scroll.reflectScrolledClipView(clip)
+        return true
     }
 }
 

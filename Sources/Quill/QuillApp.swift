@@ -144,6 +144,7 @@ struct WritingView: View {
     @State private var hasSavedFile = false
     private let savePoll = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     @State private var reading = false
+    @State private var place = PagePlace()
     @Environment(\.openWindow) private var openWindow
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -907,9 +908,9 @@ struct WritingView: View {
                              nameCards: cardIndex.cards, openNameFile: switchPrimaryDocument, showNameCard: showCard,
                              dimMarkers: dimMarkers, smartTypography: smartTypography, transparentBackground: wantsPaperBehindText,
                              saveAction: { saveFeedback.save(commands.editor?.window?.windowController?.document as? NSDocument) },
-                             sidebarGesture: { sidebar.toggle() })
+                             sidebarGesture: { sidebar.toggle() }, place: place)
                     .opacity(reading ? 0 : 1).allowsHitTesting(!reading).accessibilityHidden(reading)
-                if reading { ReadingView(text: document.text, family: fontFamily, size: fontSize, spacing: lineSpacing, width: pageWidth, transparent: wantsPaperBehindText, sidebarGesture: { sidebar.toggle() }) }
+                if reading { ReadingView(text: document.text, family: fontFamily, size: fontSize, spacing: lineSpacing, width: pageWidth, transparent: wantsPaperBehindText, sidebarGesture: { sidebar.toggle() }, place: place) }
                 sceneLayer
             }
             .onChange(of: reading) { _, value in

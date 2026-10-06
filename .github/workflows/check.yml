@@ -42,6 +42,11 @@ jobs:
           QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
           swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/ReadingView.swift Sources/Quill/SafeFile.swift Sources/Quill/ReferenceDocument.swift Sources/Quill/ReferencePane.swift Sources/Quill/AccessibilitySupport.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/BugReport.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-reading-reference.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-parallel-checks
           /tmp/quill-parallel-checks
+      - name: Reading position checks
+        run: |
+          QUILL_CHECK_BUILD=$(swift build -c release --show-bin-path)
+          swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/ReadingView.swift Sources/Quill/AccessibilitySupport.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/BugReport.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-reading-position.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-reading-position-checks
+          /tmp/quill-reading-position-checks
       - name: Styling range checks
         run: |
           swiftc -O Sources/QuillCore/MarkdownSyntax.swift Sources/QuillCore/MarkdownEditing.swift Sources/QuillCore/MarkdownDocument.swift Sources/QuillCore/IncrementalStyling.swift Sources/QuillCore/Prose.swift Sources/QuillCore/FocusParagraph.swift Sources/QuillCore/SentenceStructure.swift scripts/check-styling-ranges.swift -o /tmp/quill-styling-range-checks

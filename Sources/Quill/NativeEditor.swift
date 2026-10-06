@@ -61,6 +61,8 @@ struct NativeEditor: NSViewRepresentable {
     var editingDocument: NSDocument? = nil
     var saveAction: (() -> Void)? = nil
     var sidebarGesture: (() -> Void)? = nil
+    /// Shared with the Reading Mode page shown in this editor's stead, so the two open at the same paragraph.
+    var place: PagePlace? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
@@ -144,6 +146,10 @@ struct NativeEditor: NSViewRepresentable {
         editor.reviewWords = words
         editor.decorate()
         (scroll as? WritingScrollView)?.zoomDidApply(zoom)
+        if let place {
+            place.editor = editor
+            if let waiting = place.waiting { place.waiting = nil; editor.open(at: waiting) }
+        }
         context.coordinator.publishStatsIfSettled()
     }
     static func dismantleNSView(_ scroll: NSScrollView, coordinator: Coordinator) {
@@ -180,6 +186,7 @@ struct NativeEditor: NSViewRepresentable {
         func undoManager(for view: NSTextView) -> UndoManager? { parent.documentUndoManager ?? view.window?.undoManager }
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let editor = notification.object as? WritingTextView else { return }
+            editor.letGoOfPlace()
             editor.updateFocus()
             parent.commands.reportSelection(in: editor)
             if !WritingTextView.isPointerDriven(NSApp.currentEvent) { editor.centerCaretIfNeeded() }
@@ -187,6 +194,7 @@ struct NativeEditor: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let editor = notification.object as? WritingTextView else { return }
             self.editor = editor
+            editor.letGoOfPlace()
             editor.decorate()
             editor.centerCaretIfNeeded()
             parent.commands.typing.send()
@@ -243,6 +251,7 @@ struct NativeEditor: NSViewRepresentable {
             }
             guard editor.string != text else { return }
             let selection = editor.selectedRange()
+            editor.letGoOfPlace()
             editor.string = text
             let length = (text as NSString).length
             editor.setSelectedRange(NSRange(location: min(selection.location, length), length: 0))
@@ -302,7 +311,7 @@ enum PendingText {
     }
 }
 
-final class WritingTextView: NSTextView {
+final class WritingTextView: NSTextView, PageHolding {
     var reviewEnabled = true
     var reviewWords = Prose.defaultWords
     var syntaxClasses = 0
@@ -347,6 +356,7 @@ final class WritingTextView: NSTextView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        settleOpening()
         observeScrollingForFocus()
         updateShimmer()
         window?.titlebarAppearsTransparent = true
@@ -364,7 +374,49 @@ final class WritingTextView: NSTextView {
         super.setFrameSize(newSize)
         updatePageMargins()
         updateScrollRoom()
+        settleOpening()
     }
+
+    /// A place handed over from Reading Mode. It is put at once, and again if the view changes size (a new editor
+    /// gets its real size only after it is made), until the writer types, clicks, moves the caret, or scrolls.
+    private var opening: PageAnchor? { didSet { if opening == nil { placedY = nil } } }
+    /// Where the page was scrolled to when the place was last put.
+    private var placedY: CGFloat?
+    /// True while a handed-over place is being put, so the caret moving with it doesn't re-center the page.
+    private var placing = false
+
+    /// The line at the top of the visible page, as a place in the file.
+    func pageAnchor() -> PageAnchor? { topLine().map { PageAnchor(offset: $0.character, below: $0.below) } }
+
+    /// Everything that decides which words sit where on screen. Unchanged means the page hasn't moved.
+    var layoutSignature: String {
+        "\(bounds.width)|\(pageWidth)|\(bodySize)|\(bodyFontFamily)|\(lineSpacingRatio)|\(typewriterMode)|\(textStorage?.length ?? 0)|\(enclosingScrollView?.contentView.bounds.origin.y ?? 0)"
+    }
+
+    func open(at anchor: PageAnchor) {
+        if let caret = anchor.caret { moveCaretQuietly(to: caret) }
+        opening = PageAnchor(offset: anchor.offset, below: anchor.below)
+        settleOpening()
+    }
+
+    /// Moves the caret without the page following it.
+    func moveCaretQuietly(to location: Int) {
+        let wasPlacing = placing
+        placing = true
+        setSelectedRange(NSRange(location: min(max(0, location), textStorage?.length ?? 0), length: 0))
+        placing = wasPlacing
+    }
+
+    func letGoOfPlace() { if !placing { opening = nil } }
+
+    private func settleOpening() {
+        guard let opening, !placing, window != nil else { return }
+        placing = true
+        defer { placing = false }
+        if showLine(holding: opening.offset, below: opening.below) { placedY = enclosingScrollView?.contentView.bounds.origin.y }
+    }
+
+    override func mouseDown(with event: NSEvent) { letGoOfPlace(); super.mouseDown(with: event) }
 
     /// "room" leaves half a window of empty scroll space below the last line. "center" does too, and also keeps the line
     /// you're writing in the middle once the text has reached it. The top of the page is never scrolled past: near the
@@ -400,6 +452,7 @@ final class WritingTextView: NSTextView {
     /// While the page is being kept centered, typing and arrow keys are the only things that move it, and they do so through
     /// `centerCaretIfNeeded`. AppKit's own scroll-to-the-caret would pull the page a different way at the same moment.
     override func scrollRangeToVisible(_ range: NSRange) {
+        letGoOfPlace()
         if typewriterMode == "center", window?.firstResponder === self, NSApp.currentEvent?.type == .keyDown, enclosingScrollView?.contentView is RoomClipView { return }
         super.scrollRangeToVisible(range)
     }
@@ -426,7 +479,7 @@ final class WritingTextView: NSTextView {
     }
 
     func centerCaretIfNeeded(animated: Bool = true) {
-        guard typewriterMode == "center", window?.firstResponder === self,
+        guard !placing, typewriterMode == "center", window?.firstResponder === self,
               let scroll = enclosingScrollView, let lineRect = caretLineRect() else { return }
         let clip = scroll.contentView
         // AppKit can leave the text view's own frame origin away from zero (it shifts it as the page is laid out), and the
@@ -493,6 +546,7 @@ final class WritingTextView: NSTextView {
     }
 
     override func keyDown(with event: NSEvent) {
+        letGoOfPlace()
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if (event.keyCode == 48 || event.keyCode == 53), modifiers.isEmpty, leaveFormatting() { return }
         super.keyDown(with: event)
@@ -639,6 +693,8 @@ final class WritingTextView: NSTextView {
                 if Self.debugCentering {
                     Self.logCentering("scroll origin=\(Int(clip.bounds.origin.y)) via \(Thread.callStackSymbols.dropFirst(2).prefix(7).map { String($0.split(separator: " ", omittingEmptySubsequences: true).dropFirst(3).joined(separator: " ").prefix(70)) }.joined(separator: " <- "))")
                 }
+                // The page moved some other way than being put at a handed-over place, so that place is let go.
+                if !self.placing, let placedY = self.placedY, abs(clip.bounds.origin.y - placedY) > 0.5 { self.opening = nil }
                 guard self.focusParagraph, self.focusGradient else { return }
                 self.updateFocus()
             }
