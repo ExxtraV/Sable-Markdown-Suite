@@ -25,6 +25,7 @@ struct ParallelMarkdownPane: View {
     @State private var document: ParallelDocument?
     @State private var editing = false
     @State private var closing = false
+    @State private var place = PagePlace()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,11 +60,11 @@ struct ParallelMarkdownPane: View {
             Divider()
 
             if let document {
-                ParallelDocumentContent(document: document, editing: editing, zoom: zoom)
+                ParallelDocumentContent(document: document, editing: editing, zoom: zoom, place: place)
             } else if loading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ReadingView(zoom: zoom, zoomKey: WritingZoom.parallelKey, text: text, family: family, size: size, spacing: spacing, width: 540)
+                ReadingView(zoom: zoom, zoomKey: WritingZoom.parallelKey, text: text, family: family, size: size, spacing: spacing, width: 540, place: place)
             }
 
             if let error {
@@ -123,6 +124,7 @@ private struct ParallelDocumentContent: View {
     private let whereaboutsPoll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     let editing: Bool
     var zoom = 1.0
+    var place: PagePlace? = nil
     @AppStorage("fontFamily") private var family = "Charter"
     @AppStorage("fontSize") private var size = 19.0
     @AppStorage("lineSpacing") private var spacing = 0.28
@@ -130,11 +132,11 @@ private struct ParallelDocumentContent: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                ParallelEditingSurface(document: document, active: editing, zoom: zoom)
+                ParallelEditingSurface(document: document, active: editing, zoom: zoom, place: place)
                     .opacity(editing ? 1 : 0)
                     .allowsHitTesting(editing)
                     .accessibilityHidden(!editing)
-                if !editing { ReadingView(zoom: zoom, zoomKey: WritingZoom.parallelKey, text: document.text, family: family, size: size, spacing: spacing, width: 540) }
+                if !editing { ReadingView(zoom: zoom, zoomKey: WritingZoom.parallelKey, text: document.text, family: family, size: size, spacing: spacing, width: 540, place: place) }
             }
             Divider()
             HStack {

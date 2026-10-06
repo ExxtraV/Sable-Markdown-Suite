@@ -157,7 +157,7 @@ The toolbar starts with only the essentials. Click **⋯ → Customize Tools** t
 - Return: leave formatting and start a new line.
 - Command-F: find in the manuscript.
 - Command-Shift-F: focus on the current paragraph.
-- Command-Shift-R: switch between writing and reading mode.
+- Command-Shift-R: switch between writing and reading mode. The paragraph at the top of the window stays where it is, and your cursor stays where you left it unless you click somewhere on the reading page.
 - Command-Control-S: show or hide the writing desk.
 - Command-Option-Comma: fonts, themes, and writing style.
 - Command-Option-J: sentence-structure colors.

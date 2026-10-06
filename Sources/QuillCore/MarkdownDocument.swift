@@ -76,27 +76,56 @@ public enum MarkdownBlock: Equatable, Sendable {
     case image(alt: String, source: String)
 }
 
+/// A block and the stretch of the file it was read from (UTF-16 offsets into the whole text, front matter and notes
+/// included), so a place on the Reading Mode page can be matched to a place in the editor.
+public struct LocatedBlock: Equatable, Sendable {
+    public let block: MarkdownBlock
+    public let range: NSRange
+}
+
 public enum MarkdownBlocks {
     /// Turns Markdown into paragraphs, headings, quotes, lists, tasks, tables, scene breaks, and code, joining soft
     /// line breaks. Notes (`<!-- -->`) and a metadata block at the top are left out.
     public static func parse(_ markdown: String, skipFrontMatter: Bool = true) -> [MarkdownBlock] {
-        var source = markdown
+        located(markdown, skipFrontMatter: skipFrontMatter).map(\.block)
+    }
+
+    /// `parse`, with where in `markdown` each block came from.
+    public static func located(_ markdown: String, skipFrontMatter: Bool = true) -> [LocatedBlock] {
+        var source = markdown as NSString
+        var frontLength = 0
         if skipFrontMatter {
-            let front = MarkdownLines.frontMatterRange(in: source)
-            if front.length > 0 { source = (source as NSString).substring(from: front.length) }
+            let front = MarkdownLines.frontMatterRange(in: markdown)
+            if front.length > 0 { frontLength = front.length; source = source.substring(from: front.length) as NSString }
         }
-        let cleaned = MarkdownLines.removingComments(source)
+        // Notes are cut out before the lines are read. `cuts` remembers where, so offsets can be put back.
+        var cuts: [(at: Int, length: Int)] = []
+        var cleaned = source as String
+        if source.range(of: "<!--").location != NSNotFound, let pattern = try? NSRegularExpression(pattern: MarkdownLines.commentPattern) {
+            let kept = NSMutableString()
+            var cursor = 0
+            for match in pattern.matches(in: source as String, range: NSRange(location: 0, length: source.length)) {
+                kept.append(source.substring(with: NSRange(location: cursor, length: match.range.location - cursor)))
+                cuts.append((kept.length, match.range.length))
+                cursor = NSMaxRange(match.range)
+            }
+            kept.append(source.substring(from: cursor))
+            cleaned = kept as String
+        }
         var blocks: [MarkdownBlock] = []
-        var paragraph: [String] = []
-        var quote: [String] = []
-        var table: [String] = []
+        var spans: [(start: Int, end: Int)] = []
+        var paragraph: [String] = [], paragraphSpan = (start: 0, end: 0)
+        var quote: [String] = [], quoteSpan = (start: 0, end: 0)
+        var table: [String] = [], tableSpan = (start: 0, end: 0)
         var fence: String?
+        var fenceStart = 0
         var code: [String] = []
+        func emit(_ block: MarkdownBlock, _ span: (start: Int, end: Int)) { blocks.append(block); spans.append(span) }
         func flushParagraph() {
-            if !paragraph.isEmpty { blocks.append(.paragraph(runs(paragraph.joined(separator: " ")))); paragraph = [] }
+            if !paragraph.isEmpty { emit(.paragraph(runs(paragraph.joined(separator: " "))), paragraphSpan); paragraph = [] }
         }
         func flushQuote() {
-            if !quote.isEmpty { blocks.append(.quote(runs(quote.joined(separator: " ")))); quote = [] }
+            if !quote.isEmpty { emit(.quote(runs(quote.joined(separator: " "))), quoteSpan); quote = [] }
         }
         func flushTable() {
             guard !table.isEmpty else { return }
@@ -107,34 +136,45 @@ public enum MarkdownBlocks {
                 if cells.last == "" { cells.removeLast() }
                 return cells
             }
-            blocks.append(.table(rows, header: header))
+            emit(.table(rows, header: header), tableSpan)
             table = []
         }
         func flushAll() { flushParagraph(); flushQuote(); flushTable() }
+        var offset = 0
         for raw in cleaned.components(separatedBy: "\n") {
+            let here = (start: offset, end: offset + raw.utf16.count)
+            offset = here.end + 1
             let line = raw.replacingOccurrences(of: "\r", with: "")
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if let marker = fence {
-                if trimmed.hasPrefix(marker) { blocks.append(.code(code.joined(separator: "\n"))); code = []; fence = nil } else { code.append(line) }
+                if trimmed.hasPrefix(marker) { emit(.code(code.joined(separator: "\n")), (fenceStart, here.end)); code = []; fence = nil } else { code.append(line) }
                 continue
             }
-            if let opening = MarkdownLines.isFence(trimmed) { flushAll(); fence = opening; continue }
+            if let opening = MarkdownLines.isFence(trimmed) { flushAll(); fence = opening; fenceStart = here.start; continue }
             if trimmed.isEmpty { flushAll(); continue }
-            if MarkdownLines.isSceneBreak(trimmed) { flushAll(); blocks.append(.sceneBreak); continue }
-            if MarkdownLines.isTableRow(trimmed) { flushParagraph(); flushQuote(); table.append(trimmed); continue }
+            if MarkdownLines.isSceneBreak(trimmed) { flushAll(); emit(.sceneBreak, here); continue }
+            if MarkdownLines.isTableRow(trimmed) {
+                flushParagraph(); flushQuote()
+                if table.isEmpty { tableSpan.start = here.start }
+                tableSpan.end = here.end
+                table.append(trimmed)
+                continue
+            }
             flushTable()
             if let match = trimmed.range(of: "^#{1,6}\\s+", options: .regularExpression) {
                 flushParagraph(); flushQuote()
                 let level = trimmed[match].filter { $0 == "#" }.count
                 let title = String(trimmed[match.upperBound...]).replacingOccurrences(of: "\\s+#+\\s*$", with: "", options: .regularExpression)
-                blocks.append(.heading(level, runs(title)))
+                emit(.heading(level, runs(title)), here)
                 continue
             }
-            if let image = imageLine(trimmed) { flushAll(); blocks.append(.image(alt: image.alt, source: image.source)); continue }
+            if let image = imageLine(trimmed) { flushAll(); emit(.image(alt: image.alt, source: image.source), here); continue }
             if let prefix = MarkdownEditing.prefix(of: line) {
                 let content = (line as NSString).substring(from: prefix.length)
                 if case .quote = prefix.marker {
                     flushParagraph()
+                    if quote.isEmpty { quoteSpan.start = here.start }
+                    quoteSpan.end = here.end
                     quote.append(content)
                     continue
                 }
@@ -143,18 +183,34 @@ public enum MarkdownBlocks {
                 switch prefix.marker {
                 case .quote: break
                 case .bullet:
-                    if let task = prefix.task { blocks.append(.task(done: task.lowercased() == "[x]", runs(content), depth: depth)) }
-                    else { blocks.append(.bullet(runs(content), depth: depth)) }
-                case let .number(number, _): blocks.append(.numbered(number, runs(content), depth: depth))
+                    if let task = prefix.task { emit(.task(done: task.lowercased() == "[x]", runs(content), depth: depth), here) }
+                    else { emit(.bullet(runs(content), depth: depth), here) }
+                case let .number(number, _): emit(.numbered(number, runs(content), depth: depth), here)
                 }
                 continue
             }
             flushQuote()
+            if paragraph.isEmpty { paragraphSpan.start = here.start }
+            paragraphSpan.end = here.end
             paragraph.append(trimmed)
         }
-        if fence != nil, !code.isEmpty { blocks.append(.code(code.joined(separator: "\n"))) }
+        if fence != nil, !code.isEmpty { emit(.code(code.joined(separator: "\n")), (fenceStart, max(fenceStart, offset - 1))) }
         flushAll()
-        return blocks
+        // Back to offsets in the whole file: past the front matter, and past every note cut out before that point. A
+        // block that begins right after a note begins after it; one that ends right before a note ends before it.
+        var result: [LocatedBlock] = []
+        result.reserveCapacity(blocks.count)
+        var cut = 0, removed = 0
+        func restored(_ position: Int, startOfBlock: Bool) -> Int {
+            while cut < cuts.count, cuts[cut].at < position || (startOfBlock && cuts[cut].at == position) { removed += cuts[cut].length; cut += 1 }
+            return frontLength + position + removed
+        }
+        for (block, span) in zip(blocks, spans) {
+            let start = restored(span.start, startOfBlock: true)
+            let end = restored(span.end, startOfBlock: false)
+            result.append(LocatedBlock(block: block, range: NSRange(location: start, length: max(0, end - start))))
+        }
+        return result
     }
 
     /// `![alt](source)` alone on a line.

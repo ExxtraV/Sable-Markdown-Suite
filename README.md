@@ -110,6 +110,7 @@ For an iPad edition, reuse `QuillCore` and the document model, add a UIKit text 
 - `Sources/Quill/ReferenceDocument.swift`: tracked parallel document saving, and stopping when the file changed outside Sable.
 - `Sources/Quill/SafeFile.swift`: coordinated, all-or-nothing reads and writes for Find & Replace, revisions, and copies kept in the Trash.
 - `Sources/Quill/ReadingView.swift`: native formatted reading view.
+- `Sources/QuillCore/ReadingMap.swift`: matches places in the file with places on the reading page, so switching between writing and reading keeps your place. `scripts/check-reading-position.swift` covers it.
 - `Sources/Quill/Export.swift`, `Sources/Quill/ExportLayout.swift`, `Sources/Quill/ExportViews.swift`: PDF, EPUB, Word, and Markdown export; the layout choices and the Manuscript and Book looks they start from; the Export sheet.
 - `Sources/QuillCore/SentenceStructure.swift`: local parts-of-speech tagging.
 - `Sources/Quill/WritingStyle.swift`: font, style, and outline controls.

@@ -183,6 +183,7 @@ struct ParallelEditingSurface: View {
     @ObservedObject var document: ParallelDocument
     var active = true
     var zoom = 1.0
+    var place: PagePlace? = nil
     @AppStorage("fontFamily") private var family = "Charter"
     @AppStorage("fontSize") private var size = 19.0
     @AppStorage("lineSpacing") private var spacing = 0.28
@@ -205,7 +206,8 @@ struct ParallelEditingSurface: View {
             syntaxClasses: syntaxClasses,
             documentUndoManager: document.undoManager,
             editingDocument: document,
-            saveAction: { document.saveParallel() }
+            saveAction: { document.saveParallel() },
+            place: place
         )
         .onChange(of: active) { _, value in
             if value { commands.editor?.window?.makeFirstResponder(commands.editor) }

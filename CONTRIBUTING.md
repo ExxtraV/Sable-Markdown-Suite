@@ -110,6 +110,9 @@ swiftc -O -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sourc
 swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/ReadingView.swift Sources/Quill/SafeFile.swift Sources/Quill/ReferenceDocument.swift Sources/Quill/ReferencePane.swift Sources/Quill/AccessibilitySupport.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/BugReport.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-reading-reference.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-parallel-checks
 /tmp/quill-parallel-checks
 
+swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/NativeEditor.swift Sources/Quill/EditorStyling.swift Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/ReadingView.swift Sources/Quill/AccessibilitySupport.swift Sources/Quill/WorkspaceExperience.swift Sources/Quill/BugReport.swift Sources/Quill/ZoomSteps.swift Sources/Quill/FolderBrowser.swift Sources/Quill/FictionProject.swift Sources/Quill/WorldSidebar.swift Sources/Quill/RecentFiles.swift Sources/Quill/WritingStyle.swift scripts/check-reading-position.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-reading-position-checks
+/tmp/quill-reading-position-checks
+
 swiftc -I "$QUILL_CHECK_BUILD/Modules" Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/StoryTimeline.swift scripts/check-outline.swift "$QUILL_CHECK_BUILD"/QuillCore.build/*.o -o /tmp/quill-outline-checks
 /tmp/quill-outline-checks
 
