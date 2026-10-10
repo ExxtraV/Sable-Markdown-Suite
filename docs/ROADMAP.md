@@ -13,17 +13,17 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 
 - Apple notarization, so first launch no longer needs a Privacy & Security workaround.
 - ~~A monthly word goal, alongside the existing per-window session count.~~ Done in 1.0.0-beta.1, as a goal with any start and end dates, including a November preset.
-- ~~Scrivener import.~~ Done: File → Import Scrivener Project… reads Scrivener 3 and Scrivener 2 projects. Coming in the next beta.
+- ~~Scrivener import.~~ Done: File → Import Scrivener Project… reads Scrivener 3 and Scrivener 2 projects. Done in 1.0.0-beta.3.
 - Scrivener import follow-ups: Scrivener footnotes and comments carried over, and hidden notes left out of word counts.
 - Numbered lists that renumber themselves when an item is added or removed.
-- Fix: switching between Reading Mode and editing keeps your place.
+- ~~Fix: switching between Reading Mode and editing keeps your place.~~ Done in 1.0.0-beta.3.
 - Writing desk: add a folder or file inside a category, and fold the Folders and Files sections.
 - ~~A sample project new users can open immediately.~~ Done in 1.0.0-beta.2.
 - ~~Accessibility pass (VoiceOver, keyboard navigation, contrast).~~ Done in 1.0.0-beta.2.
 - ~~Report a Bug, built into the app.~~ Done in 1.0.0-beta.2.
 - ~~Fixes: renaming a file inside Sable no longer shows the "deleted outside Sable" notice, and desk rows can be dragged from anywhere on the row.~~ Done in 0.10.1.
 - ~~New folders inside folders from the writing desk.~~ Done in 0.10.1.
-- ~~Two new themes: a deep-blue fantasy theme and another light theme.~~ Done as Starfall and Mist.
+- ~~Two new themes: a deep-blue fantasy theme and another light theme.~~ Done in 1.0.0-beta.3, as Starfall and Mist.
 - ~~Export layout options: left or centered headings, title page, font, spacing, margins, and page numbers for PDF and Word.~~ Done in 1.0.0-beta.1.
 - ~~Open any Markdown file without setting up a writing folder, and, if you choose, make Sable the default app for Markdown files.~~ Done in 1.0.0-beta.1.
 
