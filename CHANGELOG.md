@@ -2,7 +2,9 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
-## Unreleased
+## 1.0.0-beta.3
+
+The third beta of 1.0, for people who turn on **Get beta updates**. Scrivener import, opening a Fiction Project from anywhere, Recent Projects, two new themes, and Reading Mode that keeps your place.
 
 - **Fixed: switching between Reading Mode and editing lost your place.** Nothing carried the place across. Reading Mode was built fresh at the top of the chapter every time it opened, and the editor, hidden underneath, stayed wherever it had been, however far you read. Now the paragraph at the top of the window stays at the top, at the same height, in both directions, in the manuscript and in the parallel pane (including its first **Edit**). The caret stays where it was; only a click on the reading page moves it, to the place clicked. Going back without scrolling leaves the editor exactly as it was. The move is never animated, so there is nothing for Reduce Motion to stop.
   - **How places are matched.** The Reading Mode page leaves out front matter, notes, and the Markdown marks, so the same paragraph sits at a different character count in each. `MarkdownBlocks.located` is the shared reader (`parse` is now a wrapper over it) reporting which stretch of the file each block came from, notes and front matter counted. `MarkdownReading.page` records where each block lands on the page in a `ReadingMap` (new `Sources/QuillCore/ReadingMap.swift`). The start of a block maps exactly; a place inside one maps by proportion and never leaves its block; a place the page leaves out maps to the next block shown.
