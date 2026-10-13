@@ -295,3 +295,11 @@ kind, how many have text, footnotes and comments converted, warnings, leftover m
 the run fails if the original changed in any way. The last such run, over the four projects described
 above: 329, 111, 33, and 95 items, every one matching the count taken from the XML by hand; no
 warnings; no leftover markers; originals untouched.
+
+The pass also plans and writes the whole import, opens the result the way Sable does, and checks that
+every footnote mark written has its text. The last full run (13 October 2026), over the same four
+projects: 5, 4, 3, and 3 chapters; 51, 1, 0, and 20 character cards; 11, 0, 0, and 3 location cards;
+238, 32, 14, and 48 files written; Sable found every chapter and card that was planned; no warnings;
+no stray Scrivener marks in any written file; originals untouched. None of the four uses footnotes,
+comments, or inline annotations (no `content.comments` file in any), so on real writing those remain
+confirmed only by the small project made for the purpose.
