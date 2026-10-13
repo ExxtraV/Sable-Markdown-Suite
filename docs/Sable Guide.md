@@ -65,7 +65,8 @@ A **Fiction Project** is a folder that Sable treats as one story world. Every ne
 **File → Import Scrivener Project…** turns a Scrivener project into a new Fiction Project. Choose the project (its name ends in .scriv) and Sable shows what it found before writing anything: how many scenes, chapters, characters, locations, and notes, and anything that can't become Markdown.
 
 - **You choose where each part goes.** Every top-level item in the binder has a menu: Manuscript, Characters, Locations, World, Notes, or Don't Import. Sable suggests the manuscript folder for Manuscript, character and location sheets for cards, Research for Notes, and leaves out the Trash and Scrivener's blank template sheets. If your project holds more than one book, send each extra book's folder wherever suits you.
-- **A folder of scenes becomes one chapter file.** Scenes are divided by a scene break, in binder order. Each scene's title, synopsis, status, label, keywords, and document notes sit above it as a note to yourself (`<!-- like this -->`), which Reading Mode and exports leave out. Those notes do count toward the chapter's word count.
+- **A folder of scenes becomes one chapter file.** Scenes are divided by a scene break, in binder order. Each scene's title, synopsis, status, label, keywords, and document notes sit above it as a note to yourself (`<!-- like this -->`), which Reading Mode, exports, and word counts all leave out.
+- **Footnotes, comments, and annotations come too.** A Scrivener footnote (inline or in the inspector) becomes a Markdown footnote: a mark like `[^1]` where it was, and its words at the end of the chapter, numbered from 1 in each chapter. A comment or an inline annotation becomes a note to yourself at the same spot. Reading Mode and exports don't lay footnotes out yet; they show the marks as typed.
 - **Italics, bold, and scene breaks carry over.** Fonts, colors, and spacing are left behind. A chapter's own synopsis, status, label, and keywords go at the top of its file, between the `---` lines.
 - **Pictures, PDFs, and saved web pages are copied as they are**, pictures into Images and the rest into Notes. Pictures pasted into the middle of a document's text can't come along. **Import Report.md**, in the new project, lists every one.
 - **Your Scrivener project is never changed.** Sable only reads it, and writes a new folder where you choose. The save panel starts in your writing folder: saved there, the new project stays on your desk with the others. Saved anywhere else, the desk shows it only for now; File → Open Fiction Project… brings it back.
@@ -87,7 +88,7 @@ Use `backticks` for inline code and ~~two tildes~~ for a strikethrough.
 
 - **Lists:** press Return to continue a list, Return on an empty item to end it, and Tab or Shift-Tab to indent or outdent. ⇧⌘8 makes a bulleted list, ⇧⌘7 a numbered one, and ⇧⌘9 a task list.
 - **Headings:** ⇧⌘H cycles the line through #, ##, ###, and plain. **Scene break:** ⇧⌘L. **Strikethrough** ⇧⌘X, **inline code** ⇧⌘K.
-- **Notes to yourself:** `<!-- like this -->` is dimmed while you write, hidden in Reading Mode, and left out of exports.
+- **Notes to yourself:** `<!-- like this -->` is dimmed while you write, hidden in Reading Mode, left out of exports, and never counted as words.
 - **Find & Replace in Project** (⌥⇧⌘F) searches every Markdown file, shows what will change, and can undo the replacement.
 - **Import Document…** in the File menu converts a Word, RTF, or HTML file into Markdown, and **Paste as Markdown** (⌃⌘V) does the same for whatever you copied.
 - Settings → Writing can turn on curly quotes and dashes as you type. The Help menu has a Markdown cheat sheet.

@@ -15,3 +15,6 @@ __pycache__/
 
 # Codex keeps a local copy of CLAUDE.md here for working across apps; it is never committed.
 AGENTS.md
+
+# The maintainer fills this in for the Scrivener importer work; it names private projects and is never committed.
+Scrivener test request.md

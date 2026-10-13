@@ -111,7 +111,11 @@ import NaturalLanguage
                                                 replacement: Prose.suggestions(in: new, words: words, range: range, blocks: Prose.protectedBlocks(in: new)),
                                                 range: { $0 }, moved: { NSRange(location: $0.location + $1, length: $0.length) })
         expect(spliced == newSuggestions, "splicing the region's suggestions into the old list gives the new list; \(context)", new)
-        expect(Prose.wordCount(old) - Prose.wordCount(oldSource.substring(with: oldRange)) + Prose.wordCount(newSource.substring(with: range)) == Prose.wordCount(new),
+        // Notes and front matter aren't counted, and what the editor remembers of them is shifted past the edit, not found again.
+        let oldUncounted = Prose.uncountedRanges(in: old), newUncounted = Prose.uncountedRanges(in: new)
+        expect(shifted(oldUncounted) == newUncounted,
+               "front matter and notes only move with the edit; \(context)", new)
+        expect(Prose.wordCount(old) - Prose.wordCount(in: oldSource, range: oldRange, skipping: oldUncounted) + Prose.wordCount(in: newSource, range: range, skipping: newUncounted) == Prose.wordCount(new),
                "word counts add up across the region; \(context)", new)
         if tagging {
             let all = WordClass.allCases.reduce(0) { $0 | $1.rawValue }

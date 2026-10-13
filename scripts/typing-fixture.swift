@@ -160,7 +160,8 @@ enum ManuscriptFixture {
         "The \(rng.pick(adjectives).capitalized) \(rng.pick(nouns).capitalized)"
     }
 
-    /// A novel of at least `words` words (as `Prose.wordCount` counts them).
+    /// A novel of about `words` words. Sized by a plain split at white space, not by `Prose.wordCount`, so the text stays
+    /// the same when the counting rule changes and benchmark runs before and after can be compared.
     static func novel(words target: Int, seed: UInt64 = 0x5AB1E) -> String {
         var rng = SeededRandom(seed: seed)
         var parts: [String] = ["---\ntitle: The Drowned Bell\ndraft: \(rng.int(2...9))\ntags: [fixture, benchmark]\n---"]
@@ -171,8 +172,9 @@ enum ManuscriptFixture {
         var chapterWords = Int.max
         func add(_ part: String) {
             parts.append(part)
-            count += Prose.wordCount(part)
-            chapterWords += Prose.wordCount(part)
+            let size = part.split { $0.isWhitespace || $0.isNewline }.count
+            count += size
+            chapterWords += size
         }
         func closeChapter() {
             while definedFootnotes < footnote {

@@ -1,4 +1,8 @@
 import Foundation
+// The standalone checks compile Sources/QuillCore/Prose.swift beside this file instead of linking the module.
+#if canImport(QuillCore)
+import QuillCore
+#endif
 
 // Fiction Projects are ordinary folders of ordinary files. The only thing that makes a folder a
 // project is one small hidden file, `.sable-project.json`; deleting it turns the folder back into a
@@ -469,8 +473,8 @@ struct ChapterStat: Equatable, Sendable, Identifiable {
 enum ManuscriptStats {
     static let fileExtensions = ["md", "markdown", "txt"]
 
-    /// Words in a chapter, not counting a front-matter block or stray Markdown punctuation.
-    static func wordCount(in text: String) -> Int { FolderListing.wordCount(in: FrontMatter.parse(text).body) }
+    /// Words in a chapter, not counting a front-matter block, `<!-- -->` notes, or stray Markdown punctuation.
+    static func wordCount(in text: String) -> Int { Prose.wordCount(text) }
 
     /// Names in the writer's order, followed by anything not yet placed (new or renamed elsewhere) in natural order.
     static func orderedNames(_ names: [String], order: [String]?) -> [String] {

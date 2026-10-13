@@ -50,6 +50,8 @@ struct ScrivenerImportPlan: Equatable, Sendable {
     var files: [File] = []
     var chapterOrder: [String] = []
     var chapters = 0, scenes = 0, characters = 0, locations = 0, worldNotes = 0, notes = 0
+    /// Scrivener footnotes that became Markdown footnotes, and comments and annotations that became notes.
+    var footnotes = 0, comments = 0
     var skipped: [Skipped] = []
     var warnings: [ScrivenerWarning] = []
 
@@ -60,6 +62,14 @@ struct ScrivenerImportPlan: Equatable, Sendable {
         if scenes > 0 { parts.append("\(some(scenes, "scene", "scenes")!) in \(some(chapters, "chapter", "chapters") ?? "0 chapters")") }
         parts += [some(characters, "character", "characters"), some(locations, "location", "locations"), some(worldNotes, "world note", "world notes"), some(notes, "note", "notes")].compactMap { $0 }
         return parts.isEmpty ? "Nothing to import" : parts.joined(separator: ", ")
+    }
+
+    /// "12 footnotes, 5 comments", or nil when the project has neither.
+    var marksSummary: String? {
+        var parts: [String] = []
+        if footnotes > 0 { parts.append("\(footnotes) \(footnotes == 1 ? "footnote" : "footnotes")") }
+        if comments > 0 { parts.append("\(comments) \(comments == 1 ? "comment" : "comments")") }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 
     /// "2 items can’t become Markdown: images, a PDF", or nil when everything converts. Items left out by choice aren't counted.
@@ -240,14 +250,20 @@ enum ScrivenerImportPlanner {
             let name = claim(title, in: FictionProject.manuscriptFolder, ext: "md")
             var fields = ScrivenerImportPlanner.fields(for: item)
             if let part { fields.append(("part", part)) }
-            var blocks = ScrivenerImportPlanner.body(of: item, title: title, fields: &fields)
+            var blocks = ScrivenerImportPlanner.body(of: item, title: title, fields: &fields, footnotes: false)
+            // Footnotes are numbered through the chapter, whichever scene they are in, and all sit at its end.
+            var footnotes = 0, definitions: [String] = []
+            _ = ScrivenerImportPlanner.numbered(item, count: &footnotes, notes: &definitions)
             for (index, scene) in scenes.enumerated() {
                 if index > 0 || item.text != nil { blocks.append("* * *") }
                 blocks.append(ScrivenerImportPlanner.sceneNote(scene))
-                if let text = scene.text { blocks.append(text.trimmingCharacters(in: .newlines)) }
+                if let text = ScrivenerImportPlanner.numbered(scene, count: &footnotes, notes: &definitions) { blocks.append(text) }
                 pictures(in: scene)
+                marks(in: scene)
             }
+            blocks += definitions
             pictures(in: item)
+            marks(in: item)
             plan.files.append(.init(path: FictionProject.manuscriptFolder + "/" + name, contents: ScrivenerImportPlanner.assemble(fields: fields, blocks: blocks)))
             plan.chapterOrder.append(name)
             plan.chapters += 1
@@ -288,6 +304,7 @@ enum ScrivenerImportPlanner {
             }
             let blocks = ScrivenerImportPlanner.body(of: item, title: title, fields: &fields)
             pictures(in: item)
+            marks(in: item)
             plan.files.append(.init(path: folder + "/" + claim(title, in: folder, ext: "md"), contents: ScrivenerImportPlanner.assemble(fields: fields, blocks: blocks)))
             switch kind {
             case .character: plan.characters += 1
@@ -313,6 +330,12 @@ enum ScrivenerImportPlanner {
             if item.text != nil || item.notes != nil || item.synopsis != nil { document(ScrivenerImportPlanner.leaf(item), in: folder, destination: .notes) }
         }
 
+        private mutating func marks(in item: ScrivenerItem) {
+            guard item.text != nil else { return }
+            plan.footnotes += item.footnotes.count
+            plan.comments += item.comments
+        }
+
         private mutating func pictures(in item: ScrivenerItem) {
             if item.embeddedPictures > 0 { plan.skipped.append(.init(kind: .pastedPictures, title: ScrivenerImportPlanner.displayTitle(item), count: item.embeddedPictures)) }
         }
@@ -331,13 +354,15 @@ enum ScrivenerImportPlanner {
     }
 
     /// Heading, long synopsis, notes, then the words. Notes are `<!-- -->` so they never reach Reading Mode or an export.
-    static func body(of item: ScrivenerItem, title: String, fields: inout [(String, String)]) -> [String] {
+    /// A document's footnotes follow its words, unless `footnotes` is false: a chapter gathers its scenes' with its own.
+    static func body(of item: ScrivenerItem, title: String, fields: inout [(String, String)], footnotes: Bool = true) -> [String] {
         var blocks: [String] = []
         let text = item.text?.trimmingCharacters(in: .newlines)
         if text?.hasPrefix("# ") != true { blocks.append("# " + headingText(title)) }
         if let synopsis = item.synopsis, synopsis.count > maxFrontMatterSynopsis { blocks.append(note("Synopsis", synopsis)) }
         if let notes = item.notes { blocks.append(note("Notes", notes)) }
         if let text { blocks.append(text) }
+        if footnotes, text != nil { blocks += item.footnotes.enumerated().map { "[^\($0 + 1)]: \($1)" } }
         return blocks
     }
 
@@ -358,13 +383,23 @@ enum ScrivenerImportPlanner {
     }
 
     /// Text that can sit inside `<!-- -->` without ending it early.
-    static func commentSafe(_ text: String) -> String {
-        text.replacingOccurrences(of: "-->", with: "--\u{200B}>").replacingOccurrences(of: "<!--", with: "<\u{200B}!--")
+    static func commentSafe(_ text: String) -> String { ScrivenerText.commentSafe(text) }
+
+    /// A document's text with its footnotes numbered on from `count`, which goes up by however many it has; their
+    /// words are added to `notes`. The highest number is moved first, so no mark is renumbered twice.
+    static func numbered(_ item: ScrivenerItem, count: inout Int, notes: inout [String]) -> String? {
+        guard var text = item.text?.trimmingCharacters(in: .newlines) else { return nil }
+        if count > 0 {
+            for number in stride(from: item.footnotes.count, to: 0, by: -1) {
+                text = text.replacingOccurrences(of: "[^\(number)]", with: "[^\(number + count)]")
+            }
+        }
+        for (index, footnote) in item.footnotes.enumerated() { notes.append("[^\(count + index + 1)]: \(footnote)") }
+        count += item.footnotes.count
+        return text
     }
 
-    private static func oneLine(_ text: String) -> String {
-        text.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: " ")
-    }
+    private static func oneLine(_ text: String) -> String { ScrivenerText.oneLine(text) }
 
     private static func headingText(_ title: String) -> String {
         var result = ""
@@ -390,6 +425,7 @@ enum ScrivenerImportPlanner {
         var lines = ["# Import Report", "", "Imported from the Scrivener project “\(project.title)” on \(formatter.string(from: date)). The Scrivener project was only read; nothing in it was changed.", ""]
         if project.isScrivener2 { lines += ["This project was saved by Scrivener 2. Sable’s reading of that older format is newer and less tested, so it is worth comparing this project against the original.", ""] }
         lines += ["## What was imported", "", "- " + plan.summary]
+        if let marks = plan.marksSummary { lines.append("- " + marks + " (footnotes are numbered at the end of each file; comments and annotations are notes where they were)") }
         let copied = plan.files.filter { $0.source != nil }.count
         if copied > 0 { lines.append("- \(copied) \(copied == 1 ? "file" : "files") copied as they were (pictures, PDFs, and the like)") }
         lines += ["", "Synopses, statuses, labels, and keywords are at the top of each file, between the `---` lines. Document notes and scene details are kept as notes in the text (`<!-- like this -->`), which Sable leaves out of Reading Mode and exports.", ""]

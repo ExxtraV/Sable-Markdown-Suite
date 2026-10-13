@@ -241,7 +241,7 @@ struct MarkdownCheatSheet: View {
         ("- item   1. item", "Lists — Return continues, Return on an empty item ends, Tab indents"),
         ("- [ ] task", "Task list"), ("> quoted", "Quote"), ("* * *", "Scene break  ⇧⌘L"),
         ("![note](picture.png)", "Image (shown as text; Reading Mode and exports keep the words)"),
-        ("<!-- a note -->", "A note to yourself: dimmed, and never exported"),
+        ("<!-- a note -->", "A note to yourself: dimmed, never exported or counted"),
         ("[^1]  and  [^1]: text", "Footnote"), ("| a | b |", "Table rows appear in a fixed-width font"),
         ("\\*", "A backslash keeps a symbol from doing anything"),
     ]

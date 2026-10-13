@@ -281,6 +281,7 @@ import Foundation
 
         // Word counts
         precondition(ManuscriptStats.wordCount(in: "---\ntype: note\nrole: many many words here\n---\n# Title\n\nOne two three. ---\n") == 4, "Front matter and punctuation don't count")
+        precondition(ManuscriptStats.wordCount(in: "---\ntype: note\n---\n# Title\n\n<!-- Scene: The Ferry\nSynopsis: a long note here\n-->\n\nOne two three.\n") == 4, "Notes don't count")
         let manuscript = FictionProject.folder(for: .chapter, in: project)
         for file in try fm.contentsOfDirectory(atPath: manuscript.path) { try fm.removeItem(at: manuscript.appendingPathComponent(file)) }
         try "# One\n\nalpha beta gamma".write(to: manuscript.appendingPathComponent("Chapter 1.md"), atomically: true, encoding: .utf8)

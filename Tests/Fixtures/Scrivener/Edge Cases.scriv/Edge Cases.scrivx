@@ -331,6 +331,7 @@
         <StatusItems>
             <Status ID="-1">No Status</Status>
             <Status ID="1">To Do</Status>
+            <Status ID="12">Waiting on Ines: 2nd pass</Status>
         </StatusItems>
     </StatusSettings>
 </ScrivenerProject>
