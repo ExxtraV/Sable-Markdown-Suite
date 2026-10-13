@@ -336,6 +336,30 @@ import QuillCore
         roomy.setSelectedRange(NSRange(location: (roomy.string as NSString).length, length: 0))
         roomy.centerCaretIfNeeded(animated: false)
         precondition(abs(roomClip.bounds.midY - caretMid(at: (roomy.string as NSString).length)) < 4, "The last line sits in the middle too")
+        // Opening another file replaces the whole text, which leaves the caret at its end for a moment. With the editor
+        // following the caret the way the app's delegate does, the page must not slide off to the end of the new file.
+        final class CaretFollower: NSObject, NSTextViewDelegate {
+            func textViewDidChangeSelection(_ notification: Notification) { (notification.object as? WritingTextView)?.centerCaretIfNeeded() }
+        }
+        func settle() { RunLoop.current.run(until: Date().addingTimeInterval(0.7)) }
+        let follower = CaretFollower(), delegateBefore = roomy.delegate
+        let nextFile = (0..<150).map { "Paragraph \($0) of the next chapter, which is a long one." }.joined(separator: "\n\n")
+        roomy.setSelectedRange(NSRange(location: 0, length: 0))
+        scrollTo(-1_000_000)
+        roomy.delegate = follower
+        roomy.string = nextFile + "\n\nThe old way."
+        roomy.setSelectedRange(NSRange(location: 0, length: 0))
+        settle()
+        let chased = roomClip.bounds.origin.y
+        scrollTo(-1_000_000)
+        roomy.replaceText(nextFile, caret: 0)
+        settle()
+        precondition(roomClip.bounds.origin.y == 0 && roomy.selectedRange().location == 0, "A newly opened file stays at its top, caret at the start: \(roomClip.bounds.origin.y)")
+        print("  (replacing the text the old way left the page at \(chased))")
+        roomy.replaceText(nextFile, caret: 400)
+        settle()
+        precondition(roomClip.bounds.origin.y == 0 && roomy.selectedRange().location == 400, "A change made outside the editor keeps the caret and the page where they were")
+        roomy.delegate = delegateBefore
         // Room mode gives space but never moves the page by itself
         roomy.typewriterMode = "room"
         roomy.updateScrollRoom()

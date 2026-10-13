@@ -252,9 +252,7 @@ struct NativeEditor: NSViewRepresentable {
             guard editor.string != text else { return }
             let selection = editor.selectedRange()
             editor.letGoOfPlace()
-            editor.string = text
-            let length = (text as NSString).length
-            editor.setSelectedRange(NSRange(location: min(selection.location, length), length: 0))
+            editor.replaceText(text, caret: selection.location)
         }
 
         /// After a SwiftUI update restyled the text (a new file, a changed setting), refresh the status bar's counts.
@@ -404,6 +402,17 @@ final class WritingTextView: NSTextView, PageHolding {
         let wasPlacing = placing
         placing = true
         setSelectedRange(NSRange(location: min(max(0, location), textStorage?.length ?? 0), length: 0))
+        placing = wasPlacing
+    }
+
+    /// Replaces the whole text (another file, or a change made outside the editor) and puts the caret at `location`,
+    /// without the page following the caret. Setting the text leaves the caret at its end for a moment; with typewriter
+    /// centering on, the page would start sliding there and finish at the end of the file after the caret had gone back.
+    func replaceText(_ text: String, caret location: Int) {
+        let wasPlacing = placing
+        placing = true
+        string = text
+        setSelectedRange(NSRange(location: min(max(0, location), (text as NSString).length), length: 0))
         placing = wasPlacing
     }
 
