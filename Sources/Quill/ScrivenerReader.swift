@@ -52,6 +52,10 @@ struct ScrivenerItem: Equatable, Sendable {
     var cardImage: URL? = nil
     /// Pictures pasted into the text, which Markdown can't carry.
     var embeddedPictures = 0
+    /// The text's footnotes, in order: `[^1]` in `text` is the first of these. Each is one line of Markdown.
+    var footnotes: [String] = []
+    /// How many Scrivener comments and inline annotations became `<!-- -->` notes in `text`.
+    var comments = 0
     var children: [ScrivenerItem] = []
 
     var isContainer: Bool { [.draftFolder, .researchFolder, .trashFolder, .folder].contains(kind) }
@@ -85,6 +89,8 @@ enum ScrivenerReader {
     static let maxBinderBytes = 64 * 1024 * 1024
     static let maxDocumentBytes = 32 * 1024 * 1024
     static let maxSynopsisBytes = 1024 * 1024
+    /// Footnotes, comments, and annotations converted in one document; any beyond this are left as they were.
+    static let maxMarksPerDocument = 5_000
     static let maxItems = 100_000
     static let maxDepth = 64
 
@@ -223,6 +229,14 @@ enum ScrivenerReader {
             return folder.appendingPathComponent(ext.isEmpty ? stem : stem + "." + ext)
         }
         let files = context.files
+        // Scrivener 3 keeps the inspector's comments and footnotes beside the text, and the text links to them.
+        var linked: [String: ScrivenerText.LinkedNote] = [:]
+        let commentsURL = file("content", "comments")
+        if !legacy, files.exists(commentsURL) {
+            if let data = files.data(commentsURL, limit: maxDocumentBytes), let found = ScrivenerText.linkedNotes(in: data) { linked = found } else {
+                context.warnings.append(ScrivenerWarning(uuid: item.uuid, message: "A document’s comments and footnotes file couldn’t be read; the text was imported without them."))
+            }
+        }
         if let data = files.data(file("synopsis", "txt"), limit: maxSynopsisBytes) {
             item.synopsis = String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\r\n", with: "\n").trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty
         }
@@ -233,17 +247,23 @@ enum ScrivenerReader {
                 context.warnings.append(ScrivenerWarning(uuid: item.uuid, message: "\(name) is too large or couldn’t be opened, and was left out."))
                 continue
             }
-            guard let converted = ScrivenerText.markdown(fromRTF: data) else {
+            // Document notes end up inside a `<!-- -->` note, where a footnote mark or another note can't work.
+            guard let converted = ScrivenerText.convert(rtf: data, linked: isNotes ? [:] : linked, inNote: isNotes) else {
                 context.warnings.append(ScrivenerWarning(uuid: item.uuid, message: "\(name) isn’t readable rich text, and was left out."))
                 continue
             }
-            // Inline annotations and footnotes are a part of the format Sable hasn't seen; say so if any slipped through.
-            if converted.markdown.contains("Scrv_") {
-                context.warnings.append(ScrivenerWarning(uuid: item.uuid, message: "A document has Scrivener annotations or footnotes, which may show as stray marks in its text."))
+            // A footnote or annotation that was never closed, or more of them than Sable converts.
+            if converted.markdown.contains("Scrv_") || converted.markdown.contains("Scrv\\_") {
+                context.warnings.append(ScrivenerWarning(uuid: item.uuid, message: "A document has Scrivener annotations or footnotes Sable couldn’t convert, which may show as stray marks in its text."))
+            }
+            if converted.missing > 0 {
+                context.warnings.append(ScrivenerWarning(uuid: item.uuid, message: "A document points to a comment or footnote that isn’t in the project; the words it was attached to were kept."))
             }
             if isNotes { item.notes = converted.markdown.nonEmpty } else {
                 item.text = converted.markdown.nonEmpty
                 item.embeddedPictures = converted.pictures
+                item.footnotes = converted.footnotes
+                item.comments = converted.comments
             }
         }
         // A file's extension comes from the binder, so it gets the same scrutiny as the identifier.
@@ -283,12 +303,68 @@ enum ScrivenerText {
     static let sceneBreakPattern = "^[ \\t]*(?:[#*⁂~•·◆❧⸻](?: ?[#*⁂~•·◆❧⸻]){0,4}|[-–—_]{3,}|(?:- ){2,}-)[ \\t]*$"
     private static let sceneBreakToken = "\u{E000}scenebreak\u{E000}"
 
+    /// An inline footnote, written into the text itself as `{\Scrv_fn= … \end_Scrv_fn}`.
+    static let inlineFootnotePattern = "\\{\\\\Scrv_fn=([\\s\\S]*?)\\\\end_Scrv_fn\\}"
+    /// An inline annotation: `{\Scrv_annot \color={\R=…\G=…\B=…} \text= … \end_Scrv_annot}`. The colour is optional.
+    static let inlineAnnotationPattern = "\\{\\\\Scrv_annot (?:\\\\color=\\{[^{}\\n]{0,80}\\} )?\\\\text=([\\s\\S]*?)\\\\end_Scrv_annot\\}"
+    private static let markToken = "\u{E001}"
+
+    /// A comment or footnote from the inspector, as Markdown on one line.
+    struct LinkedNote: Equatable, Sendable {
+        var isFootnote: Bool
+        var text: String
+    }
+
+    struct Converted: Equatable, Sendable {
+        var markdown: String
+        var pictures: Int
+        /// The footnotes behind `[^1]`, `[^2]`… in `markdown`, in order.
+        var footnotes: [String] = []
+        /// Comments and annotations turned into `<!-- -->` notes.
+        var comments = 0
+        /// Links to a comment or footnote the project doesn't have.
+        var missing = 0
+    }
+
+    /// Reads `content.comments`: `<Comments><Comment ID="…" Footnote="Yes">` with the note's own rich text inside. Keyed by
+    /// ID in capitals. Nil when the file isn't that.
+    static func linkedNotes(in data: Data) -> [String: LinkedNote]? {
+        guard let root = XMLTree.parse(data), root.name == "Comments" else { return nil }
+        var notes: [String: LinkedNote] = [:]
+        for comment in root.children(named: "Comment").prefix(ScrivenerReader.maxMarksPerDocument) {
+            guard let id = comment.attributes["ID"], ScrivenerReader.isSafeName(id) else { continue }
+            let rich = Data(comment.text.trimmingCharacters(in: .whitespacesAndNewlines).utf8)
+            // A note is rich text too, but a plain one is taken as it is.
+            let text = markdown(fromRTF: rich)?.markdown ?? (rich.starts(with: Data("{\\rtf".utf8)) ? "" : comment.trimmedText)
+            notes[id.uppercased()] = LinkedNote(isFootnote: comment.attributes["Footnote"] == "Yes", text: oneLine(text))
+        }
+        return notes
+    }
+
+    /// Text that can sit inside `<!-- -->` without ending it early.
+    static func commentSafe(_ text: String) -> String {
+        text.replacingOccurrences(of: "-->", with: "--\u{200B}>").replacingOccurrences(of: "<!--", with: "<\u{200B}!--")
+    }
+
+    static func oneLine(_ text: String) -> String {
+        text.components(separatedBy: .newlines).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
     /// Nil when the data isn't rich text. It is only ever read as RTF, never sniffed, so a web page saved under a
     /// document's name is not loaded as one.
     static func markdown(fromRTF data: Data) -> (markdown: String, pictures: Int)? {
+        convert(rtf: data).map { ($0.markdown, $0.pictures) }
+    }
+
+    /// The text as Markdown. A footnote becomes `[^1]` where it was, with its words in `footnotes`; a comment or an
+    /// annotation becomes a `<!-- -->` note where it was. `linked` holds the inspector's comments and footnotes. With
+    /// `inNote` the result is headed for the inside of a note, so both are written out in brackets instead.
+    static func convert(rtf data: Data, linked: [String: LinkedNote] = [:], inNote: Bool = false) -> Converted? {
         guard data.starts(with: Data("{\\rtf".utf8)),
               let source = try? NSAttributedString(data: data, options: [.documentType: NSAttributedString.DocumentType.rtf], documentAttributes: nil) else { return nil }
         let attributed = NSMutableAttributedString(attributedString: source)
+        var result = Converted(markdown: "", pictures: 0)
+        let marks = liftMarks(from: attributed, linked: linked, missing: &result.missing)
         // Courier is a writing font to a novelist. Without this the converter would take whole chapters for code.
         attributed.enumerateAttribute(.font, in: NSRange(location: 0, length: attributed.length)) { value, range, _ in
             guard let font = value as? NSFont, font.isFixedPitch else { return }
@@ -305,8 +381,69 @@ enum ScrivenerText {
             }
         }
         let lines = RichTextMarkdown.markdown(from: attributed).components(separatedBy: "\n").map { $0.contains(sceneBreakToken) ? "* * *" : $0 }
-        let markdown = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        return (markdown.isEmpty ? "" : markdown + "\n", pictureCount(in: data))
+        var markdown = lines.joined(separator: "\n")
+        // Each mark comes back as what it stands for, numbered in the order they appear.
+        for (index, mark) in marks.enumerated() {
+            let replacement: String
+            if mark.isFootnote, inNote {
+                replacement = "(Footnote: \(mark.text))"
+            } else if mark.isFootnote {
+                result.footnotes.append(mark.text)
+                replacement = "[^\(result.footnotes.count)]"
+            } else if inNote {
+                replacement = "[Comment: \(mark.text)]"
+            } else {
+                result.comments += 1
+                replacement = "<!-- \(commentSafe(mark.text)) -->"
+            }
+            let token = markToken + String(index) + markToken
+            // In a note the brackets read as part of the sentence, so they stand a space away from it.
+            if inNote { markdown = markdown.replacingOccurrences(of: " " + token, with: " " + replacement).replacingOccurrences(of: token, with: " " + replacement) }
+            markdown = markdown.replacingOccurrences(of: token, with: replacement)
+        }
+        markdown = markdown.trimmingCharacters(in: .whitespacesAndNewlines)
+        result.markdown = markdown.isEmpty ? "" : markdown + "\n"
+        result.pictures = pictureCount(in: data)
+        return result
+    }
+
+    /// Takes every footnote, comment, and annotation out of the text, leaving a private mark where each was (inline ones)
+    /// or just after the words it was attached to (the inspector's). Returned in the order they appear.
+    private static func liftMarks(from attributed: NSMutableAttributedString, linked: [String: LinkedNote], missing: inout Int) -> [LinkedNote] {
+        struct Edit { var range: NSRange; var note: LinkedNote }
+        var edits: [Edit] = []
+        let whole = NSRange(location: 0, length: attributed.length)
+        for (pattern, isFootnote) in [(inlineFootnotePattern, true), (inlineAnnotationPattern, false)] {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            for match in regex.matches(in: attributed.string, range: whole) {
+                // What is inside keeps its italics and bold, so it is converted like any other text.
+                let inner = RichTextMarkdown.markdown(from: attributed.attributedSubstring(from: match.range(at: 1)))
+                edits.append(Edit(range: match.range, note: LinkedNote(isFootnote: isFootnote, text: oneLine(inner))))
+            }
+        }
+        attributed.enumerateAttribute(.link, in: whole) { value, range, _ in
+            guard let url = (value as? URL) ?? (value as? String).flatMap(URL.init(string:)), url.scheme?.lowercased() == "scrivcmt" else { return }
+            // The words stay; only the link goes, and the note follows them.
+            attributed.removeAttribute(.link, range: range)
+            guard let note = linked[(url.host ?? "").uppercased()] else { missing += 1; return }
+            edits.append(Edit(range: NSRange(location: NSMaxRange(range), length: 0), note: note))
+        }
+        edits.sort { $0.range.location != $1.range.location ? $0.range.location < $1.range.location : $0.range.length > $1.range.length }
+        // One inside another (a comment on words within an inline footnote) goes with the outer one.
+        var kept: [Edit] = []
+        for edit in edits where !edit.note.text.isEmpty || edit.range.length > 0 {
+            if let last = kept.last, edit.range.location < NSMaxRange(last.range) { continue }
+            kept.append(edit)
+        }
+        kept = Array(kept.prefix(ScrivenerReader.maxMarksPerDocument))
+        for (index, edit) in kept.enumerated().reversed() {
+            // Styled like the words before it, so a mark is never mistaken for a heading or for code.
+            let at = edit.range.location > 0 ? edit.range.location - 1 : min(NSMaxRange(edit.range), max(0, attributed.length - 1))
+            let attributes = attributed.length > 0 ? attributed.attributes(at: at, effectiveRange: nil) : [:]
+            let token = edit.note.text.isEmpty ? "" : markToken + String(index) + markToken
+            attributed.replaceCharacters(in: edit.range, with: NSAttributedString(string: token, attributes: attributes))
+        }
+        return kept.map(\.note)
     }
 
     private static func pictureCount(in data: Data) -> Int {

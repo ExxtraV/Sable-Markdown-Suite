@@ -70,6 +70,13 @@ import Foundation
         let edge = try ScrivenerReader.read(fixtures.appendingPathComponent("Edge Cases.scriv"))
         let scenes = edge.draft!.children
         func scene(_ title: String) -> ScrivenerItem { scenes.first { $0.title == title }! }
+        // Statuses are the writer's own list. Whatever they are called, they come through exactly as written.
+        precondition(edge.statuses == ["To Do", "Waiting on Ines: 2nd pass"], "A status the writer made up is kept as it is: \(edge.statuses)")
+        var waiting = ScrivenerItem(uuid: "X", kind: .text, typeName: "Text")
+        waiting.title = "Waiting"
+        waiting.status = edge.statuses[1]
+        precondition(ScrivenerImportPlanner.fields(for: waiting).contains { $0 == "status" && $1 == "Waiting on Ines: 2nd pass" }
+                     && ScrivenerImportPlanner.sceneNote(waiting) == "<!-- Scene: Waiting · Status: Waiting on Ines: 2nd pass -->", "…in front matter and in a scene's note")
         precondition(scenes[0].children[0].children[0].children[0].title == "Deep scene", "Four folders deep")
         precondition(scenes[0].flattened.count == 4, "Flattening keeps binder order")
         let wordy = scene("Chapter with its own words")
@@ -108,6 +115,39 @@ import Foundation
         let dir = fm.temporaryDirectory.appendingPathComponent("sable-scrivener-\(getpid())", isDirectory: true)
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: dir) }
+
+        // MARK: Footnotes, comments, and annotations
+        let noted = try ScrivenerReader.read(fixtures.appendingPathComponent("Footnotes.scriv"))
+        let harbour = noted.draft!.children[0].children[0], tollhouse2 = noted.draft!.children[0].children[1]
+        precondition(harbour.text == "The ferry left at dusk and the lamps came on one by one.[^1]\n\nOona counted nine lamps<!-- Is nine right? See the map. --> where there should have been ten.\n\nThe toll keeper said nothing. <!-- CHECK HIS NAME. --> He only held out his hand.\n\nShe paid with the last of the salt money[^2].\n\nThe water was colder than the almanac[^3] promised.\n",
+                     "Inline and inspector footnotes are numbered together in order; comments and annotations are notes where they were: \(harbour.text ?? "nil")")
+        precondition(harbour.footnotes == ["Lamps were lit by hand until the flood.", "Salt money was coined in Saltmere only.", "The *Tidewater Almanac*, ninth printing."] && harbour.comments == 2, "A footnote keeps its italics: \(harbour.footnotes)")
+        precondition(tollhouse2.text!.contains("without knocking<!-- Too abrupt? Try it --\u{200B}> softer. Ask Ines. -->, which") && tollhouse2.text!.hasSuffix("at all. <!-- Cut this line? -->\n"),
+                     "A comment can't end its own note early, stays on one line, and an annotation needs no colour: \(tollhouse2.text ?? "nil")")
+        precondition(tollhouse2.notes == "Ask about the broom. (Footnote: It was her mother’s.) [Comment: Maybe not.]\n" && tollhouse2.footnotes.count == 2, "Inside document notes they are written out: \(tollhouse2.notes ?? "nil")")
+        precondition(MarkdownLinesProbe.notes(in: tollhouse2.text!) == 2, "Each comment is one whole note")
+        let torn = noted.research!.children[1]
+        precondition(torn.text!.contains("Scrv") && torn.text!.contains("this points at nothing") && torn.footnotes.isEmpty, "A footnote that never closes is left as text: \(torn.text ?? "nil")")
+        precondition(Set(noted.warnings.map(\.message)) == ["A document points to a comment or footnote that isn’t in the project; the words it was attached to were kept.",
+                                                           "A document’s comments and footnotes file couldn’t be read; the text was imported without them.",
+                                                           "A document has Scrivener annotations or footnotes Sable couldn’t convert, which may show as stray marks in its text."], "What went wrong is said, without the words: \(noted.warnings)")
+        let notedPlan = ScrivenerImportPlanner.plan(noted)
+        precondition(notedPlan.summary == "2 scenes in 1 chapter, 2 notes" && notedPlan.marksSummary == "8 footnotes, 4 comments", "The preview counts them: \(notedPlan.marksSummary ?? "nil")")
+        let notedChapter = notedPlan.files.first { $0.path == "Manuscript/Chapter One.md" }!.contents!
+        precondition(notedChapter.hasPrefix("# Chapter One\n\nThe year the lamps went out, nobody kept a record.[^1]\n\n* * *\n\n<!-- Scene: Harbour -->\n\nThe ferry left at dusk and the lamps came on one by one.[^2]"), "Footnotes are numbered through the chapter: \(notedChapter)")
+        precondition(notedChapter.contains("almanac[^4] promised.") && notedChapter.contains("tollhouse door[^5] stood open.") && notedChapter.contains("against the wall.[^6]"), "…across its scenes: \(notedChapter)")
+        precondition(notedChapter.hasSuffix("<!-- Cut this line? -->\n\n[^1]: The harbour ledger has a gap of eleven months.\n\n[^2]: Lamps were lit by hand until the flood.\n\n[^3]: Salt money was coined in Saltmere only.\n\n[^4]: The *Tidewater Almanac*, ninth printing.\n\n[^5]: The door faced east.\n\n[^6]: Brooms were a toll keeper’s badge.\n"), "…and their words are at its end, in order: \(notedChapter)")
+        precondition(notedPlan.files.first { $0.path == "Notes/Research/Tolls.md" }!.contents == "# Tolls\n\nTolls were paid in salt.[^1] Then in coin.[^2]\n\n[^1]: Until the mint opened.\n\n[^2]: Mostly.\n", "Numbering starts again in each file")
+        precondition(notedPlan.files.last!.contents!.contains("- 8 footnotes, 4 comments ("), "The report counts them too")
+        // The words of a footnote are the writer's and count; the comments are notes and don't.
+        let withoutNotes = notedChapter.replacingOccurrences(of: "<!--[\\s\\S]*?-->", with: " ", options: .regularExpression)
+        precondition(Prose.wordCount(notedChapter) == Prose.wordCount(withoutNotes) && Prose.wordCount(notedChapter) < notedChapter.split(whereSeparator: \.isWhitespace).count - 20, "Comments and scene notes are not counted")
+        // More marks than Sable converts in one document: the rest stay as they were, and the reader says so.
+        let many = String(repeating: "word\\{\\\\Scrv_fn=n\\\\end_Scrv_fn\\} ", count: ScrivenerReader.maxMarksPerDocument + 3)
+        let capped = ScrivenerText.convert(rtf: Data("{\\rtf1\\ansi{\\fonttbl\\f0\\fswiss Helvetica;}\\f0\\fs24 \(many)}".utf8))!
+        precondition(capped.footnotes.count == ScrivenerReader.maxMarksPerDocument && capped.markdown.contains("Scrv"), "A limit on marks per document: \(capped.footnotes.count)")
+        precondition(ScrivenerText.linkedNotes(in: Data("<!DOCTYPE c [<!ENTITY a \"aaaa\">]><Comments><Comment ID=\"A\">&a;</Comment></Comments>".utf8)) == nil, "A comments file that declares entities is refused")
+        precondition(ScrivenerText.linkedNotes(in: Data("<Comments><Comment ID=\"../x\">a</Comment><Comment ID=\"ab-1\">Plain words</Comment></Comments>".utf8)) == ["AB-1": .init(isFootnote: false, text: "Plain words")], "Only plain identifiers; plain text is taken as it is")
 
         // MARK: Scrivener 2, the older layout
         let two = try ScrivenerReader.read(fixtures.appendingPathComponent("Scrivener 2.scriv"))
@@ -189,6 +229,9 @@ import Foundation
         precondition(try! Data(contentsOf: destination.appendingPathComponent("Images/Oona Brask.png")) == (try! Data(contentsOf: oona.cardImage!)), "Pictures are copied whole")
         let chapters = ManuscriptStats.load(folder: FictionProject.folder(for: .chapter, in: destination), order: made.chapterOrder)
         precondition(chapters.map(\.name) == ["Chapter One.md", "Chapter Two.md"] && chapters[0].words > 60, "Sable lists the chapters, in order, with their words: \(chapters.map(\.words))")
+        // What Scrivener knew about each scene is in notes, and notes are not the book: only the scenes' own words count.
+        let sceneWords = novel.draft!.children[0].children.reduce(0) { $0 + Prose.wordCount($1.text ?? "") }
+        precondition(chapters[0].words == sceneWords + 2, "Chapter One is its heading and its scenes, without their notes: \(chapters[0].words), scenes \(sceneWords)")
         let cards = CardIndex.load(project: destination)
         precondition(cards.map(\.title) == ["Oona Brask", "Saltmere", "The Toll Keeper"] && cards.map(\.kind) == [.character, .location, .character], "Sable sees the cards: \(cards.map(\.title))")
         precondition(ScrivenerImportWriter.firstChapter(in: destination)?.lastPathComponent == "Chapter One.md", "Where the writer lands")
@@ -296,6 +339,7 @@ import Foundation
                 let items = project.allItems
                 let kinds = Dictionary(grouping: items, by: \.kind).map { "\($0.key.rawValue) \($0.value.count)" }.sorted().joined(separator: ", ")
                 let leftovers = items.filter { (($0.text ?? "") + ($0.notes ?? "")).contains("$Scr") }.count
+                let commentFiles = (fm.enumerator(at: copy.appendingPathComponent("Files/Data"), includingPropertiesForKeys: nil)?.compactMap { $0 as? URL } ?? []).filter { $0.pathExtension == "comments" }.count
                 let rtfFiles = (fm.enumerator(at: copy.appendingPathComponent("Files/Data"), includingPropertiesForKeys: nil)?.compactMap { $0 as? URL } ?? []).filter { $0.pathExtension == "rtf" }.count
                 print("""
                 real project \(index + 1): \(project.creator), format \(project.formatVersion), read in \(String(format: "%.2f", Date().timeIntervalSince(started)))s
@@ -306,6 +350,7 @@ import Foundation
                   scene breaks \(items.reduce(0) { $0 + (($1.text ?? "").components(separatedBy: "\n* * *\n").count - 1) }), pasted pictures \(items.reduce(0) { $0 + $1.embeddedPictures }), headings \(items.reduce(0) { $0 + ($1.text ?? "").components(separatedBy: "\n").filter { $0.hasPrefix("#") }.count })
                   warnings \(project.warnings.count)\(project.warnings.isEmpty ? "" : ": " + Dictionary(grouping: project.warnings, by: \.message).map { "\($0.value.count)× \($0.key)" }.joined(separator: "; ")), leftover markers \(leftovers)
                 """)
+                print("  footnotes \(items.reduce(0) { $0 + $1.footnotes.count }), comments and annotations \(items.reduce(0) { $0 + $1.comments }), in \(items.filter { !$0.footnotes.isEmpty || $0.comments > 0 }.count) documents; comments files on disk \(commentFiles)")
                 let plan = ScrivenerImportPlanner.plan(project)
                 let imported = try ScrivenerImportWriter.write(plan, project: project, to: dir.appendingPathComponent("real-out-\(index)/Imported", isDirectory: true))
                 let stats = ManuscriptStats.load(folder: FictionProject.folder(for: .chapter, in: imported), order: FictionProject.load(imported)?.chapterOrder)
@@ -315,6 +360,20 @@ import Foundation
                   destinations \(Dictionary(grouping: ScrivenerImportPlanner.suggestedDestinations(for: project), by: \.rawValue).map { "\($0.key) \($0.value.count)" }.sorted().joined(separator: ", ")); files written \(plan.files.count), copied \(plan.files.filter { $0.source != nil }.count)
                   Sable sees \(stats.count) chapters (\(stats.reduce(0) { $0 + $1.words }) words), \(foundCards.filter { $0.kind == .character }.count) characters, \(foundCards.filter { $0.kind == .location }.count) locations, \(foundCards.filter { $0.kind == .lore }.count) world notes
                 """)
+                // Every footnote mark in every written file has its words, and none of Scrivener's own marks are left.
+                var references = 0, definitions = 0, stray = 0, unmatched = 0
+                let reference = try NSRegularExpression(pattern: "\\[\\^(\\d+)\\](:?)")
+                for file in plan.files {
+                    guard let contents = file.contents, file.path != ScrivenerImportPlanner.reportName else { continue }
+                    if contents.contains("Scrv_") || contents.contains("Scrv\\_") || contents.contains("scrivcmt:") || contents.contains("\u{E001}") { stray += 1 }
+                    var used: Set<String> = [], defined: Set<String> = []
+                    for match in reference.matches(in: contents, range: NSRange(location: 0, length: (contents as NSString).length)) {
+                        let number = (contents as NSString).substring(with: match.range(at: 1))
+                        if match.range(at: 2).length > 0 { defined.insert(number); definitions += 1 } else { used.insert(number); references += 1 }
+                    }
+                    if used != defined { unmatched += 1 }
+                }
+                print("  written: footnote marks \(references), footnote texts \(definitions), files where they don't pair up \(unmatched), files with stray Scrivener marks \(stray); \(plan.marksSummary ?? "no footnotes or comments")")
                 precondition(leftovers == 0 && fingerprint(original, contents: false) == stamp, "Real project \(index + 1)")
                 print("  original untouched: \(fingerprint(original, contents: false) == stamp)")
                 precondition(stats.count == plan.chapters && foundCards.count == plan.characters + plan.locations + plan.worldNotes, "Real project \(index + 1): Sable finds what was planned")
@@ -333,5 +392,12 @@ import Foundation
             let hash = contents ? (try? Data(contentsOf: url)).map { SHA256.hash(data: $0).map { String(format: "%02x", $0) }.joined() } ?? "" : ""
             return "\(url.path.dropFirst(base.count)) \(values.fileSize ?? 0) \(values.contentModificationDate?.timeIntervalSince1970 ?? 0) \(hash)"
         }.sorted()
+    }
+}
+
+/// Counts `<!-- -->` notes the way Sable finds them.
+enum MarkdownLinesProbe {
+    static func notes(in text: String) -> Int {
+        (try? NSRegularExpression(pattern: "<!--[\\s\\S]*?(?:-->|\\z)"))?.numberOfMatches(in: text, range: NSRange(location: 0, length: (text as NSString).length)) ?? 0
     }
 }

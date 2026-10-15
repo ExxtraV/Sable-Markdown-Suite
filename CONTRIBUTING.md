@@ -47,23 +47,24 @@ Two things to know before adding or changing one:
 
 ```sh
 swiftc -O Sources/QuillCore/MarkdownSyntax.swift Sources/QuillCore/MarkdownEditing.swift Sources/QuillCore/MarkdownDocument.swift Sources/QuillCore/IncrementalStyling.swift Sources/QuillCore/Prose.swift Sources/QuillCore/FocusParagraph.swift Sources/QuillCore/SentenceStructure.swift scripts/check-styling-ranges.swift -o /tmp/quill-styling-range-checks && /tmp/quill-styling-range-checks
+swiftc Sources/QuillCore/Prose.swift scripts/check-prose.swift -o /tmp/quill-prose-checks && /tmp/quill-prose-checks
 swiftc Sources/QuillCore/MarkdownEditing.swift Sources/QuillCore/MarkdownDocument.swift scripts/check-markdown-editing.swift -o /tmp/quill-markdown-editing-checks && /tmp/quill-markdown-editing-checks
 swiftc Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-import.swift -o /tmp/quill-import-checks && /tmp/quill-import-checks
-swiftc Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/ScrivenerReader.swift Sources/Quill/ScrivenerImport.swift Sources/Quill/FictionProject.swift Sources/Quill/FolderBrowser.swift scripts/check-scrivener.swift -o /tmp/quill-scrivener-checks && /tmp/quill-scrivener-checks
+swiftc Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/ScrivenerReader.swift Sources/Quill/ScrivenerImport.swift Sources/Quill/FictionProject.swift Sources/Quill/FolderBrowser.swift Sources/QuillCore/Prose.swift scripts/check-scrivener.swift -o /tmp/quill-scrivener-checks && /tmp/quill-scrivener-checks
 swiftc Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-project-search.swift -o /tmp/quill-search-checks && /tmp/quill-search-checks
 swiftc Sources/QuillCore/ThemePalette.swift scripts/check-contrast.swift -o /tmp/quill-contrast-checks && /tmp/quill-contrast-checks
 swiftc Sources/Quill/ZoomSteps.swift scripts/check-zoom-steps.swift -o /tmp/quill-zoom-step-checks && /tmp/quill-zoom-step-checks
 swiftc Sources/Quill/SafeFile.swift scripts/check-file-safety.swift -o /tmp/quill-file-safety-checks && /tmp/quill-file-safety-checks
-swiftc Sources/Quill/SafeFile.swift Sources/Quill/Revisions.swift scripts/check-revisions.swift -o /tmp/quill-revision-checks && /tmp/quill-revision-checks
+swiftc Sources/Quill/SafeFile.swift Sources/Quill/Revisions.swift Sources/QuillCore/Prose.swift scripts/check-revisions.swift -o /tmp/quill-revision-checks && /tmp/quill-revision-checks
 swiftc Sources/Quill/AccessibilitySupport.swift Sources/Quill/ToolbarTools.swift scripts/check-toolbar.swift -o /tmp/quill-toolbar-checks && /tmp/quill-toolbar-checks
 swiftc Sources/Quill/WritingHistory.swift Sources/Quill/WritingGoal.swift scripts/check-writing-history.swift -o /tmp/quill-writing-history-checks && /tmp/quill-writing-history-checks
 swiftc scripts/check-app-icon.swift -o /tmp/quill-app-icon-checks && /tmp/quill-app-icon-checks
 
-swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-folder.swift -o /tmp/quill-folder-checks
+swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift Sources/QuillCore/Prose.swift scripts/check-folder.swift -o /tmp/quill-folder-checks
 /tmp/quill-folder-checks
-swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-fiction.swift -o /tmp/quill-fiction-checks
+swiftc Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift Sources/QuillCore/Prose.swift scripts/check-fiction.swift -o /tmp/quill-fiction-checks
 /tmp/quill-fiction-checks
-swiftc -parse-as-library Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift scripts/check-project-browser.swift -o /tmp/quill-project-browser-checks
+swiftc -parse-as-library Sources/Quill/FolderBrowser.swift Sources/Quill/MarkdownFileTypes.swift Sources/Quill/FictionProject.swift Sources/QuillCore/Prose.swift scripts/check-project-browser.swift -o /tmp/quill-project-browser-checks
 /tmp/quill-project-browser-checks
 swiftc Sources/Quill/DefaultAppStatus.swift scripts/check-default-app.swift -o /tmp/quill-default-app-checks
 /tmp/quill-default-app-checks
@@ -75,18 +76,15 @@ swiftc Sources/Quill/BugReport.swift scripts/check-bug-report.swift -o /tmp/quil
 
 `check-bug-report.swift` guards Help → Report a Bug…. Run from the repository root, it confirms the GitHub link carries only the writer's words and, if the checkbox is on, the three version fields; that `&`, `#`, `+`, accents, flags, and line breaks survive the trip; that the link stays under 6,000 characters, cutting long text at a word with a note and sharing the room fairly between the two boxes; that every field in the link has a matching `id:` in `.github/ISSUE_TEMPLATE/bug_report.yml`; and that the crash-report finder only looks at names and dates (a report it can't read is still found, and reading is a separate call made only when the writer clicks). If you add a field to the link, add it to the template too. Nothing in this feature may touch the network.
 
-`check-scrivener.swift` guards File → Import Scrivener Project…. Run from the repository root, it reads the three hand-built projects in `Tests/Fixtures/Scrivener` and a set of deliberately damaged ones, plans and writes a Fiction Project from them into a temporary folder, checks that Sable finds the chapters and cards it made, and confirms that none of it changes the Scrivener projects. The fixtures are invented text in the shape of real Scrivener 3 projects; never add anyone's real project to the repository. `docs/scrivener-format.md` describes the format and how to run the check over your own projects, which prints counts only.
+`check-scrivener.swift` guards File → Import Scrivener Project…. Run from the repository root, it reads the four hand-built projects in `Tests/Fixtures/Scrivener` and a set of deliberately damaged ones, plans and writes a Fiction Project from them into a temporary folder, checks that Sable finds the chapters and cards it made, and confirms that none of it changes the Scrivener projects. The fixtures are invented text in the shape of real Scrivener 3 projects; never add anyone's real project to the repository. `docs/scrivener-format.md` describes the format and how to run the check over your own projects, which prints counts only.
 
 The sample project the app ships is the folder `Examples/Sable Sample Project`, and `check-sample-project.swift` reads it. `scripts/package-app.py` copies it into the app as `Contents/Resources/Sample Project`; given the built app, the check also confirms the packaged copy matches the source. It checks that the sample is a valid Fiction Project with the expected cards, scene tags, outline beats, note, and snapshot. It is a real Fiction Project, so change it by opening the folder in Sable. Keep the `_Sample text written by Claude Code._` line on every file in it, and re-run the check after editing.
 
 ### Additional local-only checks (not run in CI)
 
-`check-editor.swift` and `check-reading-reference.swift` below cover most of `MarkdownSyntax.swift` and `Prose.swift` indirectly, but these two exercise them directly and are useful in isolation:
+`check-editor.swift` and `check-reading-reference.swift` below cover most of `MarkdownSyntax.swift` indirectly, but this one exercises it directly and is useful in isolation:
 
 ```sh
-swiftc Sources/QuillCore/Prose.swift scripts/check-prose.swift -o /tmp/quill-prose-checks
-/tmp/quill-prose-checks
-
 swiftc Sources/QuillCore/MarkdownSyntax.swift Sources/QuillCore/MarkdownEditing.swift Sources/QuillCore/MarkdownDocument.swift Sources/QuillCore/IncrementalStyling.swift scripts/check-markdown.swift -o /tmp/quill-markdown-checks
 /tmp/quill-markdown-checks
 ```

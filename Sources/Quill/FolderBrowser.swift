@@ -1,5 +1,9 @@
 import SwiftUI
 import AppKit
+// The standalone checks compile Sources/QuillCore/Prose.swift beside this file instead of linking the module.
+#if canImport(QuillCore)
+import QuillCore
+#endif
 
 struct BrowserEntry: Identifiable, Sendable {
     var id: URL { url }
@@ -82,10 +86,8 @@ extension FolderListing {
         }
     }
 
-    /// Words, ignoring stray Markdown punctuation such as "---" or "#".
-    static func wordCount(in text: String) -> Int {
-        text.split(whereSeparator: \.isWhitespace).filter { $0.contains { $0.isLetter || $0.isNumber } }.count
-    }
+    /// Words, ignoring front matter, `<!-- -->` notes, and stray Markdown punctuation such as "---" or "#".
+    static func wordCount(in text: String) -> Int { Prose.wordCount(text) }
 }
 
 struct FileWords: Sendable {

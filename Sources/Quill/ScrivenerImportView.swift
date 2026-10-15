@@ -43,6 +43,10 @@ struct ScrivenerImportSheet: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(plan.summary).font(.body.weight(.medium)).fixedSize(horizontal: false, vertical: true)
+                if let marks = plan.marksSummary {
+                    Text(marks.prefix(1).uppercased() + marks.dropFirst() + " will be kept: footnotes at the end of each file, comments as notes where they were.")
+                        .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
                 if let skipped = plan.skippedSummary {
                     Text(skipped + ". They are copied into the project where possible, and listed in Import Report.md.")
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

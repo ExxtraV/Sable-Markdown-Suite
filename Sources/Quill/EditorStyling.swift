@@ -23,6 +23,8 @@ final class EditorStyleState {
     /// Fenced code and notes (Markdown styling) and fences and front matter (prose review), kept in step with the text.
     var blocks: [MarkdownSpan] = []
     var proseBlocks: [NSRange] = []
+    /// Front matter and notes, which the word count leaves out, kept in step with the text.
+    var uncounted: [NSRange] = []
     var nameRanges: [NSRange] = []
     var nameKinds: [CardKind] = []
     /// Every span except the blocks, over the whole text. None crosses a line, so a region pass splices its lines in.
@@ -112,13 +114,16 @@ extension WritingTextView: @preconcurrency NSTextStorageDelegate {
             let oldEnd = previous.length - style.edits.suffix
             style.blocks = IncrementalStyling.shift(style.blocks, editStart: start, oldEditEnd: oldEnd, delta: delta, oldLength: previous.length)
             style.proseBlocks = style.proseBlocks.map { IncrementalStyling.shift($0, editStart: start, oldEditEnd: oldEnd, delta: delta, oldLength: previous.length) }
+            let uncounted = style.uncounted.map { IncrementalStyling.shift($0, editStart: start, oldEditEnd: oldEnd, delta: delta, oldLength: previous.length) }
             if let count = style.wordCount {
-                style.wordCount = count - Prose.wordCount(previous.substring(with: old)) + Prose.wordCount(text.substring(with: range))
+                style.wordCount = count - Prose.wordCount(in: previous, range: old, skipping: style.uncounted) + Prose.wordCount(in: text, range: range, skipping: uncounted)
             }
+            style.uncounted = uncounted
             (region, oldRegion, full) = (range, old, false)
         } else if textChanged {
             style.blocks = MarkdownSyntax.blocks(in: text as String)
             style.proseBlocks = Prose.protectedBlocks(in: text as String)
+            style.uncounted = Prose.uncountedRanges(in: text as String)
             style.wordCount = nil
         }
         if textChanged || restyle {

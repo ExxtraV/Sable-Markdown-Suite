@@ -12,7 +12,8 @@ import Foundation
 
         precondition(Revisions.list(in: root).isEmpty, "No snapshots at first")
         let first = try Revisions.create(name: "First draft", note: "Before the rewrite", root: root, files: [one, two], chapterOrder: ["Chapter 2.md", "Chapter 1.md"])
-        precondition(first.files.map(\.path) == ["Manuscript/Chapter 1.md", "Manuscript/Chapter 2.md"] && first.words == 16, "Files and words: \(first.files) \(first.words)")
+        precondition(first.files.map(\.path) == ["Manuscript/Chapter 1.md", "Manuscript/Chapter 2.md"] && first.words == 14, "Files and words, without the heading marks: \(first.files) \(first.words)")
+        precondition(Revisions.words(in: "---\ntype: note\n---\n<!-- Check the tide -->\n\nOne two.") == 2, "Notes and front matter aren't counted")
         precondition(Revisions.list(in: root) == [first], "It is listed, and read back the same")
         precondition(Revisions.list(in: root).first?.chapterOrder == ["Chapter 2.md", "Chapter 1.md"], "The chapter order comes back")
         precondition(fm.fileExists(atPath: root.appendingPathComponent(".sable-revisions/\(first.id)/Manuscript/Chapter 1.md").path), "A plain copy of the file")

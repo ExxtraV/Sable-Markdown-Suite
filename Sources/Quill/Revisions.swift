@@ -1,4 +1,8 @@
 import Foundation
+// The standalone checks compile Sources/QuillCore/Prose.swift beside this file instead of linking the module.
+#if canImport(QuillCore)
+import QuillCore
+#endif
 
 /// Snapshots of a draft, so a big rewrite can always be undone, and a comparison that shows what changed.
 ///
@@ -71,7 +75,7 @@ enum Revisions {
         return path.count > base.count && Array(path.prefix(base.count)) == base
     }
 
-    static func words(in text: String) -> Int { text.split { $0.isWhitespace || $0.isNewline }.count }
+    static func words(in text: String) -> Int { Prose.wordCount(text) }
 
     // MARK: Reading
 

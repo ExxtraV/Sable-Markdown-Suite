@@ -119,6 +119,7 @@ import Foundation
         precondition(FolderListing.sorted([older, newer, folder], by: .name, foldersFirst: false).map(\.name) == ["Newer.md", "Older.md", "Zed"])
         precondition(older.displayName == "Older" && folder.displayName == "Zed")
         precondition(FolderListing.wordCount(in: "# Title\n\nOne two — three ---\n") == 4)
+        precondition(FolderListing.wordCount(in: "# Title\n\n<!-- a note to self -->\n\nOne two\n") == 3, "Notes aren't counted on the desk")
         // Rename
         let file = lib.appendingPathComponent("Chapters notes.txt")
         let d1 = try FolderRename.destination(for: file, isDirectory: false, name: "Ideas")

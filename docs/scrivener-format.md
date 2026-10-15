@@ -8,7 +8,8 @@ carries one of three marks:
 
 - **Confirmed**: seen in real projects saved by Scrivener 3.5.2 for Mac (`Creator="SCRMAC-3.5.2-17487"`,
   binder `Version="2.0"`, `Files/version.txt` containing `23`). Four projects were read, between 33 and
-  329 binder items each.
+  329 binder items each. The parts about footnotes, comments, and annotations were confirmed separately,
+  from a small project made in the same Scrivener version for the purpose, holding one of each.
 - **Assumed**: taken from public descriptions of the format or from its evident pattern, but never
   seen in a real file. The reader copes if the assumption is wrong; it just reads nothing for that part.
 - **Not seen**: known to exist, absent from every project examined, and not read.
@@ -34,7 +35,7 @@ A project is a folder whose name ends in `.scriv`, shown by Finder as a single f
 | `Files/Data/<UUID>/content.<ext>` | The file behind a picture, PDF, web archive, or other item | Confirmed |
 | `Files/Data/<UUID>/card-image.<ext>` | A picture pinned to the index card | Confirmed |
 | `Files/Data/<UUID>/content.styles`, `notes.styles` | Which named styles the text uses. Not read | Confirmed to exist |
-| `Files/Data/<UUID>/content.comments` | Inspector comments and footnotes | Not seen |
+| `Files/Data/<UUID>/content.comments` | The inspector's comments and footnotes for that document, as XML | Confirmed |
 | `Files/Data/docs.checksum` | A checksum per file. Not read | Confirmed to exist |
 | `Files/version.txt` | A format number (`23`). Not read; the binder's own `Version` is used | Confirmed |
 | `Files/styles.xml` | The project's named styles, each an RTF sample. Not read | Confirmed to exist |
@@ -142,8 +143,12 @@ converter as File → Import Document (`RichTextMarkdown` in `Sources/Quill/Impo
 | Links between documents are RTF hyperlinks to `scrivlnk://<UUID>` | Confirmed |
 | Lists, tables, centred paragraphs, underline | Confirmed |
 | Compile placeholders such as `<$author>`, `<$PROJECTTITLE>`, `<$year>`, `<$wc100>`, `<$BLANK_PAGE>` appear in front-matter pages | Confirmed |
-| Inline annotations and inline footnotes (said to be `{\Scrv_annot …}` and `{\Scrv_fn=…}` groups) | Not seen, not read |
-| Inspector comments and footnotes (`content.comments`, linked from the text by `scrivcmt://`) | Not seen, not read |
+| An inline footnote is not an RTF group. It is ordinary characters in the text: `{\Scrv_fn=`, the footnote's words, `\end_Scrv_fn}` (in the RTF source the braces and backslashes are escaped, `\{\\Scrv_fn=`). The two markers are set in Helvetica 12; the words between keep their own font and styling, and usually start with the space the writer typed | Confirmed |
+| An inline annotation is the same, with a colour: `{\Scrv_annot \color={\R=0.543234\G=0.0\B=0.023817} \text=`, the words, `\end_Scrv_annot}` | Confirmed |
+| An inspector comment or footnote is an RTF hyperlink on the words it is attached to: `{\field{\*\fldinst{HYPERLINK "scrivcmt://<ID>"}}{\fldrslt nine lamps}}`, where `<ID>` is a UUID | Confirmed |
+| `content.comments` is `<Comments>` holding one `<Comment ID="<ID>" Color="r g b">` per link, with `Footnote="Yes"` on a footnote and no such attribute on a comment. Inside is a CDATA section holding the note as a whole RTF document of its own, so a note can have italics | Confirmed |
+| A new comment starts with the date and time as its text, selected so that typing replaces it | Confirmed |
+| Footnotes and annotations inside `notes.rtf`; an annotation without `\color=` | Assumed to follow the same pattern. The reader accepts both |
 | Text written by Scrivener for Windows | Not seen (the `\uc1\deff0` header may come from it or from the iOS app) |
 
 What the reader does with it:
@@ -160,6 +165,18 @@ What the reader does with it:
   converter would have taken for code. For Scrivener text the reader ignores fixed-pitch fonts.
 - **Links** survive only if they are http, https, or mailto. Links to other documents keep their
   words and lose the link.
+- **Footnotes** become Markdown footnotes. Inline and inspector footnotes are numbered together in
+  the order they appear, each leaving `[^1]`, `[^2]`… where it was (an inspector footnote's mark goes
+  after the words it was attached to), and the reader keeps their words, as one line of Markdown each,
+  in `ScrivenerItem.footnotes`. A leading space inside an inline footnote is dropped.
+- **Comments and inline annotations** become `<!-- -->` notes at that spot, on one line, with `-->`
+  defused. The linked words stay in the text; a comment's colour and an annotation's colour are dropped.
+- **Inside document notes** neither can work, because the importer puts those notes inside a
+  `<!-- -->` block: there a footnote is written `(Footnote: …)` and a comment `[Comment: …]`.
+- **What can go wrong.** A link to an ID that `content.comments` doesn't have keeps its words and adds
+  a warning. A `content.comments` that isn't that XML adds a warning and the text is imported without
+  it. A marker that never closes is left as text, with the "stray marks" warning. One mark inside
+  another goes with the outer one. At most 5,000 are converted per document.
 - **Pasted pictures** are counted per document (`embeddedPictures`) and not carried: Markdown has
   nowhere to put them. One project had six.
 - **Tables** arrive as one paragraph per cell. Underline, colour, highlight, alignment, and
@@ -188,12 +205,24 @@ Each top-level binder item gets a destination, suggested here and changeable in 
   chapter by itself. Chapter order goes in the project's `chapterOrder`.
 - **Scene details** (title, status, label, keywords, synopsis, document notes) go in a `<!-- -->` note
   above the scene, since Sable has no per-scene metadata and a scene's working title should not reach
-  an export. `-->` inside a note is defused with a zero-width space.
+  an export. `-->` inside a note is defused with a zero-width space. Notes are not counted as words
+  anywhere in Sable, so an imported book's count is the count of its scenes.
+- **Statuses** are kept exactly as Scrivener wrote them, never translated or matched to a list of
+  Sable's own. A chapter's goes in front matter as `status:`; a scene's goes in its note as
+  `Status: …`. Scrivener's defaults are To Do, In Progress, First Draft, Revised Draft, Final Draft,
+  and Done, but the list belongs to the writer, who can rename any of them and add more (the Edge Cases
+  fixture has "Waiting on Ines: 2nd pass"). **Prompt 2.3 (scene status) must accept every one of these
+  as a valid status**, in both places, including names it has never seen, with their capitals, spaces,
+  and punctuation intact. It must not rewrite an imported status to fit a built-in set.
 - **Front matter** carries what belongs to the whole file: `type` for cards, `synopsis` (up to 500
   characters; longer ones become a note in the text, so a card's opening stays within what Sable
   indexes), `status`, `label`, `tags` from keywords, `part`, and `image` for a card with an index-card
   picture. Only `type`, `tags`, and `image` mean anything to Sable today; the rest are kept for the
   writer and for later.
+- **Footnotes** are numbered per file. A chapter made of several scenes numbers them straight through,
+  the chapter's own text first, and all their words sit at the end of the file as `[^1]: …`, one
+  paragraph each. A card or a note does the same for itself. Sable's editor colours the marks; Reading
+  Mode and exports do not yet render footnotes and show the marks as typed.
 - **Document notes** become a `<!-- Notes: … -->` block under the heading. Comments were chosen over a
   sidecar file because Sable already dims them, hides them in Reading Mode, and drops them on export.
 - **Names.** A title becomes a file name with `/ : \` turned into `-`, `* ? " < > |` and control
@@ -239,7 +268,8 @@ is right. The preview sheet and the import report tell the writer the format is 
 | `Title`, `MetaData` (`LabelID`, `StatusID`, `IncludeInCompile`, `FileExtension`), `Children`, `LabelSettings`, `StatusSettings`, and keywords are shaped as in Scrivener 3 | Assumed |
 | The template-sheets folder is named by `TemplateFolderID` | Assumed |
 | Index-card pictures, section types | Not known; not read |
-| Inline annotations and footnotes are written into the RTF as `{\Scrv_annot …}` and `{\Scrv_fn=…}` | Assumed, not converted. If `Scrv_` survives into a document's Markdown, the reader adds a warning that stray marks may show |
+| Inline annotations and footnotes are written into the text the way Scrivener 3 writes them | Assumed. Converted when they match; if `Scrv_` survives into a document's Markdown, the reader adds a warning that stray marks may show |
+| Inspector comments and footnotes | Not known where Scrivener 2 keeps them; not read. The words they were attached to are kept, with a warning |
 | Scrivener 1 for Windows uses this same layout | Assumed |
 
 Because one folder holds every item's files, the reader builds each file name from the item's own
@@ -252,7 +282,8 @@ copy; what it prints is counts only.
 
 ## Checking this document
 
-`scripts/check-scrivener.swift` reads the two fixtures and a set of deliberately broken projects. To
+`scripts/check-scrivener.swift` reads the fixtures (`Footnotes.scriv` copies the structure of the
+project described under The text, with invented words) and a set of deliberately broken projects. To
 read real projects as well, name them in `SABLE_SCRIVENER_REAL`, separated by colons:
 
 ```sh
@@ -260,7 +291,15 @@ SABLE_SCRIVENER_REAL="$HOME/Documents/My Novel.scriv" /tmp/quill-scrivener-check
 ```
 
 Each is copied to a temporary folder and read from the copy. The output is counts only (items by
-kind, how many have text, warnings, leftover markers) and never a title or a line of the writing, and
+kind, how many have text, footnotes and comments converted, warnings, leftover markers) and never a title or a line of the writing, and
 the run fails if the original changed in any way. The last such run, over the four projects described
 above: 329, 111, 33, and 95 items, every one matching the count taken from the XML by hand; no
 warnings; no leftover markers; originals untouched.
+
+The pass also plans and writes the whole import, opens the result the way Sable does, and checks that
+every footnote mark written has its text. The last full run (13 October 2026), over the same four
+projects: 5, 4, 3, and 3 chapters; 51, 1, 0, and 20 character cards; 11, 0, 0, and 3 location cards;
+238, 32, 14, and 48 files written; Sable found every chapter and card that was planned; no warnings;
+no stray Scrivener marks in any written file; originals untouched. None of the four uses footnotes,
+comments, or inline annotations (no `content.comments` file in any), so on real writing those remain
+confirmed only by the small project made for the purpose.
