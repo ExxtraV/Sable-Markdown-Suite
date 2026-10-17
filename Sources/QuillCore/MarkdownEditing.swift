@@ -57,7 +57,7 @@ public enum MarkdownEditing {
     }
 
     /// Start, end (without the line break), and full end of the line holding `location`.
-    private static func lineBounds(_ ns: NSString, _ location: Int) -> (start: Int, contentEnd: Int, end: Int) {
+    static func lineBounds(_ ns: NSString, _ location: Int) -> (start: Int, contentEnd: Int, end: Int) {
         var start = 0, end = 0, contentEnd = 0
         ns.getLineStart(&start, end: &end, contentsEnd: &contentEnd, for: NSRange(location: min(location, ns.length), length: 0))
         return (start, contentEnd, end)
@@ -144,6 +144,12 @@ public enum MarkdownEditing {
                 }
             } else {
                 updated = String(repeating: " ", count: unit(for: p)) + line
+                // A numbered item moved in starts its own list at 1, or takes the next number in the list it joins
+                // once the list is counted again (see ListNumbering.swift).
+                if case let .number(_, delimiter) = p.marker {
+                    let digits = line.dropFirst(p.indent.count).prefix { $0.isNumber }.count
+                    updated = String(repeating: " ", count: unit(for: p)) + p.indent + "1" + delimiter + String(line.dropFirst(p.indent.count + digits + 1))
+                }
             }
             let delta = (updated as NSString).length - (line as NSString).length
             if delta != 0 { changed = true }

@@ -331,6 +331,11 @@ final class WritingTextView: NSTextView, PageHolding {
     let style = EditorStyleState()
     /// Between asking to change the text and the change being done.
     private var changingText = false
+    /// Where the last edit left new text, so the numbered list around it can be counted again (see ListNumbering.swift).
+    private var listEdit: NSRange?
+    /// Inside `replace`, which counts lists again once its own selection is in place.
+    private var replacing = false
+    private var renumbering = false
     /// Paragraph focus has dimmed some of the text, so the next update has to clear it first.
     private var focusPainted = false
     var nameHighlighter: NameHighlighter?
@@ -805,13 +810,33 @@ final class WritingTextView: NSTextView, PageHolding {
 
     override func shouldChangeText(inRanges affectedRanges: [NSValue], replacementStrings: [String]?) -> Bool {
         let allowed = super.shouldChangeText(inRanges: affectedRanges, replacementStrings: replacementStrings)
-        if allowed { changingText = true }
+        if allowed {
+            changingText = true
+            // One change at a time: Replace All and other many-range edits leave lists as they are.
+            if affectedRanges.count == 1, let replacement = replacementStrings?.first {
+                listEdit = NSRange(location: affectedRanges[0].rangeValue.location, length: (replacement as NSString).length)
+            } else {
+                listEdit = nil
+            }
+        }
         return allowed
     }
 
     override func didChangeText() {
         changingText = false
         super.didChangeText()
+        if !replacing { renumberLists() }
+    }
+
+    /// Adding, removing, or moving a numbered item counts its list again, as part of the same edit.
+    private func renumberLists() {
+        guard let range = listEdit else { return }
+        listEdit = nil
+        guard !renumbering, isEditable, !hasMarkedText(), undoManager?.isUndoing != true, undoManager?.isRedoing != true,
+              let edit = MarkdownEditing.renumber(in: string, around: range, selection: selectedRange()) else { return }
+        renumbering = true
+        apply(edit)
+        renumbering = false
     }
 
     /// Ending an input method's composition without committing it changes no text, so nothing else would restyle what
@@ -885,9 +910,13 @@ final class WritingTextView: NSTextView, PageHolding {
     }
     private func replace(_ range: NSRange, with replacement: String, selection: NSRange) {
         guard isEditable, shouldChangeText(in: range, replacementString: replacement) else { return }
+        listEdit = NSRange(location: range.location, length: (replacement as NSString).length)
+        replacing = true
         textStorage?.replaceCharacters(in: range, with: replacement)
         didChangeText()
         setSelectedRange(selection)
+        replacing = false
+        renumberLists()
     }
     private func wrap(_ marker: String) {
         let range = selectedRange()

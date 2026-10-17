@@ -2,6 +2,12 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
+## Unreleased
+
+- **Numbered lists count themselves.** Adding an item in the middle of a numbered list, deleting one, pasting items in, or moving one in or out with Tab and Shift-Tab used to leave the numbers as they were (1, 2, 2, 3). Now the list is counted again right after the edit. The first item keeps its number, so a list that starts at 5 still does. Each level of a nested list counts on its own, and an item moved in with Tab starts a new list at 1 or takes the next number in the nested list it joins. Only the list around the edit is touched: other lists in the file, and lists you open that were numbered out of order, are left alone until you edit them. Lists in code blocks and front matter are never changed, and neither are lists that Markdown treats as separate (divided by a paragraph, or using `1)` instead of `1.`). Find & Replace's Replace All doesn't renumber.
+  - New `Sources/QuillCore/ListNumbering.swift` (`MarkdownEditing.renumber`): from the edited lines it looks only a line either way for a numbered item, so typing elsewhere costs almost nothing, then widens to the whole list and returns one edit with the caret kept beside its words. `WritingTextView` runs it after each single-range change, skipping undo, redo, and text still being composed. `MarkdownEditing.indent` now resets a numbered item it moves in to 1.
+  - New `check-list-numbering.swift` covers adding, removing, pasting, nesting, list boundaries, code blocks, front matter, caret placement when a number gets wider, and Return and Tab followed by renumbering; `check-markdown-editing.swift` covers the Tab reset.
+
 ## 1.0.0-beta.3
 
 The third beta of 1.0, for people who turn on **Get beta updates**. Scrivener import, opening a Fiction Project from anywhere, Recent Projects, two new themes, and Reading Mode that keeps your place.

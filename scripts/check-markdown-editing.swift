@@ -41,6 +41,7 @@ import Foundation
         func tab(_ marked: String, out: Bool = false) -> String? { run(marked) { MarkdownEditing.indent(in: $0, selection: $1, outdent: out) } }
         precondition(tab("- item|") == "  - item|", "Tab indents a bullet")
         precondition(tab("1. item|") == "   1. item|", "Tab indents a number by its width")
+        precondition(tab("3. item|") == "   1. item|", "A numbered item moved in starts again at 1")
         precondition(tab("  - item|", out: true) == "- item|", "Shift-Tab moves it back")
         precondition(tab("- item|", out: true) == nil, "Nothing to outdent")
         precondition(tab("plain|") == nil, "Tab in prose is an ordinary tab")
