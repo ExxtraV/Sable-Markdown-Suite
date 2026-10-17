@@ -14,7 +14,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 - Apple notarization, so first launch no longer needs a Privacy & Security workaround.
 - ~~A monthly word goal, alongside the existing per-window session count.~~ Done in 1.0.0-beta.1, as a goal with any start and end dates, including a November preset.
 - ~~Scrivener import.~~ Done: File → Import Scrivener Project… reads Scrivener 3 and Scrivener 2 projects. Done in 1.0.0-beta.3.
-- Scrivener import follow-ups: Scrivener footnotes and comments carried over, and hidden notes left out of word counts.
+- ~~Scrivener import follow-ups: Scrivener footnotes and comments carried over, and hidden notes left out of word counts.~~ Done in 1.0.0-beta.4.
 - ~~Numbered lists that renumber themselves when an item is added or removed.~~ Done for the next beta.
 - ~~Fix: switching between Reading Mode and editing keeps your place.~~ Done in 1.0.0-beta.3.
 - Writing desk: add a folder or file inside a category, and fold the Folders and Files sections.
