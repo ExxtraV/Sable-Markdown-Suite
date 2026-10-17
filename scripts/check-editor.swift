@@ -202,9 +202,12 @@ import QuillCore
         writer.string = "1. a\n2. b"
         writer.setSelectedRange(NSRange(location: 9, length: 0))
         writer.insertTab(nil)
-        precondition(writer.string == "1. a\n   2. b", "Tab indents a numbered item: \(writer.string.debugDescription)")
+        precondition(writer.string == "1. a\n   1. b", "Tab indents a numbered item and starts a nested list at 1: \(writer.string.debugDescription)")
         writer.insertBacktab(nil)
-        precondition(writer.string == "1. a\n2. b", "Shift-Tab brings it back")
+        precondition(writer.string == "1. a\n2. b", "Shift-Tab brings it back and the list counts it again: \(writer.string.debugDescription)")
+        writer.setSelectedRange(NSRange(location: 4, length: 0))
+        writer.insertNewline(nil)
+        precondition(writer.string == "1. a\n2. \n3. b" && writer.selectedRange().location == 8, "Return in the middle of a numbered list renumbers the rest: \(writer.string.debugDescription)")
         writer.string = "A line"
         writer.setSelectedRange(NSRange(location: 3, length: 0))
         writer.markHeading(nil)
