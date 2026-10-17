@@ -224,7 +224,13 @@ struct NativeEditor: NSViewRepresentable {
             hasPendingText = false
             let text = editor.string
             syncedText = text
+            // The text view already put this typing on the undo stack. A SwiftUI document registers an undo step of its
+            // own whenever its text is set; undoing that one swapped the whole text behind the text view's back, its
+            // next undo then ran on text that no longer matched and threw, and undo stopped working in that window.
+            let undo = editor.undoManager
+            undo?.disableUndoRegistration()
             parent.text = text
+            undo?.enableUndoRegistration()
             if let document = registeredDocument {
                 registeredDocument = nil
                 document.objectDidEndEditing(self)
@@ -253,6 +259,16 @@ struct NativeEditor: NSViewRepresentable {
             let selection = editor.selectedRange()
             editor.letGoOfPlace()
             editor.replaceText(text, caret: selection.location)
+            // The text view's undo steps describe the text it had before. Left in place, the next undo would run them on
+            // text they no longer fit, which throws and leaves undo stuck for the window. A change made this way (a scene
+            // tag, a card field) starts the undo history again, like opening a file.
+            if let undo = editor.undoManager {
+                if undo.isUndoing || undo.isRedoing {
+                    DispatchQueue.main.async { undo.removeAllActions() }
+                } else {
+                    undo.removeAllActions()
+                }
+            }
         }
 
         /// After a SwiftUI update restyled the text (a new file, a changed setting), refresh the status bar's counts.
