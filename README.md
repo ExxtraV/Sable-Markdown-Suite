@@ -117,6 +117,7 @@ For an iPad edition, reuse `QuillCore` and the document model, add a UIKit text 
 - `Sources/QuillCore/ThemePalette.swift`: the themes' colors and every dimmed-text and highlight color the editor draws, as numbers, with the WCAG contrast math. `scripts/check-contrast.swift` measures them.
 - `Sources/Quill/AccessibilitySupport.swift`: whether VoiceOver or Full Keyboard Access is on, spoken announcements, and the Reduce Motion and Reduce Transparency helpers.
 - `Sources/QuillCore/MarkdownSyntax.swift`: source highlighting spans, chapter outline, and formatting exit logic.
+- `Sources/QuillCore/ListNumbering.swift`: numbered lists counting themselves again after an item is added, removed, pasted, or moved. `scripts/check-list-numbering.swift` checks it.
 - `Sources/Quill/WorldSidebar.swift`: writing desk with file browser and outline.
 - `Sources/Quill/NativeEditor.swift`: visual overlays, text behavior, context menu, and shortcuts.
 - `Sources/Quill/EditorStyling.swift`: Markdown styling, name highlights, sentence colors, and prose suggestions in the editor, restyling only the lines you edit.

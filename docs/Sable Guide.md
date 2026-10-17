@@ -86,7 +86,7 @@ Use `backticks` for inline code and ~~two tildes~~ for a strikethrough.
 
 ## Markdown helpers
 
-- **Lists:** press Return to continue a list, Return on an empty item to end it, and Tab or Shift-Tab to indent or outdent. ⇧⌘8 makes a bulleted list, ⇧⌘7 a numbered one, and ⇧⌘9 a task list.
+- **Lists:** press Return to continue a list, Return on an empty item to end it, and Tab or Shift-Tab to indent or outdent. A numbered list counts itself again when you add, remove, paste, or move an item, keeping the number its first item starts at; an item moved in with Tab starts a new list at 1. ⇧⌘8 makes a bulleted list, ⇧⌘7 a numbered one, and ⇧⌘9 a task list.
 - **Headings:** ⇧⌘H cycles the line through #, ##, ###, and plain. **Scene break:** ⇧⌘L. **Strikethrough** ⇧⌘X, **inline code** ⇧⌘K.
 - **Notes to yourself:** `<!-- like this -->` is dimmed while you write, hidden in Reading Mode, left out of exports, and never counted as words.
 - **Find & Replace in Project** (⌥⇧⌘F) searches every Markdown file, shows what will change, and can undo the replacement.
