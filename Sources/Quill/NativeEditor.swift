@@ -224,7 +224,13 @@ struct NativeEditor: NSViewRepresentable {
             hasPendingText = false
             let text = editor.string
             syncedText = text
+            // The text view already put this typing on the undo stack. A SwiftUI document registers an undo step of its
+            // own whenever its text is set; undoing that one swapped the whole text behind the text view's back, its
+            // next undo then ran on text that no longer matched and threw, and undo stopped working in that window.
+            let undo = editor.undoManager
+            undo?.disableUndoRegistration()
             parent.text = text
+            undo?.enableUndoRegistration()
             if let document = registeredDocument {
                 registeredDocument = nil
                 document.objectDidEndEditing(self)
@@ -253,6 +259,16 @@ struct NativeEditor: NSViewRepresentable {
             let selection = editor.selectedRange()
             editor.letGoOfPlace()
             editor.replaceText(text, caret: selection.location)
+            // The text view's undo steps describe the text it had before. Left in place, the next undo would run them on
+            // text they no longer fit, which throws and leaves undo stuck for the window. A change made this way (a scene
+            // tag, a card field) starts the undo history again, like opening a file.
+            if let undo = editor.undoManager {
+                if undo.isUndoing || undo.isRedoing {
+                    DispatchQueue.main.async { undo.removeAllActions() }
+                } else {
+                    undo.removeAllActions()
+                }
+            }
         }
 
         /// After a SwiftUI update restyled the text (a new file, a changed setting), refresh the status bar's counts.
@@ -331,6 +347,17 @@ final class WritingTextView: NSTextView, PageHolding {
     let style = EditorStyleState()
     /// Between asking to change the text and the change being done.
     private var changingText = false
+    /// Where the last edit left new text, so the numbered list around it can be counted again (see ListNumbering.swift).
+    private var listEdit: NSRange?
+    /// Inside `replace`, which counts lists again once its own selection is in place.
+    private var replacing = false
+    private var renumbering = false
+    /// When typing last went in, so a pause starts a new undo step.
+    private var lastTyped: TimeInterval = 0
+    /// The text changed in this pass of the run loop, so a selection change now is the edit's own, not a cursor move.
+    private var justEdited = false
+    /// A pause this long between keystrokes ends one undo step and starts the next.
+    static let undoPause: TimeInterval = 1.5
     /// Paragraph focus has dimmed some of the text, so the next update has to clear it first.
     private var focusPainted = false
     var nameHighlighter: NameHighlighter?
@@ -561,8 +588,32 @@ final class WritingTextView: NSTextView, PageHolding {
         super.keyDown(with: event)
     }
 
+    // MARK: Undo steps
+
+    // The text view gathers typing into one undo step until something breaks it off, so without these a writer could
+    // lose a whole paragraph, or several, to one ⌘Z. A pause, a new paragraph, or moving the caret starts a new step.
+
+    private func startUndoStepIfPaused() {
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastTyped > Self.undoPause { breakUndoCoalescing() }
+        lastTyped = now
+    }
+
+    override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
+        let before = selectedRanges
+        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+        if !changingText, !justEdited, selectedRanges != before { breakUndoCoalescing() }
+    }
+
+    override func deleteBackward(_ sender: Any?) {
+        startUndoStepIfPaused()
+        super.deleteBackward(sender)
+    }
+
     override func insertNewline(_ sender: Any?) {
         _ = leaveFormatting()
+        breakUndoCoalescing()
+        lastTyped = ProcessInfo.processInfo.systemUptime
         // Inside a list or quote, Return continues it (and on an empty item, ends it).
         if isEditable, !hasMarkedText(), let edit = MarkdownEditing.newline(in: string, selection: selectedRange()) {
             apply(edit)
@@ -583,6 +634,7 @@ final class WritingTextView: NSTextView, PageHolding {
 
     /// Curly quotes, dashes, and ellipses as you type, when that is turned on.
     override func insertText(_ insertString: Any, replacementRange: NSRange) {
+        if !hasMarkedText() { startUndoStepIfPaused() }
         if smartTypography, isEditable, !hasMarkedText(), replacementRange.location == NSNotFound,
            let typed = insertString as? String, typed.count == 1, selectedRange().length == 0 {
             let caret = selectedRange().location
@@ -805,13 +857,37 @@ final class WritingTextView: NSTextView, PageHolding {
 
     override func shouldChangeText(inRanges affectedRanges: [NSValue], replacementStrings: [String]?) -> Bool {
         let allowed = super.shouldChangeText(inRanges: affectedRanges, replacementStrings: replacementStrings)
-        if allowed { changingText = true }
+        if allowed {
+            changingText = true
+            // One change at a time: Replace All and other many-range edits leave lists as they are.
+            if affectedRanges.count == 1, let replacement = replacementStrings?.first {
+                listEdit = NSRange(location: affectedRanges[0].rangeValue.location, length: (replacement as NSString).length)
+            } else {
+                listEdit = nil
+            }
+        }
         return allowed
     }
 
     override func didChangeText() {
         changingText = false
+        if !justEdited {
+            justEdited = true
+            DispatchQueue.main.async { [weak self] in self?.justEdited = false }
+        }
         super.didChangeText()
+        if !replacing { renumberLists() }
+    }
+
+    /// Adding, removing, or moving a numbered item counts its list again, as part of the same edit.
+    private func renumberLists() {
+        guard let range = listEdit else { return }
+        listEdit = nil
+        guard !renumbering, isEditable, !hasMarkedText(), undoManager?.isUndoing != true, undoManager?.isRedoing != true,
+              let edit = MarkdownEditing.renumber(in: string, around: range, selection: selectedRange()) else { return }
+        renumbering = true
+        apply(edit)
+        renumbering = false
     }
 
     /// Ending an input method's composition without committing it changes no text, so nothing else would restyle what
@@ -885,9 +961,13 @@ final class WritingTextView: NSTextView, PageHolding {
     }
     private func replace(_ range: NSRange, with replacement: String, selection: NSRange) {
         guard isEditable, shouldChangeText(in: range, replacementString: replacement) else { return }
+        listEdit = NSRange(location: range.location, length: (replacement as NSString).length)
+        replacing = true
         textStorage?.replaceCharacters(in: range, with: replacement)
         didChangeText()
         setSelectedRange(selection)
+        replacing = false
+        renumberLists()
     }
     private func wrap(_ marker: String) {
         let range = selectedRange()

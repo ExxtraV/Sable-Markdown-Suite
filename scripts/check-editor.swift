@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import QuillCore
 
 @main enum EditorChecks {
@@ -202,9 +203,12 @@ import QuillCore
         writer.string = "1. a\n2. b"
         writer.setSelectedRange(NSRange(location: 9, length: 0))
         writer.insertTab(nil)
-        precondition(writer.string == "1. a\n   2. b", "Tab indents a numbered item: \(writer.string.debugDescription)")
+        precondition(writer.string == "1. a\n   1. b", "Tab indents a numbered item and starts a nested list at 1: \(writer.string.debugDescription)")
         writer.insertBacktab(nil)
-        precondition(writer.string == "1. a\n2. b", "Shift-Tab brings it back")
+        precondition(writer.string == "1. a\n2. b", "Shift-Tab brings it back and the list counts it again: \(writer.string.debugDescription)")
+        writer.setSelectedRange(NSRange(location: 4, length: 0))
+        writer.insertNewline(nil)
+        precondition(writer.string == "1. a\n2. \n3. b" && writer.selectedRange().location == 8, "Return in the middle of a numbered list renumbers the rest: \(writer.string.debugDescription)")
         writer.string = "A line"
         writer.setSelectedRange(NSRange(location: 3, length: 0))
         writer.markHeading(nil)
@@ -451,6 +455,8 @@ import QuillCore
         precondition(document.fileURL == nil, "The file is released before anything else happens")
         precondition(loaded.count == 1 && loaded[0].0 == "" && loaded[0].1 == nil, "The page is emptied and untitled")
         checkSwitchedDocumentFollowsItsFile()
+        checkHandingTextToDocumentKeepsUndo()
+        checkUndoSteps()
         // Regression: the shared color panel must never mutate plain Markdown or
         // issue text-change notifications while SwiftUI lays out its color wells.
         let beforeColor = editor.attributedString()
@@ -479,6 +485,98 @@ import QuillCore
         precondition(FocusParagraph.range(in: "", caret: 0) == NSRange(location: 0, length: 0))
         checkWheelZoom()
         print("Passed: focus tracking/clearing, font switching, soft-line paragraphs, pinch zoom; native fonts, source preservation, centered margins, bold insertion/exit/toggle, italic newline exit, Unicode selections, Command-wheel zoom, a switched-to file followed through renames and moves.")
+    }
+
+    /// A SwiftUI document registers an undo step whenever its text is set. Typing is already on the text view's undo stack,
+    /// so handing it over must not add a second step; undoing that one broke undo for the window (and with it, list
+    /// renumbering, which waits while an undo runs). A change from outside the editor clears the text view's old steps.
+    @MainActor static func checkHandingTextToDocumentKeepsUndo() {
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        var model = "Start."
+        var registeredByDocument = 0
+        let binding = Binding<String>(get: { model }, set: { value in
+            model = value
+            if undo.isUndoRegistrationEnabled { registeredByDocument += 1 }
+        })
+        let host = NativeEditor(text: binding, review: false, words: "", fontSize: 19, pageWidth: 680, commands: EditorCommands(), documentUndoManager: undo)
+        let coordinator = host.makeCoordinator()
+        let typing = WritingTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
+        typing.isRichText = false
+        typing.allowsUndo = true
+        typing.delegate = coordinator
+        typing.string = model
+        coordinator.attach(typing, text: model)
+        typing.setSelectedRange(NSRange(location: 6, length: 0))
+        undo.beginUndoGrouping()
+        typing.insertText(" More.", replacementRange: NSRange(location: NSNotFound, length: 0))
+        undo.endUndoGrouping()
+        typing.breakUndoCoalescing()
+        precondition(undo.canUndo, "Typing is on the undo stack")
+        coordinator.flush()
+        precondition(model == "Start. More.", "Typing reaches the document: \(model)")
+        precondition(registeredByDocument == 0, "Handing typing to the document adds no undo step of its own")
+        undo.undo()
+        precondition(typing.string == "Start.", "One undo takes the typing back: \(typing.string.debugDescription)")
+        precondition(!undo.isUndoing, "Undo finishes")
+
+        // A change from outside (a scene tag, a card field) replaces the text and starts the history again.
+        model = "Start. Tagged."
+        coordinator.syncFromBinding(typing)
+        precondition(typing.string == "Start. Tagged.", "The outside change reaches the editor")
+        precondition(!undo.canUndo && !undo.canRedo, "The text view's old steps, which no longer fit, are cleared")
+    }
+
+    /// One ⌘Z never takes back more than a stretch of typing: a pause, a new paragraph, or moving the caret starts a new step.
+    @MainActor static func checkUndoSteps() {
+        let undo = UndoManager()
+        undo.groupsByEvent = false
+        var model = ""
+        let binding = Binding<String>(get: { model }, set: { model = $0 })
+        let host = NativeEditor(text: binding, review: false, words: "", fontSize: 19, pageWidth: 680, commands: EditorCommands(), documentUndoManager: undo)
+        let coordinator = host.makeCoordinator()
+        let typing = WritingTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
+        typing.isRichText = false
+        typing.allowsUndo = true
+        typing.delegate = coordinator
+        coordinator.attach(typing, text: "")
+        func type(_ words: String) {
+            undo.beginUndoGrouping()
+            typing.insertText(words, replacementRange: NSRange(location: NSNotFound, length: 0))
+            undo.endUndoGrouping()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        func reset() {
+            typing.string = ""
+            undo.removeAllActions()
+            RunLoop.main.run(until: Date().addingTimeInterval(WritingTextView.undoPause + 0.1))
+        }
+
+        reset()
+        type("One")
+        typing.setSelectedRange(NSRange(location: 0, length: 0))
+        typing.setSelectedRange(NSRange(location: 3, length: 0))
+        type(" two")
+        undo.undo()
+        precondition(typing.string == "One", "Moving the caret starts a new undo step: \(typing.string.debugDescription)")
+
+        reset()
+        type("Alpha")
+        RunLoop.main.run(until: Date().addingTimeInterval(WritingTextView.undoPause + 0.1))
+        type(" beta")
+        undo.undo()
+        precondition(typing.string == "Alpha", "A pause starts a new undo step: \(typing.string.debugDescription)")
+
+        reset()
+        type("First paragraph.")
+        undo.beginUndoGrouping()
+        typing.insertNewline(nil)
+        typing.insertText("Second", replacementRange: NSRange(location: NSNotFound, length: 0))
+        undo.endUndoGrouping()
+        undo.undo()
+        precondition(typing.string == "First paragraph.", "A new paragraph starts a new undo step: \(typing.string.debugDescription)")
+        undo.undo()
+        precondition(typing.string == "", "…and the paragraph before it is its own step: \(typing.string.debugDescription)")
     }
 
     /// Switching files reuses the open document. Renaming or moving the file it switched to must carry it along (not

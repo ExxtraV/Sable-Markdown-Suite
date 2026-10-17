@@ -59,6 +59,10 @@ jobs:
         run: |
           swiftc Sources/QuillCore/MarkdownEditing.swift Sources/QuillCore/MarkdownDocument.swift scripts/check-markdown-editing.swift -o /tmp/quill-markdown-editing-checks
           /tmp/quill-markdown-editing-checks
+      - name: List numbering checks
+        run: |
+          swiftc Sources/QuillCore/MarkdownEditing.swift Sources/QuillCore/MarkdownDocument.swift Sources/QuillCore/ListNumbering.swift scripts/check-list-numbering.swift -o /tmp/quill-list-numbering-checks
+          /tmp/quill-list-numbering-checks
       - name: Import checks
         run: |
           swiftc Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-import.swift -o /tmp/quill-import-checks
