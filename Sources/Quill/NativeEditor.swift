@@ -352,6 +352,12 @@ final class WritingTextView: NSTextView, PageHolding {
     /// Inside `replace`, which counts lists again once its own selection is in place.
     private var replacing = false
     private var renumbering = false
+    /// When typing last went in, so a pause starts a new undo step.
+    private var lastTyped: TimeInterval = 0
+    /// The text changed in this pass of the run loop, so a selection change now is the edit's own, not a cursor move.
+    private var justEdited = false
+    /// A pause this long between keystrokes ends one undo step and starts the next.
+    static let undoPause: TimeInterval = 1.5
     /// Paragraph focus has dimmed some of the text, so the next update has to clear it first.
     private var focusPainted = false
     var nameHighlighter: NameHighlighter?
@@ -582,8 +588,32 @@ final class WritingTextView: NSTextView, PageHolding {
         super.keyDown(with: event)
     }
 
+    // MARK: Undo steps
+
+    // The text view gathers typing into one undo step until something breaks it off, so without these a writer could
+    // lose a whole paragraph, or several, to one ⌘Z. A pause, a new paragraph, or moving the caret starts a new step.
+
+    private func startUndoStepIfPaused() {
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastTyped > Self.undoPause { breakUndoCoalescing() }
+        lastTyped = now
+    }
+
+    override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
+        let before = selectedRanges
+        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+        if !changingText, !justEdited, selectedRanges != before { breakUndoCoalescing() }
+    }
+
+    override func deleteBackward(_ sender: Any?) {
+        startUndoStepIfPaused()
+        super.deleteBackward(sender)
+    }
+
     override func insertNewline(_ sender: Any?) {
         _ = leaveFormatting()
+        breakUndoCoalescing()
+        lastTyped = ProcessInfo.processInfo.systemUptime
         // Inside a list or quote, Return continues it (and on an empty item, ends it).
         if isEditable, !hasMarkedText(), let edit = MarkdownEditing.newline(in: string, selection: selectedRange()) {
             apply(edit)
@@ -604,6 +634,7 @@ final class WritingTextView: NSTextView, PageHolding {
 
     /// Curly quotes, dashes, and ellipses as you type, when that is turned on.
     override func insertText(_ insertString: Any, replacementRange: NSRange) {
+        if !hasMarkedText() { startUndoStepIfPaused() }
         if smartTypography, isEditable, !hasMarkedText(), replacementRange.location == NSNotFound,
            let typed = insertString as? String, typed.count == 1, selectedRange().length == 0 {
             let caret = selectedRange().location
@@ -840,6 +871,10 @@ final class WritingTextView: NSTextView, PageHolding {
 
     override func didChangeText() {
         changingText = false
+        if !justEdited {
+            justEdited = true
+            DispatchQueue.main.async { [weak self] in self?.justEdited = false }
+        }
         super.didChangeText()
         if !replacing { renumberLists() }
     }
