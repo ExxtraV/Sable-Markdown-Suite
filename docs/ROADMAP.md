@@ -53,7 +53,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 Everything below needs a paid Apple developer membership, so these are someday items, not plans. Until then, releases are community builds: signed for updates, not notarized.
 
 - Apple notarization, so first launch no longer needs the one-time Open Anyway approval.
-- A Mac App Store version at a small price, for the convenience of App Store installs and to help cover Apple's yearly developer fee. It would have the same features; downloading from GitHub or sablewriter.app stays free.
+- A Mac App Store version at a small price, for the convenience of App Store installs and to help cover Apple's yearly developer fee. It would have the same features; downloading from GitHub or sablewriter.app is free.
 - iPad and iPhone.
 
 ## Not planned
