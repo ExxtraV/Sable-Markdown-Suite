@@ -40,6 +40,9 @@ import Foundation
 
         precondition(ThemePalette.all.allSatisfy { ($0.particleRGBs?.count ?? 0) == ($0.particleColors?.count ?? 0) }, "Every particle color is six hex digits")
         precondition(ThemePalette.all.allSatisfy { $0.particleColors == nil || $0.particles }, "Only a theme with particles names particle colors")
+        precondition(ThemePalette.all.allSatisfy { ($0.hazeRGBs?.count ?? 0) == ($0.haze?.count ?? 0) && (0...0.5).contains($0.hazeOpacity) }, "Haze colors parse and stay faint")
+        let cosmic = ThemePalette.named("cosmic")
+        precondition(ThemePalette.pageColors(of: cosmic, edgeStrength: 1, shaded: false).count == 1 + 3 + 9, "Haze measures the paper, one cloud, and two overlapping")
 
         var failures: [String] = []
         for increased in [false, true] {

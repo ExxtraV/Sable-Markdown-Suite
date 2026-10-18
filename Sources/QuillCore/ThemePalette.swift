@@ -49,22 +49,27 @@ public struct ThemeSpec: Identifiable, Equatable, Sendable {
     public var chrome: String? = nil
     /// Darker shade the page fades toward at its edges. Themes that set it feel "narrowed in" on the writing.
     public var edge: String? = nil
-    /// The edge color is lighter than the paper, so the page glows toward its edges instead of darkening. Only Cosmic.
-    public var edgeGlows: Bool = false
+    /// Soft clouds of color drifting behind the page, as hex: a nebula seen out of focus. Nil for no haze.
+    public var haze: [String]? = nil
+    /// How opaque one cloud of haze is at its center. Two clouds can overlap, and the contrast check measures that too.
+    public var hazeOpacity: Double = 0
     /// A theme that drifts faint motes of light behind the text, for a quiet fantasy feel.
     public var particles: Bool = false
     /// How the motes move, as a multiple of Arcane's upward pace: 1 rises like Arcane's, a negative number falls.
     public var particleDrift: Double = 1
-    /// How many motes the field holds. Cosmic packs in more than the quiet themes.
+    /// How many motes the field holds.
     public var particleCount: Int = 44
     /// Colors the motes take, as hex, spread across the field. Nil draws them all in the ink color.
     public var particleColors: [String]? = nil
+    /// Draw the motes as large, soft, out-of-focus lights instead of small sharp points.
+    public var particleBokeh: Bool = false
     /// The setting that turns this theme's particles on or off. Arcane keeps the key it has always used.
     public var particlesSetting: String { id == "arcane" ? "themeParticles" : "themeParticles-\(id)" }
     public var paperColor: RGB { RGB(hex: paper)! }
     public var inkColor: RGB { RGB(hex: ink)! }
     public var edgeColor: RGB? { edge.flatMap { RGB(hex: $0) } }
     public var particleRGBs: [RGB]? { particleColors?.compactMap { RGB(hex: $0) } }
+    public var hazeRGBs: [RGB]? { haze?.compactMap { RGB(hex: $0) } }
 }
 
 /// Every color the editor draws text in, as numbers, so `scripts/check-contrast.swift` can measure what the app draws.
@@ -78,11 +83,12 @@ public enum ThemePalette {
         ThemeSpec(id: "obsidian", name: "Obsidian", paper: "070707", ink: "D7D3CB", dark: true, chrome: "020202", edge: "000000"),
         ThemeSpec(id: "arcane", name: "Arcane", paper: "1B1330", ink: "E9DFFB", dark: true, chrome: "120B22", edge: "07040D", particles: true),
         ThemeSpec(id: "starfall", name: "Starfall", paper: "0E1A30", ink: "DAE5F5", dark: true, chrome: "08111F", edge: "030810", particles: true, particleDrift: -0.5),
-        // The loud one, made for the run-up to 1.0: deep space with an edge that glows nebula violet instead of darkening,
-        // a violet bar, and a dense field of many-colored stars. The words themselves stay pale and steady on near-black.
-        ThemeSpec(id: "cosmic", name: "Cosmic", paper: "0A0820", ink: "F4F0FF", dark: true, chrome: "2E0B4F", edge: "571478", edgeGlows: true,
-                  particles: true, particleDrift: 0.35, particleCount: 110,
-                  particleColors: ["F4F0FF", "9FD8FF", "FFD27A", "FF9AD5", "B9A6FF"]),
+        // Made for the run-up to 1.0: deep indigo space seen out of focus, with slow clouds of blue and magenta haze and a few
+        // soft lights in teal, amber, and pink drifting behind the words, which stay pale and steady.
+        ThemeSpec(id: "cosmic", name: "Cosmic", paper: "0C1131", ink: "ECEEFA", dark: true, chrome: "080B24", edge: "03051A",
+                  haze: ["3048A8", "9A3390", "5533A8"], hazeOpacity: 0.3,
+                  particles: true, particleDrift: 0.2, particleCount: 34,
+                  particleColors: ["7FE0D6", "FFA36B", "FF8FC4", "AFC6FF", "C9B5FF"], particleBokeh: true),
         ThemeSpec(id: "parchment", name: "Parchment", paper: "F3EBDD", ink: "40382E", dark: false),
         ThemeSpec(id: "paper", name: "Paper", paper: "FAFAF8", ink: "30302E", dark: false),
         ThemeSpec(id: "mist", name: "Mist", paper: "E8EDF3", ink: "27303A", dark: false)
@@ -100,15 +106,22 @@ public enum ThemePalette {
         (min(1, 0.66 * strength), min(1, 0.55 * strength))
     }
 
-    /// The colors the page can be under the text: its paper, and every blend toward the edge color the shading can reach.
-    /// A theme without an edge color, and a page drawn flat, is only its paper.
+    /// The colors the page can be under the text: its paper, the paper under one cloud of haze or two overlapping, and every
+    /// blend of those toward the edge color the shading can reach. A theme without an edge color or haze is only its paper.
     public static func pageColors(of theme: ThemeSpec, edgeStrength: Double, shaded: Bool = true) -> [RGB] {
-        guard shaded, let edge = theme.edgeColor else { return [theme.paperColor] }
+        let clouds = theme.hazeRGBs ?? []
+        let underOne = clouds.map { $0.over(theme.paperColor, alpha: theme.hazeOpacity) }
+        let bases = [theme.paperColor] + underOne + underOne.flatMap { base in clouds.map { $0.over(base, alpha: theme.hazeOpacity) } }
+        guard shaded, let edge = theme.edgeColor else { return bases }
         let (vertical, horizontal) = edgeOpacity(strength: edgeStrength)
+        return bases.flatMap { edgeBlends(of: $0, toward: edge, vertical: vertical, horizontal: horizontal) }
+    }
+
+    private static func edgeBlends(of paper: RGB, toward edge: RGB, vertical: Double, horizontal: Double) -> [RGB] {
         var colors: [RGB] = []
         for v in 0...4 {
             for h in 0...4 {
-                let top = edge.over(theme.paperColor, alpha: vertical * Double(v) / 4)
+                let top = edge.over(paper, alpha: vertical * Double(v) / 4)
                 colors.append(edge.over(top, alpha: horizontal * Double(h) / 4))
             }
         }

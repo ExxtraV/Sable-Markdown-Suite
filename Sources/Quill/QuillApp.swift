@@ -902,8 +902,9 @@ struct WritingView: View {
                 if wantsPaperBehindText {
                     let theme = WritingTheme.named(themeName)
                     Color(nsColor: theme.background)
+                    if showsParticles, let haze = theme.haze { NebulaHaze(colors: haze, opacity: theme.hazeOpacity) }
                     if shadedPage, let edge = theme.edgeColor { VignetteOverlay(color: edge, strength: edgeStrength) }
-                    if showsParticles { ParticleField(colors: theme.particleColors, count: theme.particleCount, drift: theme.particleDrift) }
+                    if showsParticles { ParticleField(colors: theme.particleColors, count: theme.particleCount, drift: theme.particleDrift, bokeh: theme.particleBokeh) }
                 }
                 NativeEditor(text: $document.text, review: review, words: words, fontSize: fontSize,
                              pageWidth: pageWidth, commands: commands, fontFamily: fontFamily,

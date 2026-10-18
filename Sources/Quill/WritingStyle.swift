@@ -56,7 +56,7 @@ struct WritingStyleControls: View {
                 .accessibilityLabel("Themes")
                 Toggle("Darken toward the edges (dark themes)", isOn: $edgeShading)
                 if WritingTheme.named(theme).particles {
-                    Toggle(theme == "cosmic" ? "Drifting stars" : "Faint drifting particles", isOn: particlesBinding)
+                    Toggle(theme == "cosmic" ? "Nebula and drifting lights" : "Faint drifting particles", isOn: particlesBinding)
                 }
                 LabeledContent("Edge darkness") {
                     HStack {
@@ -149,6 +149,7 @@ struct ThemeSwatch: View {
             VStack(spacing: 6) {
                 ZStack {
                     Color(nsColor: theme.background)
+                    if let haze = theme.haze { NebulaHaze(colors: haze, opacity: theme.hazeOpacity, animated: false) }
                     if let edge = theme.edgeColor { VignetteOverlay(color: edge, strength: 0.65) }
                     Text("Aa").font(.system(size: 20, weight: .medium, design: .serif)).foregroundStyle(Color(nsColor: theme.foreground))
                 }
