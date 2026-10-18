@@ -29,7 +29,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 ## Phase 2: Story tools
 
 - Card links between manuscript text and character/location/world-note cards.
-- Corkboard and scene status.
+- Scene status.
 - Chapter synopses in the Manuscript tab.
 - A relationships view.
 - Manuscript insights.
