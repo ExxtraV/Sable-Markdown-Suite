@@ -97,7 +97,7 @@ struct ParticleField: View {
         let palette = self.colors.count
         motes = (0..<count).map { index in
             Mote(x: Double.random(in: 0...1, using: &generator), y: Double.random(in: 0...1, using: &generator),
-                 size: Double.random(in: bokeh ? 3...16 : 1.2...2.8, using: &generator), speed: Double.random(in: 0.012...0.05, using: &generator),
+                 size: Double.random(in: bokeh ? 3...12 : 1.2...2.8, using: &generator), speed: Double.random(in: 0.012...0.05, using: &generator),
                  phase: Double.random(in: 0...1, using: &generator), color: index % palette)
         }
     }
@@ -117,7 +117,7 @@ struct ParticleField: View {
                         let rect = CGRect(x: point.x - mote.size / 2, y: point.y - mote.size / 2, width: mote.size, height: mote.size)
                         let color = colors[mote.color]
                         if bokeh {
-                            context.opacity = twinkle * 0.35
+                            context.opacity = twinkle * 0.22
                             context.fill(Path(ellipseIn: rect), with: .radialGradient(
                                 Gradient(stops: [.init(color: color, location: 0), .init(color: color.opacity(0.55), location: 0.55), .init(color: color.opacity(0), location: 1)]),
                                 center: point, startRadius: 0, endRadius: mote.size / 2))

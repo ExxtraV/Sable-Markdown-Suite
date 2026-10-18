@@ -83,12 +83,12 @@ public enum ThemePalette {
         ThemeSpec(id: "obsidian", name: "Obsidian", paper: "070707", ink: "D7D3CB", dark: true, chrome: "020202", edge: "000000"),
         ThemeSpec(id: "arcane", name: "Arcane", paper: "1B1330", ink: "E9DFFB", dark: true, chrome: "120B22", edge: "07040D", particles: true),
         ThemeSpec(id: "starfall", name: "Starfall", paper: "0E1A30", ink: "DAE5F5", dark: true, chrome: "08111F", edge: "030810", particles: true, particleDrift: -0.5),
-        // Made for the run-up to 1.0: deep indigo space seen out of focus, with slow clouds of blue and magenta haze and a few
-        // soft lights in teal, amber, and pink drifting behind the words, which stay pale and steady.
+        // Made for the run-up to 1.0: deep indigo space seen out of focus, with slow clouds of blue and plum haze and a few
+        // soft lights in teal, amber, and dusty rose drifting behind the words, which stay pale and steady.
         ThemeSpec(id: "cosmic", name: "Cosmic", paper: "0C1131", ink: "ECEEFA", dark: true, chrome: "080B24", edge: "03051A",
-                  haze: ["3048A8", "9A3390", "5533A8"], hazeOpacity: 0.3,
-                  particles: true, particleDrift: 0.2, particleCount: 34,
-                  particleColors: ["7FE0D6", "FFA36B", "FF8FC4", "AFC6FF", "C9B5FF"], particleBokeh: true),
+                  haze: ["3048A8", "6B3A8A", "5533A8"], hazeOpacity: 0.15,
+                  particles: true, particleDrift: 0.2, particleCount: 18,
+                  particleColors: ["7FE0D6", "FFA36B", "D8A7C6", "AFC6FF", "C9B5FF"], particleBokeh: true),
         ThemeSpec(id: "parchment", name: "Parchment", paper: "F3EBDD", ink: "40382E", dark: false),
         ThemeSpec(id: "paper", name: "Paper", paper: "FAFAF8", ink: "30302E", dark: false),
         ThemeSpec(id: "mist", name: "Mist", paper: "E8EDF3", ink: "27303A", dark: false)
