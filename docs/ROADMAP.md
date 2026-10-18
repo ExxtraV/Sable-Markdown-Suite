@@ -17,6 +17,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 - ~~Numbered lists that renumber themselves when an item is added or removed.~~ Done in 1.0.0-beta.4.
 - ~~Fix: switching between Reading Mode and editing keeps your place.~~ Done in 1.0.0-beta.3.
 - ~~Writing desk: add a folder or file inside a category, and fold the Folders and Files sections.~~ Done, coming in the next beta. Categories now hold files as well as folders, and the Fiction Projects heading folds too.
+- ~~Writing desk: categories as real folders, so Finder, iCloud, and other Macs see them.~~ Done, coming in the next beta. Categories from a beta are converted once, with confirmation and a safety snapshot.
 - ~~A sample project new users can open immediately.~~ Done in 1.0.0-beta.2.
 - ~~Accessibility pass (VoiceOver, keyboard navigation, contrast).~~ Done in 1.0.0-beta.2.
 - ~~Report a Bug, built into the app.~~ Done in 1.0.0-beta.2.

@@ -1,7 +1,10 @@
 import Foundation
 
+/// Records what the conversion asked to snapshot.
+final class SnapshotRecord: @unchecked Sendable { var files: [URL] = [] }
+
 @main enum ProjectBrowserChecks {
-    @MainActor static func main() throws {
+    @MainActor static func main() async throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent("quill-project-browser-\(UUID())").standardizedFileURL
         try fm.createDirectory(at: root.appendingPathComponent("Loose Notes"), withIntermediateDirectories: true)
@@ -152,44 +155,56 @@ import Foundation
         precondition(browser.cardKind(of: example) == nil, "Outside a project nothing is a card")
         precondition(!browser.isManuscript(manuscript) && browser.color(of: manuscript) == nil && !browser.isPinned(manuscript), "Manuscript defaults apply only inside its project")
 
-        // Categories: you make them in the writing folder, file folders and files under them, and they persist
-        precondition(browser.canManageCategories)
-        precondition(browser.addCategory(named: "School") && !browser.addCategory(named: "school") && !browser.addCategory(named: "  "))
-        let categoryID = browser.categories.list[0].id
+        // Categories: real folders at the top of the writing folder, marked by a small hidden file
+        precondition(browser.canManageCategories && browser.categories.isEmpty)
+        let school = try browser.addCategory(named: "School")
+        precondition(same(school.deletingLastPathComponent(), root) && CategoryFolder.isCategory(school), "A category is a folder with a marker")
+        precondition(browser.categories.map(\.name) == ["School"])
+        do { _ = try browser.addCategory(named: "School"); preconditionFailure() } catch FolderCreationError.exists {}
+        do { _ = try browser.addCategory(named: "  "); preconditionFailure() } catch FolderCreationError.invalidName {}
         let notes = root.appendingPathComponent("Loose Notes")
-        browser.assign(notes, to: categoryID)
-        precondition(browser.categoryID(of: BrowserEntry(url: notes, isDirectory: true)) == categoryID)
-        precondition(browser.categoryID(of: BrowserEntry(url: project, isDirectory: true, isProject: true)) == nil, "Projects aren't filed under categories")
+        try browser.assign(notes, to: "School")
+        let filedNotes = school.appendingPathComponent("Loose Notes")
+        precondition(fm.fileExists(atPath: filedNotes.path) && !fm.fileExists(atPath: notes.path), "Filing moves a folder inside the category")
+        precondition(browser.categoryID(of: BrowserEntry(url: filedNotes, isDirectory: true)) == "School")
+        precondition(browser.categoryID(of: BrowserEntry(url: project, isDirectory: true, isProject: true)) == nil, "Projects aren't in categories")
         let ideas = root.appendingPathComponent("Ideas.md")
-        try Data().write(to: ideas)
-        browser.assign(ideas, to: categoryID)
-        precondition(browser.categoryID(of: BrowserEntry(url: ideas, isDirectory: false)) == categoryID, "Files can be filed too")
-        let relaunched = FolderBrowser()
-        precondition(relaunched.categories == browser.categories, "Categories survive a relaunch")
-        let archive = root.appendingPathComponent("Archive")
-        try fm.createDirectory(at: archive, withIntermediateDirectories: true)
-        try browser.move([notes], into: archive)
-        let movedNotes = archive.appendingPathComponent("Loose Notes")
-        precondition(browser.categoryID(of: BrowserEntry(url: movedNotes, isDirectory: true)) == categoryID, "A moved folder keeps its category")
-        let renamedNotes = try browser.rename(BrowserEntry(url: movedNotes, isDirectory: true), to: "Term Papers")
-        precondition(browser.categoryID(of: BrowserEntry(url: renamedNotes, isDirectory: true)) == categoryID, "…and a renamed one")
+        try Data("An idea.\n".utf8).write(to: ideas)
+        try browser.assign(ideas, to: "School")
+        let filedIdeas = school.appendingPathComponent("Ideas.md")
+        precondition(fm.fileExists(atPath: filedIdeas.path) && browser.categoryID(of: BrowserEntry(url: filedIdeas, isDirectory: false)) == "School", "Files move in too")
+        precondition(FolderBrowser().categories.map(\.name) == ["School"], "Categories survive a relaunch, because they're on disk")
+        try browser.assign(filedIdeas, to: nil)
+        precondition(fm.fileExists(atPath: ideas.path) && browser.categoryID(of: BrowserEntry(url: ideas, isDirectory: false)) == nil, "Unfiling moves it back to the top")
+        try browser.setCategoryColor("School", .blue)
+        precondition(browser.categories[0].color == .blue && CategoryFolder.marker(in: school)?.color == .blue, "The color is kept in the folder")
+        let work = try browser.addCategory(named: "Work")
+        precondition(browser.categories.map(\.name) == ["School", "Work"], "A new category goes last")
+        try browser.moveCategory("Work", by: -1)
+        precondition(browser.categories.map(\.name) == ["Work", "School"] && FolderBrowser().categories.map(\.name) == ["Work", "School"], "The order is kept in the folders")
+        browser.toggleCategory("School")
+        let schoolwork = try browser.renameCategory("School", to: "Schoolwork")
+        let schoolID = "Schoolwork"
+        precondition(browser.category(withID: schoolID) != nil && browser.isCategoryFolded(schoolID) && !browser.isCategoryFolded("School"), "A renamed category keeps its fold")
+        precondition(fm.fileExists(atPath: schoolwork.appendingPathComponent("Loose Notes").path) && CategoryFolder.marker(in: schoolwork)?.color == .blue, "…and what's in it")
 
-        // New from a category's heading: made at the top of the writing folder and filed under it, and a folded category opens
-        browser.toggleCategory(categoryID)
-        precondition(browser.categories.category(withID: categoryID)?.collapsed == true)
-        let essay = try browser.create(.file, named: "Essay", inCategory: categoryID)
-        precondition(same(essay.deletingLastPathComponent(), root) && essay.lastPathComponent == "Essay.md" && fm.fileExists(atPath: essay.path))
-        precondition(browser.categoryID(of: BrowserEntry(url: essay, isDirectory: false)) == categoryID, "A new file lands in the category")
-        precondition(browser.categories.category(withID: categoryID)?.collapsed == false, "…which opens to show it")
-        let untitled = try browser.createFolderToName(inCategory: categoryID)
-        precondition(fm.fileExists(atPath: untitled.path) && browser.renaming == untitled && browser.selection == untitled, "A new folder waits for its name")
-        precondition(browser.categoryID(of: BrowserEntry(url: untitled, isDirectory: true)) == categoryID, "…already in the category")
+        // New from a category's heading: made inside its folder, and a folded category opens to show it
+        let essay = try browser.create(.file, named: "Essay", inCategory: schoolID)
+        precondition(same(essay.deletingLastPathComponent(), schoolwork) && essay.lastPathComponent == "Essay.md" && fm.fileExists(atPath: essay.path))
+        precondition(browser.categoryID(of: BrowserEntry(url: essay, isDirectory: false)) == schoolID && !browser.isCategoryFolded(schoolID))
+        let untitled = try browser.createFolderToName(inCategory: schoolID)
+        precondition(same(untitled.deletingLastPathComponent(), schoolwork) && browser.renaming == untitled && browser.selection == untitled, "A new folder waits for its name")
         let labReports = try browser.rename(BrowserEntry(url: untitled, isDirectory: true), to: "Lab Reports")
         browser.renaming = nil
-        precondition(browser.categoryID(of: BrowserEntry(url: labReports, isDirectory: true)) == categoryID, "Naming it keeps it there")
-        do { _ = try browser.create(.file, named: "Essay", inCategory: categoryID); preconditionFailure() } catch FolderCreationError.exists {}
+        precondition(browser.categoryID(of: BrowserEntry(url: labReports, isDirectory: true)) == schoolID, "Naming it keeps it there")
+        do { _ = try browser.create(.file, named: "Essay", inCategory: schoolID); preconditionFailure() } catch FolderCreationError.exists {}
         do { _ = try browser.create(.file, named: "Stray", inCategory: "no-such-category"); preconditionFailure() } catch FolderCreationError.noCategory {}
         precondition(!fm.fileExists(atPath: root.appendingPathComponent("Stray.md").path), "Nothing is made for a category that isn't there")
+        // The marker is untrusted: anything unreadable is an empty marker, and the folder is still a category
+        try Data("{not json".utf8).write(to: CategoryFolder.markerURL(in: work))
+        precondition(CategoryFolder.marker(in: work) == CategoryMarker() && CategoryFolder.marker(in: root.appendingPathComponent("Archive-Missing")) == nil)
+        browser.reload()
+        precondition(browser.category(withID: "Work") != nil)
 
         // The Fiction Projects, Folders, and Files headings fold, and stay folded after a relaunch
         for id in browser.foldedSections { browser.toggleSection(id) }
@@ -209,11 +224,11 @@ import Foundation
         browser.renaming = nil
         precondition(!browser.isSectionFolded("folders"), "A new folder opens Folders")
         browser.toggleSection("files")
-        _ = try browser.create(.file, named: "Filed Page", inCategory: categoryID)
+        _ = try browser.create(.file, named: "Filed Page", inCategory: schoolID)
         precondition(browser.isSectionFolded("files"), "A file made in a category doesn't unfold Files")
         browser.toggleSection("files")
-        browser.deleteCategory(categoryID)
-        precondition(browser.categoryID(of: BrowserEntry(url: renamedNotes, isDirectory: true)) == nil && fm.fileExists(atPath: renamedNotes.path), "Deleting a category leaves the folders alone")
+        try browser.removeCategory("Work")
+        precondition(browser.category(withID: "Work") == nil && fm.fileExists(atPath: work.path) && !CategoryFolder.isCategory(work), "Turning a category into a regular folder leaves the folder and what's in it")
 
         // Opening a file in a project brings the desk into it, and only once
         browser.enterProject(containing: mara)
@@ -282,6 +297,48 @@ import Foundation
         precondition(same(browser.writingFolder, root) && browser.visiting == nil && same(browser.root, root) && !browser.declinedWritingFolder, "Choosing a folder again turns it all back on")
         precondition(UserDefaults.standard.data(forKey: "writingFolder") != nil)
 
-        print("Passed: desk project mode (scoping, entering, leaving, follow-the-file, converting, adopting), categories (files and folders, new items made in one), folding the desk's headings, and files from elsewhere (offered not forced, never saved, no writing folder).")
+        // Categories from before 1.0 wait in Sable's settings until the writer asks; then a snapshot, then real folders
+        let legacyRoot = fm.temporaryDirectory.appendingPathComponent("quill-legacy-categories-\(UUID())").standardizedFileURL
+        try fm.createDirectory(at: legacyRoot.appendingPathComponent("Biology"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: legacyRoot.appendingPathComponent("Work"), withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: legacyRoot) }
+        try Data("Cells.\n".utf8).write(to: legacyRoot.appendingPathComponent("Biology/Cells.md"))
+        try Data("Notes.\n".utf8).write(to: legacyRoot.appendingPathComponent("Notes.md"))
+        var old = FolderCategories()
+        let oldSchool = old.add(name: "School")!
+        let oldWork = old.add(name: "Work")!
+        old.setColor(oldSchool.id, .red)
+        old.setCollapsed(oldSchool.id, true)
+        old.assign(key: "Biology", to: oldSchool.id)
+        old.assign(key: "Notes.md", to: oldSchool.id)
+        old.assign(key: "Gone.md", to: oldWork.id)
+        FolderCategoriesStore.save(old, for: legacyRoot)
+        let legacy = FolderBrowser()
+        try legacy.choose(legacyRoot)
+        precondition(legacy.hasLegacyCategories && legacy.categories.isEmpty, "Old categories wait; nothing moves by itself")
+        let plan = legacy.legacyConversionPlan()
+        precondition(plan.map(\.folderName) == ["School", "Work 2"], "A name already used gets a number")
+        precondition(plan[0].items.map(\.lastPathComponent) == ["Biology", "Notes.md"] && plan[1].items.isEmpty, "Items that are gone are skipped")
+        FolderBrowser.safetySnapshot = nil
+        do { try await legacy.convertLegacyCategories(); preconditionFailure() } catch FolderCreationError.noSnapshot {}
+        precondition(fm.fileExists(atPath: legacyRoot.appendingPathComponent("Notes.md").path), "No snapshot, no moves")
+        let snapshotted = SnapshotRecord()
+        FolderBrowser.safetySnapshot = { _, files in snapshotted.files = files }
+        defer { FolderBrowser.safetySnapshot = nil }
+        try await legacy.convertLegacyCategories()
+        precondition(Set(snapshotted.files.map(\.lastPathComponent)) == ["Cells.md", "Notes.md"], "Every file that moves is in the snapshot")
+        let newSchool = legacyRoot.appendingPathComponent("School")
+        precondition(fm.fileExists(atPath: newSchool.appendingPathComponent("Biology/Cells.md").path) && fm.fileExists(atPath: newSchool.appendingPathComponent("Notes.md").path), "Filed items move into their category's folder")
+        precondition(legacy.categories.map(\.name) == ["School", "Work 2"] && legacy.categories[0].color == .red && legacy.isCategoryFolded("School"), "Order, color, and fold carry over")
+        precondition(!legacy.hasLegacyCategories && FolderCategoriesStore.load(for: legacyRoot).isEmpty, "The old categories are forgotten once converted")
+        precondition(!CategoryFolder.isCategory(legacyRoot.appendingPathComponent("Work")), "A folder that already had the name is left alone")
+        var forgettable = FolderCategories()
+        forgettable.add(name: "Hobbies")
+        FolderCategoriesStore.save(forgettable, for: legacyRoot)
+        try legacy.choose(legacyRoot)
+        legacy.forgetLegacyCategories()
+        precondition(!legacy.hasLegacyCategories && legacy.categories.map(\.name) == ["School", "Work 2"], "Forgetting moves and makes nothing")
+
+        print("Passed: desk project mode (scoping, entering, leaving, follow-the-file, converting, adopting), categories as folders (filing moves, order, color, rename, new items made in one, converting the old ones), folding the desk's headings, and files from elsewhere (offered not forced, never saved, no writing folder).")
     }
 }
