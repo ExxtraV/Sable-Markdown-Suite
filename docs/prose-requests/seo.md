@@ -27,7 +27,7 @@
 > | markdown editor for Mac | Yes. Sable is a native Mac app (macOS 14+) that reads and writes plain Markdown. |
 > | writing app for novelists | Yes. Fiction Projects, character cards, scene tags, and manuscript export are built for it. |
 > | focus writing app | Yes. Paragraph Focus, a hiding toolbar, and no competing panels are the point. |
-> | free Scrivener alternative | Partly. Sable is free and made for fiction, but it isn't a full Scrivener replacement (no corkboard yet; it's on the roadmap). Say "alternative for writers who want less", not "replacement" or "better than". "Scrivener" is another company's name, so use it plainly and never imply a connection. |
+> | free Scrivener alternative | Partly. Sable is free and made for fiction, but it isn't a full Scrivener replacement (no corkboard, by choice: Sable keeps to the page). Say "alternative for writers who want less", not "replacement" or "better than". "Scrivener" is another company's name, so use it plainly and never imply a connection. |
 > | free, open-source, no account | Yes, and a real differentiator: MIT licensed, no account, nothing collected. |
 > | export a manuscript to PDF, EPUB, or Word | Yes, from a Fiction Project. |
 > | writing app for iPhone, iPad, or Windows | No. Mac only today. Leave these out. |

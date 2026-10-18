@@ -29,7 +29,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 ## Phase 2: Story tools
 
 - Card links between manuscript text and character/location/world-note cards.
-- Corkboard and scene status.
+- Scene status.
 - Chapter synopses in the Manuscript tab.
 - A relationships view.
 - Manuscript insights.
@@ -40,18 +40,21 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 - Page view: see writing as printed pages, add page breaks, and optionally show a page count.
 - Export presets, including MLA and APA student papers.
 
-## Phase 3: Beyond one Mac
+## Phase 3: Wider reach
 
-- iPad and iPhone.
 - Localization.
 - Shareable themes.
 - Shortcuts and Spotlight integration.
-- A Mac App Store version at a small price, for the convenience of App Store installs and to help cover Apple's yearly developer fee. It has the same features; downloading from GitHub or sablewriter.app stays free.
 
 ## Phase 4: Exploring
 
 - A study-focused version of Sable for coursework (academic export, sources, and assignment notes), sharing Sable's code. Not decided yet.
-- Apple notarization, so first launch no longer needs the one-time Open Anyway approval. It needs a paid Apple developer membership, so it's a someday item, not a plan. Until then, releases are community builds: signed for updates, not notarized.
+
+Everything below needs a paid Apple developer membership, so these are someday items, not plans. Until then, releases are community builds: signed for updates, not notarized.
+
+- Apple notarization, so first launch no longer needs the one-time Open Anyway approval.
+- A Mac App Store version at a small price, for the convenience of App Store installs and to help cover Apple's yearly developer fee. It would have the same features; downloading from GitHub or sablewriter.app stays free.
+- iPad and iPhone.
 
 ## Not planned
 

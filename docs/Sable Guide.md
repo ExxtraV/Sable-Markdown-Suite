@@ -191,6 +191,6 @@ Sable works with VoiceOver, with the keyboard alone, and with the display option
 
 ## What comes next
 
-Sable is a focused Markdown editor first, with Fiction Projects for writers who want one home for a whole story. A corkboard, a relationships view, and an iPad edition are on the roadmap.
+Sable is a focused Markdown editor first, with Fiction Projects for writers who want one home for a whole story. Scene status and a relationships view are on the roadmap.
 
 You can edit this guide freely. Help → Sable Guide opens it again without overwriting your changes.
