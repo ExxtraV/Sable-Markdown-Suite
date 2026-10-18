@@ -9,16 +9,16 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 - A beta update channel, separate from the stable Sparkle feed.
 - Data safety: safer saves, and clearer recovery when something goes wrong.
 
-## Phase 1: 1.0, by late October
+## Phase 1: 1.0 (done in 1.0.0)
 
 - ~~A monthly word goal, alongside the existing per-window session count.~~ Done in 1.0.0-beta.1, as a goal with any start and end dates, including a November preset.
 - ~~Scrivener import.~~ Done: File → Import Scrivener Project… reads Scrivener 3 and Scrivener 2 projects. Done in 1.0.0-beta.3.
 - ~~Scrivener import follow-ups: Scrivener footnotes and comments carried over, and hidden notes left out of word counts.~~ Done in 1.0.0-beta.4.
 - ~~Numbered lists that renumber themselves when an item is added or removed.~~ Done in 1.0.0-beta.4.
 - ~~Fix: switching between Reading Mode and editing keeps your place.~~ Done in 1.0.0-beta.3.
-- ~~Writing desk: add a folder or file inside a category, and fold the Folders and Files sections.~~ Done, coming in the next beta. Categories now hold files as well as folders, and the Fiction Projects heading folds too.
-- ~~Writing desk: categories as real folders, so Finder, iCloud, and other Macs see them.~~ Done, coming in the next beta. Categories from a beta are converted once, with confirmation and a safety snapshot.
-- ~~A quieter writing desk while you type: after a few seconds of steady typing, it fades to a faint ghost in place, so the page never shifts, and comes back the moment you move the mouse.~~ Done, coming in the next beta. On by default, with a switch in Settings → General → Writing desk and the View menu.
+- ~~Writing desk: add a folder or file inside a category, and fold the Folders and Files sections.~~ Done in 1.0.0. Categories now hold files as well as folders, and the Fiction Projects heading folds too.
+- ~~Writing desk: categories as real folders, so Finder, iCloud, and other Macs see them.~~ Done in 1.0.0. Categories from a beta are converted once, with confirmation and a safety snapshot.
+- ~~A quieter writing desk while you type: after a few seconds of steady typing, it fades to a faint ghost in place, so the page never shifts, and comes back the moment you move the mouse.~~ Done in 1.0.0. On by default, with a switch in Settings → General → Writing desk and the View menu.
 - ~~A sample project new users can open immediately.~~ Done in 1.0.0-beta.2.
 - ~~Accessibility pass (VoiceOver, keyboard navigation, contrast).~~ Done in 1.0.0-beta.2.
 - ~~Report a Bug, built into the app.~~ Done in 1.0.0-beta.2.
