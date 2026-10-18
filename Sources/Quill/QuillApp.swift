@@ -118,6 +118,7 @@ struct WritingView: View {
     /// "1,204 / 1,667 today" for the deadline goal, or nil when there's none to show. Recomputed when words are banked.
     @State private var goalFooter: String?
     @AppStorage("showWritingDesk") private var sidebar = true
+    @AppStorage(DeskQuieting.storageKey) private var deskFades = true
     @AppStorage("toolbarEdge") private var toolbarEdgeName = ToolbarEdge.top.rawValue
     @AppStorage("toolbarAutoHide") private var toolbarAutoHide = true
     @AppStorage("toolbarEnabled") private var toolbarEnabled = true
@@ -256,6 +257,7 @@ struct WritingView: View {
                 writingDesk.frame(width: deskWidth).overlay(alignment: .trailing) { sidebarResizeHandle }
                 Divider()
             }
+            .modifier(QuietWhileTyping(typing: commands.typing, enabled: sidebar && deskFades && !reading))
             .offset(x: sidebar ? 0 : -(deskWidth + 1))
             .frame(width: sidebar ? deskWidth + 1 : 0, alignment: .leading)
             .clipped()
@@ -970,6 +972,7 @@ struct PreferencesView: View {
     @AppStorage("pageWidth") private var pageWidth = 680.0
     @AppStorage("sessionGoal") private var sessionGoal = 500
     @AppStorage("autoSnapshots") private var autoSnapshots = true
+    @AppStorage(DeskQuieting.storageKey) private var deskFades = true
     @EnvironmentObject private var browser: FolderBrowser
     @State private var confirmGuide = false
     @State private var guideMessage: String?
@@ -980,6 +983,9 @@ struct PreferencesView: View {
                 Section("Writing desk") {
                     RecentTabToggle()
                     Text("Adds a Recent tab beside Files and Outline, listing the files you have open, newest first. It's off until you turn it on, and turning it off forgets the list.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Toggle("Fade the desk while I type", isOn: $deskFades)
+                    Text("After a few seconds of steady typing, the desk fades almost away where it is, so it stops pulling at your eye and the page never moves. Move the mouse and it comes straight back.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 WritingFolderSettings()

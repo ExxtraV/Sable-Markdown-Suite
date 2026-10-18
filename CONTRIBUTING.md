@@ -55,6 +55,7 @@ swiftc Sources/Quill/Import.swift Sources/Quill/MarkdownFileTypes.swift Sources/
 swiftc Sources/Quill/SafeFile.swift Sources/Quill/ProjectSearch.swift Sources/Quill/MarkdownFileTypes.swift scripts/check-project-search.swift -o /tmp/quill-search-checks && /tmp/quill-search-checks
 swiftc Sources/QuillCore/ThemePalette.swift scripts/check-contrast.swift -o /tmp/quill-contrast-checks && /tmp/quill-contrast-checks
 swiftc Sources/Quill/ZoomSteps.swift scripts/check-zoom-steps.swift -o /tmp/quill-zoom-step-checks && /tmp/quill-zoom-step-checks
+swiftc Sources/Quill/DeskQuieting.swift scripts/check-desk-quieting.swift -o /tmp/quill-desk-quieting-checks && /tmp/quill-desk-quieting-checks
 swiftc Sources/Quill/SafeFile.swift scripts/check-file-safety.swift -o /tmp/quill-file-safety-checks && /tmp/quill-file-safety-checks
 swiftc Sources/Quill/SafeFile.swift Sources/Quill/Revisions.swift Sources/QuillCore/Prose.swift scripts/check-revisions.swift -o /tmp/quill-revision-checks && /tmp/quill-revision-checks
 swiftc Sources/Quill/AccessibilitySupport.swift Sources/Quill/ToolbarTools.swift scripts/check-toolbar.swift -o /tmp/quill-toolbar-checks && /tmp/quill-toolbar-checks
