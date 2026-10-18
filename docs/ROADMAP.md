@@ -11,7 +11,6 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 
 ## Phase 1: 1.0, by late October
 
-- Apple notarization, so first launch no longer needs a Privacy & Security workaround.
 - ~~A monthly word goal, alongside the existing per-window session count.~~ Done in 1.0.0-beta.1, as a goal with any start and end dates, including a November preset.
 - ~~Scrivener import.~~ Done: File → Import Scrivener Project… reads Scrivener 3 and Scrivener 2 projects. Done in 1.0.0-beta.3.
 - ~~Scrivener import follow-ups: Scrivener footnotes and comments carried over, and hidden notes left out of word counts.~~ Done in 1.0.0-beta.4.
@@ -52,6 +51,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 ## Phase 4: Exploring
 
 - A study-focused version of Sable for coursework (academic export, sources, and assignment notes), sharing Sable's code. Not decided yet.
+- Apple notarization, so first launch no longer needs the one-time Open Anyway approval. It needs a paid Apple developer membership, so it's a someday item, not a plan. Until then, releases are community builds: signed for updates, not notarized.
 
 ## Not planned
 
