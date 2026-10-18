@@ -18,6 +18,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 - ~~Fix: switching between Reading Mode and editing keeps your place.~~ Done in 1.0.0-beta.3.
 - ~~Writing desk: add a folder or file inside a category, and fold the Folders and Files sections.~~ Done, coming in the next beta. Categories now hold files as well as folders, and the Fiction Projects heading folds too.
 - ~~Writing desk: categories as real folders, so Finder, iCloud, and other Macs see them.~~ Done, coming in the next beta. Categories from a beta are converted once, with confirmation and a safety snapshot.
+- ~~A quieter writing desk while you type: after a few seconds of steady typing, it fades to a faint ghost in place, so the page never shifts, and comes back the moment you move the mouse.~~ Done, coming in the next beta. On by default, with a switch in Settings → General → Writing desk and the View menu.
 - ~~A sample project new users can open immediately.~~ Done in 1.0.0-beta.2.
 - ~~Accessibility pass (VoiceOver, keyboard navigation, contrast).~~ Done in 1.0.0-beta.2.
 - ~~Report a Bug, built into the app.~~ Done in 1.0.0-beta.2.
@@ -29,7 +30,6 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 
 ## Phase 2: Story tools
 
-- A quieter sidebar while you type: after a few seconds of steady typing, the writing desk fades to a faint ghost in place, so the page never shifts. It comes back the moment you move the mouse or point at it, and stays clickable throughout. On by default, with a switch to turn it off.
 - Card links between manuscript text and character/location/world-note cards.
 - Scene status.
 - Chapter synopses in the Manuscript tab.

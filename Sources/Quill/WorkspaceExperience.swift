@@ -991,6 +991,7 @@ extension FocusedValues {
 struct WritingCommands: Commands {
     @FocusedValue(\.writingActions) private var actions
     @AppStorage("showWritingDesk") private var sidebar = true
+    @AppStorage("deskFadeWhileTyping") private var deskFades = true
     @AppStorage("toolbarEdge") private var toolbarEdge = ToolbarEdge.top.rawValue
     @AppStorage("toolbarAutoHide") private var toolbarAutoHide = true
     @AppStorage("toolbarEnabled") private var toolbarEnabled = true
@@ -1017,6 +1018,7 @@ struct WritingCommands: Commands {
         }
         CommandGroup(after: .toolbar) {
             Toggle("Show Writing Desk", isOn: $sidebar).keyboardShortcut("s", modifiers: [.command, .control])
+            Toggle("Fade Writing Desk While Typing", isOn: $deskFades)
             Toggle("Show Toolbar", isOn: $toolbarEnabled).keyboardShortcut("t", modifiers: [.command, .option])
             Menu("Toolbar") {
                 Picker("Position", selection: $toolbarEdge) {

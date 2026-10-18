@@ -83,6 +83,10 @@ jobs:
         run: |
           swiftc Sources/Quill/ZoomSteps.swift scripts/check-zoom-steps.swift -o /tmp/quill-zoom-step-checks
           /tmp/quill-zoom-step-checks
+      - name: Desk quieting checks
+        run: |
+          swiftc Sources/Quill/DeskQuieting.swift scripts/check-desk-quieting.swift -o /tmp/quill-desk-quieting-checks
+          /tmp/quill-desk-quieting-checks
       - name: File safety checks
         run: |
           swiftc Sources/Quill/SafeFile.swift scripts/check-file-safety.swift -o /tmp/quill-file-safety-checks

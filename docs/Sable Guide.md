@@ -20,6 +20,7 @@ The writing desk has two tabs: **Files** and your **Outline**. Click a file to o
 - **Keyboard:** arrow keys move through the list, → and ← open and close folders, Return opens, ⇧Return renames, ⌘Delete moves to the Trash.
 - **Recent tab (optional):** off until you want it. Turn on **Recent tab** in Settings → General → Writing desk, or in the desk's sliders menu, and a **Recent** tab appears beside Files and Outline. It lists the files you have open, newest first, from any folder; click one to switch to it. Turning it off forgets the list, and **Clear Recent Files** empties it any time. The list is kept only on your Mac and is recorded only while the tab is on.
 - **Make it yours:** the sliders button sets sorting, icons, file extensions, last-modified dates, word counts and compact rows. Drag the desk's right edge to resize it.
+- **It steps back while you write:** after a few seconds of steady typing, the desk fades almost away where it is, so it stops pulling at your eye and your page never shifts. Move the mouse or click and it comes straight back; a pause in typing leaves it faded, so it stays out of the way while you think. Turn this off in Settings → General → Writing desk, or with **View → Fade Writing Desk While Typing**. With Increase Contrast it fades less, and with VoiceOver or Keyboard navigation on it doesn't fade at all.
 
 Choose another folder from the ⋯ menu at any time, or in Settings → General → Writing folder.
 
