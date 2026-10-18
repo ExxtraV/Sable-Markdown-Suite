@@ -86,9 +86,9 @@ public enum ThemePalette {
         // Made for the run-up to 1.0: deep indigo space seen out of focus, with slow clouds of blue and plum haze and a few
         // soft lights in teal, amber, and dusty rose drifting behind the words, which stay pale and steady.
         ThemeSpec(id: "cosmic", name: "Cosmic", paper: "0C1131", ink: "ECEEFA", dark: true, chrome: "080B24", edge: "03051A",
-                  haze: ["3048A8", "6E3A7E", "5533A8"], hazeOpacity: 0.15,
+                  haze: ["3048A8", "6B3A8A", "5533A8"], hazeOpacity: 0.15,
                   particles: true, particleDrift: 0.2, particleCount: 18,
-                  particleColors: ["7FE0D6", "FFA36B", "C49AB4", "AFC6FF", "C9B5FF"], particleBokeh: true),
+                  particleColors: ["7FE0D6", "FFA36B", "D8A7C6", "AFC6FF", "C9B5FF"], particleBokeh: true),
         ThemeSpec(id: "parchment", name: "Parchment", paper: "F3EBDD", ink: "40382E", dark: false),
         ThemeSpec(id: "paper", name: "Paper", paper: "FAFAF8", ink: "30302E", dark: false),
         ThemeSpec(id: "mist", name: "Mist", paper: "E8EDF3", ink: "27303A", dark: false)
