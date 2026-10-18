@@ -49,6 +49,8 @@ public struct ThemeSpec: Identifiable, Equatable, Sendable {
     public var chrome: String? = nil
     /// Darker shade the page fades toward at its edges. Themes that set it feel "narrowed in" on the writing.
     public var edge: String? = nil
+    /// The edge color is lighter than the paper, so the page glows toward its edges instead of darkening. Only Cosmic.
+    public var edgeGlows: Bool = false
     /// A theme that drifts faint motes of light behind the text, for a quiet fantasy feel.
     public var particles: Bool = false
     /// How the motes move, as a multiple of Arcane's upward pace: 1 rises like Arcane's, a negative number falls.
@@ -78,7 +80,7 @@ public enum ThemePalette {
         ThemeSpec(id: "starfall", name: "Starfall", paper: "0E1A30", ink: "DAE5F5", dark: true, chrome: "08111F", edge: "030810", particles: true, particleDrift: -0.5),
         // The loud one, made for the run-up to 1.0: deep space with an edge that glows nebula violet instead of darkening,
         // a violet bar, and a dense field of many-colored stars. The words themselves stay pale and steady on near-black.
-        ThemeSpec(id: "cosmic", name: "Cosmic", paper: "0A0820", ink: "F4F0FF", dark: true, chrome: "2E0B4F", edge: "571478",
+        ThemeSpec(id: "cosmic", name: "Cosmic", paper: "0A0820", ink: "F4F0FF", dark: true, chrome: "2E0B4F", edge: "571478", edgeGlows: true,
                   particles: true, particleDrift: 0.35, particleCount: 110,
                   particleColors: ["F4F0FF", "9FD8FF", "FFD27A", "FF9AD5", "B9A6FF"]),
         ThemeSpec(id: "parchment", name: "Parchment", paper: "F3EBDD", ink: "40382E", dark: false),

@@ -16,6 +16,8 @@ struct WritingTheme: Identifiable {
     var chrome: String? { spec.chrome }
     /// Darker shade the page fades toward at its edges. Themes that set it feel "narrowed in" on the writing.
     var edge: String? { spec.edge }
+    /// The page glows toward its edges instead of darkening.
+    var edgeGlows: Bool { spec.edgeGlows }
     /// A theme that drifts faint motes of light behind the text, for a quiet fantasy feel.
     var particles: Bool { spec.particles }
     var particleDrift: Double { spec.particleDrift }
