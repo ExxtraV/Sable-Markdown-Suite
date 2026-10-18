@@ -53,11 +53,16 @@ public struct ThemeSpec: Identifiable, Equatable, Sendable {
     public var particles: Bool = false
     /// How the motes move, as a multiple of Arcane's upward pace: 1 rises like Arcane's, a negative number falls.
     public var particleDrift: Double = 1
+    /// How many motes the field holds. Cosmic packs in more than the quiet themes.
+    public var particleCount: Int = 44
+    /// Colors the motes take, as hex, spread across the field. Nil draws them all in the ink color.
+    public var particleColors: [String]? = nil
     /// The setting that turns this theme's particles on or off. Arcane keeps the key it has always used.
     public var particlesSetting: String { id == "arcane" ? "themeParticles" : "themeParticles-\(id)" }
     public var paperColor: RGB { RGB(hex: paper)! }
     public var inkColor: RGB { RGB(hex: ink)! }
     public var edgeColor: RGB? { edge.flatMap { RGB(hex: $0) } }
+    public var particleRGBs: [RGB]? { particleColors?.compactMap { RGB(hex: $0) } }
 }
 
 /// Every color the editor draws text in, as numbers, so `scripts/check-contrast.swift` can measure what the app draws.
@@ -71,6 +76,11 @@ public enum ThemePalette {
         ThemeSpec(id: "obsidian", name: "Obsidian", paper: "070707", ink: "D7D3CB", dark: true, chrome: "020202", edge: "000000"),
         ThemeSpec(id: "arcane", name: "Arcane", paper: "1B1330", ink: "E9DFFB", dark: true, chrome: "120B22", edge: "07040D", particles: true),
         ThemeSpec(id: "starfall", name: "Starfall", paper: "0E1A30", ink: "DAE5F5", dark: true, chrome: "08111F", edge: "030810", particles: true, particleDrift: -0.5),
+        // The loud one, made for the run-up to 1.0: deep space with an edge that glows nebula violet instead of darkening,
+        // a violet bar, and a dense field of many-colored stars. The words themselves stay pale and steady on near-black.
+        ThemeSpec(id: "cosmic", name: "Cosmic", paper: "0A0820", ink: "F4F0FF", dark: true, chrome: "2E0B4F", edge: "571478",
+                  particles: true, particleDrift: 0.35, particleCount: 110,
+                  particleColors: ["F4F0FF", "9FD8FF", "FFD27A", "FF9AD5", "B9A6FF"]),
         ThemeSpec(id: "parchment", name: "Parchment", paper: "F3EBDD", ink: "40382E", dark: false),
         ThemeSpec(id: "paper", name: "Paper", paper: "FAFAF8", ink: "30302E", dark: false),
         ThemeSpec(id: "mist", name: "Mist", paper: "E8EDF3", ink: "27303A", dark: false)

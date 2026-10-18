@@ -19,6 +19,12 @@ struct WritingTheme: Identifiable {
     /// A theme that drifts faint motes of light behind the text, for a quiet fantasy feel.
     var particles: Bool { spec.particles }
     var particleDrift: Double { spec.particleDrift }
+    var particleCount: Int { spec.particleCount }
+    /// The motes' colors; the ink color alone when the theme names none.
+    var particleColors: [Color] {
+        let colors = (spec.particleColors ?? []).compactMap { NSColor(quillHex: $0) }.map(Color.init(nsColor:))
+        return colors.isEmpty ? [Color(nsColor: foreground)] : colors
+    }
     /// The setting that turns this theme's particles on or off.
     var particlesSetting: String { spec.particlesSetting }
     var background: NSColor { NSColor(quillHex: paper)! }
@@ -66,24 +72,25 @@ private struct SeededGenerator: RandomNumberGenerator {
 }
 
 /// Faint motes of light drifting slowly behind the text, for themes with a quiet fantasy touch: rising for Arcane,
-/// falling for Starfall. Off entirely under Reduce Motion, and never intercepts clicks.
+/// falling for Starfall, a slow many-colored starfield for Cosmic. Off entirely under Reduce Motion, and never intercepts clicks.
 struct ParticleField: View {
-    let color: Color
+    let colors: [Color]
     var count: Int = 44
     /// 1 is Arcane's upward pace; a negative number falls instead.
     var drift: Double = 1
-    private struct Mote { let x, y, size, speed, phase: Double }
+    private struct Mote { let x, y, size, speed, phase: Double; let color: Int }
     private let motes: [Mote]
 
-    init(color: Color, count: Int = 44, drift: Double = 1) {
-        self.color = color
+    init(colors: [Color], count: Int = 44, drift: Double = 1) {
+        self.colors = colors.isEmpty ? [.white] : colors
         self.count = count
         self.drift = drift
         var generator = SeededGenerator(seed: 7)
-        motes = (0..<count).map { _ in
+        let palette = self.colors.count
+        motes = (0..<count).map { index in
             Mote(x: Double.random(in: 0...1, using: &generator), y: Double.random(in: 0...1, using: &generator),
                  size: Double.random(in: 1.2...2.8, using: &generator), speed: Double.random(in: 0.012...0.05, using: &generator),
-                 phase: Double.random(in: 0...1, using: &generator))
+                 phase: Double.random(in: 0...1, using: &generator), color: index % palette)
         }
     }
 
@@ -101,7 +108,7 @@ struct ParticleField: View {
                         let point = CGPoint(x: mote.x * size.width, y: y * size.height)
                         let rect = CGRect(x: point.x - mote.size / 2, y: point.y - mote.size / 2, width: mote.size, height: mote.size)
                         context.opacity = twinkle * 0.55
-                        context.fill(Path(ellipseIn: rect), with: .color(color))
+                        context.fill(Path(ellipseIn: rect), with: .color(colors[mote.color]))
                     }
                 }
             }

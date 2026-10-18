@@ -2,6 +2,10 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
+## Unreleased
+
+- **New writing theme: Cosmic.** Made for the run-up to 1.0, and the loudest theme Sable has: deep space paper `0A0820` with pale starlight ink `F4F0FF`, a violet bottom bar `2E0B4F`, and an edge shade `571478` that is lighter than the paper, so the page glows nebula violet toward its edges instead of darkening. Its particle field is a dense starfield (110 motes, Arcane's and Starfall's have 44) drifting slowly upward at 0.35 of Arcane's pace, in five colors: white, ice blue, gold, pink, and lavender. `ThemeSpec` gained `particleCount` and `particleColors` (hex; nil keeps the ink color), and `ParticleField` now takes a list of colors and assigns them in turn. Cosmic's stars have their own switch, `themeParticles-cosmic`, labeled "Drifting stars" in Writing Style; like the others they stop under Reduce Motion, Increase Contrast, and Reduce Transparency. The body text and every dimmed level still pass `check-contrast.swift`, including at the strongest Edge darkness, where the glow lowers dimmed Markdown symbols to about 3.3:1 (limit 3:1) and muted words to about 4.9:1 (limit 4.5:1). `check-contrast.swift` also checks that every particle color parses.
+
 ## 1.0.0-beta.4
 
 The fourth beta of 1.0, for people who turn on **Get beta updates**. Numbered lists that count themselves, undo that keeps working, notes to yourself no longer counted as words, and Scrivener footnotes and comments carried over.

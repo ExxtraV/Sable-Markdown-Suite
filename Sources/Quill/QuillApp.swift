@@ -126,6 +126,7 @@ struct WritingView: View {
     @AppStorage("edgeStrength") private var edgeStrength = 0.65
     @AppStorage("themeParticles") private var arcaneParticles = true
     @AppStorage("themeParticles-starfall") private var starfallParticles = true
+    @AppStorage("themeParticles-cosmic") private var cosmicParticles = true
     @AppStorage("toolbarTools") private var toolbarTools = ToolbarLayout.defaultToken
     @StateObject private var commands = EditorCommands()
     @AppStorage("writingTheme") private var themeName = "graphite"
@@ -584,7 +585,12 @@ struct WritingView: View {
     /// Whether the chosen theme has particles and its own "Faint drifting particles" setting is on.
     private var showsParticles: Bool {
         let theme = WritingTheme.named(themeName)
-        return theme.particles && (theme.particlesSetting == "themeParticles" ? arcaneParticles : starfallParticles)
+        guard theme.particles else { return false }
+        switch theme.particlesSetting {
+        case "themeParticles": return arcaneParticles
+        case "themeParticles-cosmic": return cosmicParticles
+        default: return starfallParticles
+        }
     }
 
     private var toolbarEdge: ToolbarEdge { ToolbarEdge(rawValue: toolbarEdgeName) ?? .top }
@@ -897,7 +903,7 @@ struct WritingView: View {
                     let theme = WritingTheme.named(themeName)
                     Color(nsColor: theme.background)
                     if shadedPage, let edge = theme.edgeColor { VignetteOverlay(color: edge, strength: edgeStrength) }
-                    if showsParticles { ParticleField(color: Color(nsColor: theme.foreground), drift: theme.particleDrift) }
+                    if showsParticles { ParticleField(colors: theme.particleColors, count: theme.particleCount, drift: theme.particleDrift) }
                 }
                 NativeEditor(text: $document.text, review: review, words: words, fontSize: fontSize,
                              pageWidth: pageWidth, commands: commands, fontFamily: fontFamily,

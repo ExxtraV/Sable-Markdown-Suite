@@ -38,6 +38,9 @@ import Foundation
         precondition(ThemePalette.pageColors(of: ThemePalette.named("graphite"), edgeStrength: 1).count > 1, "A dark theme shades toward its edges")
         precondition(ThemePalette.all.filter(\.dark).allSatisfy { $0.edgeColor != nil } && ThemePalette.all.filter { !$0.dark }.allSatisfy { $0.edgeColor == nil }, "Dark themes have an edge shade, light ones don't")
 
+        precondition(ThemePalette.all.allSatisfy { ($0.particleRGBs?.count ?? 0) == ($0.particleColors?.count ?? 0) }, "Every particle color is six hex digits")
+        precondition(ThemePalette.all.allSatisfy { $0.particleColors == nil || $0.particles }, "Only a theme with particles names particle colors")
+
         var failures: [String] = []
         for increased in [false, true] {
             let limits = increased ? increasedLimits : defaultLimits

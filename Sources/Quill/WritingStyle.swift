@@ -21,6 +21,7 @@ struct WritingStyleControls: View {
     @AppStorage("edgeStrength") private var edgeStrength = 0.65
     @AppStorage("themeParticles") private var arcaneParticles = true
     @AppStorage("themeParticles-starfall") private var starfallParticles = true
+    @AppStorage("themeParticles-cosmic") private var cosmicParticles = true
     @AppStorage("smartTypography") private var smartTypography = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
@@ -29,6 +30,14 @@ struct WritingStyleControls: View {
         HStack {
             Slider(value: value, in: range, step: step).accessibilityLabel(name).accessibilityValue(spoken)
             Text(label).monospacedDigit().foregroundStyle(.secondary).frame(width: 52, alignment: .trailing).accessibilityHidden(true)
+        }
+    }
+    /// The chosen theme's own particles switch.
+    private var particlesBinding: Binding<Bool> {
+        switch WritingTheme.named(theme).particlesSetting {
+        case "themeParticles": return $arcaneParticles
+        case "themeParticles-cosmic": return $cosmicParticles
+        default: return $starfallParticles
         }
     }
     private let presets = [("Everyday", "Georgia"), ("Literary", "Charter"), ("Classic", "Baskerville"), ("Science fiction", "Menlo"), ("Manuscript", "Courier New")]
@@ -47,7 +56,7 @@ struct WritingStyleControls: View {
                 .accessibilityLabel("Themes")
                 Toggle("Darken toward the edges (dark themes)", isOn: $edgeShading)
                 if WritingTheme.named(theme).particles {
-                    Toggle("Faint drifting particles", isOn: WritingTheme.named(theme).particlesSetting == "themeParticles" ? $arcaneParticles : $starfallParticles)
+                    Toggle(theme == "cosmic" ? "Drifting stars" : "Faint drifting particles", isOn: particlesBinding)
                 }
                 LabeledContent("Edge darkness") {
                     HStack {
