@@ -32,6 +32,10 @@ struct QuillApp: App {
     @StateObject private var browser = FolderBrowser()
     init() {
         LaunchBehavior.register()
+        // Turning pre-1.0 categories into folders moves files, so it saves a safety snapshot of them first.
+        FolderBrowser.safetySnapshot = { root, files in
+            _ = try Revisions.create(name: "Before turning categories into folders", kind: .safety, root: root, files: files)
+        }
         #if QUILL_PREVIEW
         let previewBrowser = FolderBrowser()
         if let folder = Bundle.main.resourceURL?.appendingPathComponent("Examples") {

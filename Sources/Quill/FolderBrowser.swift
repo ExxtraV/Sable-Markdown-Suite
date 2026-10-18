@@ -11,6 +11,9 @@ struct BrowserEntry: Identifiable, Sendable {
     let isDirectory: Bool
     var modified: Date? = nil
     var isProject = false
+    /// Set when the folder is a desk category (it holds `CategoryFolder.markerName`).
+    var category: CategoryMarker? = nil
+    var isCategory: Bool { category != nil }
     var name: String { url.lastPathComponent }
     /// The name as shown in the desk; Markdown and text extensions are noise when every file has one.
     var displayName: String {
@@ -31,7 +34,11 @@ enum FolderListing {
         return try urls.compactMap { url in
             let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .isPackageKey, .contentModificationDateKey])
             guard values.isSymbolicLink != true, values.isPackage != true else { return nil }
-            if values.isDirectory == true { return BrowserEntry(url: url, isDirectory: true, modified: values.contentModificationDate, isProject: FictionProject.isProject(url)) }
+            if values.isDirectory == true {
+                let isProject = FictionProject.isProject(url)
+                return BrowserEntry(url: url, isDirectory: true, modified: values.contentModificationDate, isProject: isProject,
+                                    category: isProject ? nil : CategoryFolder.marker(in: url))
+            }
             guard values.isRegularFile == true, MarkdownFileTypes.isMarkdownOrText(url) else { return nil }
             return BrowserEntry(url: url, isDirectory: false, modified: values.contentModificationDate)
         }.sorted {
@@ -101,12 +108,13 @@ enum NewItemKind: Sendable {
 }
 
 enum FolderCreationError: LocalizedError {
-    case invalidName, exists(String), noCategory
+    case invalidName, exists(String), noCategory, noSnapshot
     var errorDescription: String? {
         switch self {
         case .invalidName: return "Names can’t be empty, start with a period, or contain “/” or “:”."
         case let .exists(name): return "“\(name)” already exists in this folder."
         case .noCategory: return "Categories live at the top of your writing folder. Go back there to add something to one."
+        case .noSnapshot: return "Sable couldn’t save a snapshot first, so nothing was moved."
         }
     }
 }
@@ -347,8 +355,9 @@ struct FolderMarks: Codable, Equatable, Sendable {
     }
 }
 
-/// Named groups (School, Work, Hobbies…) that folders and files can be dragged into. Assignments are stored by
-/// path, so an item keeps its category when it is renamed or moved inside Sable.
+/// Categories as Sable kept them before 1.0: named groups stored only in Sable's settings, with assignments by path.
+/// Nothing new is written this way. They are read so `FolderBrowser.convertLegacyCategories()` can turn them into
+/// real folders (see `CategoryFolder`), and forgotten once converted.
 struct FolderCategory: Codable, Equatable, Identifiable, Sendable {
     var id: String
     var name: String
@@ -431,6 +440,70 @@ enum FolderCategoriesStore {
     }
 }
 
+/// What a category folder's hidden marker file holds. Small, plain JSON, and optional: a folder with an empty or
+/// unreadable marker is still a category, just one with no color and no saved place in the order.
+struct CategoryMarker: Codable, Equatable, Sendable {
+    var color: MarkColor? = nil
+    var order: Int? = nil
+}
+
+/// A category on the desk is an ordinary folder at the top of the writing folder, holding `markerName`. Filing a file
+/// or folder under it moves the item inside, so Finder, iCloud, and other Macs see the same grouping Sable does.
+enum CategoryFolder {
+    static let markerName = ".sable-category.json"
+    private static let maxMarkerSize = 16_384
+
+    static func markerURL(in folder: URL) -> URL { folder.appendingPathComponent(markerName) }
+    static func isCategory(_ folder: URL) -> Bool { FileManager.default.fileExists(atPath: markerURL(in: folder).path) }
+    /// The folder's marker, or nil when it isn't a category. The file is untrusted: anything unreadable counts as empty.
+    static func marker(in folder: URL) -> CategoryMarker? {
+        let url = markerURL(in: folder)
+        guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? Int else { return nil }
+        guard size <= maxMarkerSize, let data = try? Data(contentsOf: url) else { return CategoryMarker() }
+        return (try? JSONDecoder().decode(CategoryMarker.self, from: data)) ?? CategoryMarker()
+    }
+    static func write(_ marker: CategoryMarker, in folder: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(marker).write(to: markerURL(in: folder), options: .atomic)
+    }
+    /// A new, empty category folder. A name already used in the writing folder is refused rather than taken over.
+    static func create(named raw: String, in root: URL, order: Int) throws -> URL {
+        guard let name = FolderCreation.fileName(for: raw, kind: .folder) else { throw FolderCreationError.invalidName }
+        let url = root.appendingPathComponent(name, isDirectory: true)
+        guard !FileManager.default.fileExists(atPath: url.path) else { throw FolderCreationError.exists(name) }
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
+        try write(CategoryMarker(order: order), in: url)
+        return url
+    }
+    /// Stops the folder being a category. Only the marker goes; the folder and everything in it stay.
+    static func unmark(_ folder: URL) throws {
+        let url = markerURL(in: folder)
+        if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+    }
+    /// "School", or "School 2", "3"… when the writing folder already has something by that name.
+    static func freeName(for raw: String, in root: URL) -> String? {
+        let cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+        let base = String(cleaned.drop { $0 == "." })
+        guard !base.isEmpty else { return nil }
+        let taken = Set(((try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []).map { $0.lowercased() })
+        var name = base
+        var number = 2
+        while taken.contains(name.lowercased()) { name = "\(base) \(number)"; number += 1 }
+        return name
+    }
+}
+
+/// A category as the desk shows it: its folder, and what its marker says.
+struct DeskCategory: Identifiable, Equatable, Sendable {
+    let url: URL
+    var marker: CategoryMarker
+    var id: String { url.lastPathComponent }
+    var name: String { url.lastPathComponent }
+    var color: MarkColor? { marker.color }
+}
+
 enum FolderMarksStore {
     private static let defaultsKey = "folderMarks"
     static func load(for root: URL, defaults: UserDefaults = .standard) -> FolderMarks {
@@ -472,7 +545,11 @@ final class FolderBrowser: ObservableObject {
     @Published private(set) var loadingFolders: Set<URL> = []
     @Published private(set) var folderErrors: [URL: String] = [:]
     @Published private(set) var marks = FolderMarks()
-    @Published private(set) var categories = FolderCategories()
+    /// The writing folder's categories, in the writer's order. Anywhere else the desk has none, and a category folder
+    /// shows as the ordinary folder it is.
+    @Published private(set) var categories: [DeskCategory] = []
+    /// Categories from before 1.0, waiting to become folders (see `convertLegacyCategories`).
+    @Published private(set) var legacyCategories = FolderCategories()
     @Published var filter: MarkFilter?
     /// The keyboard cursor and range anchor. Setting it on its own selects just that item.
     @Published var selection: URL? {
@@ -517,8 +594,13 @@ final class FolderBrowser: ObservableObject {
             // Fiction projects are listed on their own, apart from ordinary folders.
             return arranged.contains(where: \.isProject) ? arranged.filter(\.isProject) + arranged.filter { !$0.isProject } : arranged
         }
+        let categoryFolders = Set(categories.map { $0.url.standardizedFileURL.path })
         func flatten(_ entries: [BrowserEntry], depth: Int, parent: URL?) -> [BrowserRow] {
             ordered(entries, parent: parent).flatMap { entry -> [BrowserRow] in
+                // A category's folder isn't a row of its own: what's inside it is listed at the top, under its heading.
+                if depth == 0 && categoryFolders.contains(entry.url.standardizedFileURL.path) {
+                    return flatten(children[entry.url] ?? [], depth: 0, parent: entry.url)
+                }
                 let row = BrowserRow(entry: entry, depth: depth)
                 guard entry.isDirectory, expanded.contains(entry.url) else { return [row] }
                 return [row] + flatten(children[entry.url] ?? [], depth: depth + 1, parent: entry.url)
@@ -666,8 +748,10 @@ final class FolderBrowser: ObservableObject {
         let moves = [(from: entry.url, to: target)]
         marks = marks.remapped(moves: moves, root: root)
         FolderMarksStore.save(marks, for: root)
-        categories = categories.remapped(moves: moves, root: root)
-        FolderCategoriesStore.save(categories, for: root)
+        if !legacyCategories.isEmpty {
+            legacyCategories = legacyCategories.remapped(moves: moves, root: root)
+            FolderCategoriesStore.save(legacyCategories, for: root)
+        }
         expanded = Set(expanded.map { FolderMove.rewrite($0, moves: moves) })
         if selection == entry.url { selection = target }
         // A renamed chapter keeps its place in the manuscript.
@@ -812,6 +896,7 @@ final class FolderBrowser: ObservableObject {
     /// Creates a file or folder and refreshes whichever list is showing it.
     /// Re-reads the current folder and any open subfolders in place, without blanking the list.
     func reload() {
+        refreshCategories()
         guard let current else { return }
         requestID = UUID()
         let request = requestID
@@ -823,6 +908,7 @@ final class FolderBrowser: ObservableObject {
                 entries = items
                 refreshManuscript()
                 for folder in expanded { loadChildren(folder) }
+                loadCategoryContents()
             case let .failure(failure): error = failure.localizedDescription
             }
         }
@@ -835,8 +921,10 @@ final class FolderBrowser: ObservableObject {
         movesMade += 1
         marks = marks.remapped(moves: moved, root: root)
         FolderMarksStore.save(marks, for: root)
-        categories = categories.remapped(moves: moved, root: root)
-        FolderCategoriesStore.save(categories, for: root)
+        if !legacyCategories.isEmpty {
+            legacyCategories = legacyCategories.remapped(moves: moved, root: root)
+            FolderCategoriesStore.save(legacyCategories, for: root)
+        }
         expanded = Set(expanded.map { FolderMove.rewrite($0, moves: moved) })
         expanded.insert(folder)
         if folder.standardizedFileURL != current?.standardizedFileURL { loadChildren(folder) }
@@ -864,6 +952,10 @@ final class FolderBrowser: ObservableObject {
         if expanded.contains(url) { expanded.remove(url) }
         else { expanded.insert(url); loadChildren(url) }
     }
+    /// Category folders are always open: their contents sit at the top of the list, under the category's heading.
+    private func loadCategoryContents() {
+        for category in categories where !expanded.contains(category.url) { loadChildren(category.url) }
+    }
     private func loadChildren(_ url: URL) {
         let request = requestID
         loadingFolders.insert(url)
@@ -888,7 +980,7 @@ final class FolderBrowser: ObservableObject {
                 root = url
                 current = url
                 marks = FolderMarksStore.load(for: url)
-                categories = FolderCategoriesStore.load(for: url)
+                legacyCategories = FolderCategoriesStore.load(for: url)
                 if stale, let fresh = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
                     UserDefaults.standard.set(fresh, forKey: "writingFolder")
                 }
@@ -906,7 +998,7 @@ final class FolderBrowser: ObservableObject {
             root = url
             current = url
             marks = FolderMarksStore.load(for: url)
-            categories = FolderCategoriesStore.load(for: url)
+            legacyCategories = FolderCategoriesStore.load(for: url)
             filter = nil
             expanded = []; children = [:]
             UserDefaults.standard.set(bookmark, forKey: "writingFolder")
@@ -955,10 +1047,10 @@ final class FolderBrowser: ObservableObject {
         root = folder
         current = folder
         marks = folder.map { FolderMarksStore.load(for: $0) } ?? FolderMarks()
-        categories = folder.map { FolderCategoriesStore.load(for: $0) } ?? FolderCategories()
+        legacyCategories = folder.map { FolderCategoriesStore.load(for: $0) } ?? FolderCategories()
         filter = nil
         expanded = []; children = [:]
-        if folder == nil { entries = []; loading = false; error = nil } else { refresh() }
+        if folder == nil { entries = []; loading = false; error = nil; refreshCategories() } else { refresh() }
     }
 
     /// Whether the desk is showing `file`'s place: inside what it shows, the folder the file is in or above it.
@@ -1005,65 +1097,183 @@ final class FolderBrowser: ObservableObject {
         navigate(current.deletingLastPathComponent())
     }
 
-    // MARK: Categories
+    // MARK: Categories (real folders at the top of the writing folder; see `CategoryFolder`)
     /// True while the listing is the writing folder itself, where categories can be created.
     var canManageCategories: Bool {
         guard projectURL == nil, visiting == nil, let root, let current else { return false }
         return current.standardizedFileURL.path == root.standardizedFileURL.path
     }
+    /// Re-reads which folders at the top of the writing folder are categories. It reads only that one listing and
+    /// the small marker files, so it runs straight away: everything that files or creates by category sees the result.
+    private func refreshCategories() {
+        guard canManageCategories, let root else {
+            if !categories.isEmpty { categories = [] }
+            return
+        }
+        let found = ((try? FolderListing.entries(at: root)) ?? []).compactMap { entry in
+            entry.category.map { DeskCategory(url: entry.url, marker: $0) }
+        }.sorted { a, b in
+            switch (a.marker.order, b.marker.order) {
+            case let (x?, y?) where x != y: return x < y
+            case (_?, nil): return true
+            case (nil, _?): return false
+            default: return a.name.localizedStandardCompare(b.name) == .orderedAscending
+            }
+        }
+        if found != categories { categories = found }
+    }
+    func category(withID id: String) -> DeskCategory? { categories.first { $0.id == id } }
+    /// The category an item is filed under: the category folder it sits directly inside.
     func categoryID(of entry: BrowserEntry) -> String? {
-        guard !entry.isProject, let root, let key = FolderMarks.key(for: entry.url, in: root) else { return nil }
-        return categories.categoryID(forKey: key)
+        let parent = entry.url.deletingLastPathComponent().standardizedFileURL.path
+        return categories.first { $0.url.standardizedFileURL.path == parent }?.id
     }
-    private func commitCategories() {
-        guard let root else { return }
-        FolderCategoriesStore.save(categories, for: root)
-    }
+    private static func foldKey(_ id: String) -> String { "category:\(id)" }
+    func isCategoryFolded(_ id: String) -> Bool { isSectionFolded(FolderBrowser.foldKey(id)) }
+    func toggleCategory(_ id: String) { toggleSection(FolderBrowser.foldKey(id)) }
+
+    /// Makes the category's folder, last in the order.
     @discardableResult
-    func addCategory(named name: String) -> Bool {
-        guard categories.add(name: name) != nil else { return false }
-        commitCategories()
-        return true
-    }
-    @discardableResult
-    func renameCategory(_ id: String, to name: String) -> Bool {
-        guard categories.rename(id, to: name) else { return false }
-        commitCategories()
-        return true
-    }
-    func deleteCategory(_ id: String) { categories.delete(id); commitCategories() }
-    func moveCategory(_ id: String, by offset: Int) { categories.move(id, by: offset); commitCategories() }
-    func setCategoryColor(_ id: String, _ color: MarkColor?) { categories.setColor(id, color); commitCategories() }
-    func toggleCategory(_ id: String) {
-        guard let category = categories.category(withID: id) else { return }
-        categories.setCollapsed(id, !category.collapsed)
-        commitCategories()
-    }
-    /// Files a folder or file under a category (or back to the ordinary list with nil).
-    func assign(_ url: URL, to id: String?) {
-        guard let root, let key = FolderMarks.key(for: url, in: root) else { return }
-        categories.assign(key: key, to: id)
-        commitCategories()
-    }
-    /// Makes a file or folder at the top of the writing folder and files it under the category, which opens
-    /// if it was folded so the new item shows.
-    @discardableResult
-    func create(_ kind: NewItemKind, named name: String, inCategory id: String) throws -> URL {
-        guard canManageCategories, let current, categories.category(withID: id) != nil else { throw FolderCreationError.noCategory }
-        let url = try FolderCreation.create(kind, named: name, in: current)
-        categories.setCollapsed(id, false)
-        assign(url, to: id)
+    func addCategory(named name: String) throws -> URL {
+        guard canManageCategories, let root else { throw FolderCreationError.noCategory }
+        let last = categories.compactMap(\.marker.order).max() ?? (categories.count - 1)
+        let url = try CategoryFolder.create(named: name, in: root, order: last + 1)
         reload()
         return url
     }
-    /// An untitled folder filed under the category, waiting for its name, as `createFolderToName(in:)` does.
+    /// Renames the folder itself, so anything open inside follows it, as with any rename on the desk.
+    @discardableResult
+    func renameCategory(_ id: String, to name: String) throws -> URL {
+        guard let category = category(withID: id) else { throw FolderCreationError.noCategory }
+        let folded = isCategoryFolded(id)
+        let url = try rename(BrowserEntry(url: category.url, isDirectory: true), to: name)
+        if folded {
+            foldedSections.remove(FolderBrowser.foldKey(id))
+            foldedSections.insert(FolderBrowser.foldKey(url.lastPathComponent))
+            UserDefaults.standard.set(foldedSections.sorted(), forKey: FolderBrowser.foldedSectionsKey)
+        }
+        return url
+    }
+    /// Stops a folder being a category. Nothing moves: it stays an ordinary folder with everything still inside.
+    func removeCategory(_ id: String) throws {
+        guard let category = category(withID: id) else { return }
+        try CategoryFolder.unmark(category.url)
+        reload()
+    }
+    func moveCategory(_ id: String, by offset: Int) throws {
+        var list = categories
+        guard let index = list.firstIndex(where: { $0.id == id }) else { return }
+        let target = min(max(0, index + offset), list.count - 1)
+        guard target != index else { return }
+        list.insert(list.remove(at: index), at: target)
+        for (order, category) in list.enumerated() where category.marker.order != order {
+            var marker = category.marker
+            marker.order = order
+            try CategoryFolder.write(marker, in: category.url)
+        }
+        reload()
+    }
+    func setCategoryColor(_ id: String, _ color: MarkColor?) throws {
+        guard var marker = category(withID: id)?.marker, let url = category(withID: id)?.url else { return }
+        marker.color = color
+        try CategoryFolder.write(marker, in: url)
+        reload()
+    }
+    /// Files items under a category by moving them into its folder, or back to the top of the writing folder with nil.
+    func assign(_ urls: [URL], to id: String?) throws {
+        guard let root else { return }
+        let destination: URL
+        if let id {
+            guard let category = category(withID: id) else { throw FolderCreationError.noCategory }
+            destination = category.url
+            unfoldSections([FolderBrowser.foldKey(id)])
+        } else {
+            destination = root
+        }
+        try move(urls, into: destination)
+    }
+    func assign(_ url: URL, to id: String?) throws { try assign([url], to: id) }
+    /// Makes a file or folder inside the category's folder, opening the category if it was folded so the new item shows.
+    @discardableResult
+    func create(_ kind: NewItemKind, named name: String, inCategory id: String) throws -> URL {
+        guard let category = category(withID: id) else { throw FolderCreationError.noCategory }
+        unfoldSections([FolderBrowser.foldKey(id)])
+        return try create(kind, named: name, in: category.url)
+    }
+    /// An untitled folder in the category, waiting for its name, as `createFolderToName(in:)` does.
     @discardableResult
     func createFolderToName(inCategory id: String) throws -> URL {
-        guard let current else { throw FolderCreationError.noCategory }
-        let url = try create(.folder, named: FolderCreation.untitledFolderName(in: current), inCategory: id)
-        selection = url
-        renaming = url
-        return url
+        guard let category = category(withID: id) else { throw FolderCreationError.noCategory }
+        unfoldSections([FolderBrowser.foldKey(id)])
+        return try createFolderToName(in: category.url)
+    }
+
+    // MARK: Categories from before 1.0
+    /// Categories kept only in Sable's settings, as before 1.0, that still have to become folders. Empty once converted.
+    var hasLegacyCategories: Bool { canManageCategories && !legacyCategories.isEmpty }
+    /// Takes the safety snapshot before the conversion moves anything. The app sets it to save a Revisions snapshot;
+    /// without it, nothing is converted.
+    static var safetySnapshot: (@Sendable (_ root: URL, _ files: [URL]) throws -> Void)?
+
+    /// What converting would do: each old category, the folder it becomes, and the items that move into it.
+    func legacyConversionPlan() -> [(category: FolderCategory, folderName: String, items: [URL])] {
+        guard let root, hasLegacyCategories else { return [] }
+        var reserved: Set<String> = []
+        var plan: [(category: FolderCategory, folderName: String, items: [URL])] = []
+        for category in legacyCategories.list {
+            var name = CategoryFolder.freeName(for: category.name, in: root) ?? "Category"
+            // Two old categories that clean up to the same name each get their own folder.
+            if reserved.contains(name.lowercased()) { name = CategoryFolder.freeName(for: name + " 2", in: root) ?? name }
+            reserved.insert(name.lowercased())
+            // Only items still at the top of the writing folder move; anything already moved elsewhere stays put.
+            let items = legacyCategories.members(of: category.id).compactMap { key -> URL? in
+                guard !key.contains("/") else { return nil }
+                let url = root.appendingPathComponent(key)
+                return FileManager.default.fileExists(atPath: url.path) && !FictionProject.isProject(url) && !CategoryFolder.isCategory(url) ? url : nil
+            }
+            plan.append((category, name, items))
+        }
+        return plan
+    }
+
+    /// Turns the old categories into folders: a safety snapshot of every Markdown file that will move, then one
+    /// folder per category (keeping its color, order, and fold), then the moves. A category is forgotten only once its
+    /// items are in its folder, so a failure part way leaves the rest to try again.
+    func convertLegacyCategories() async throws {
+        guard let root else { throw FolderCreationError.noCategory }
+        guard let snapshot = FolderBrowser.safetySnapshot else { throw FolderCreationError.noSnapshot }
+        let plan = legacyConversionPlan()
+        guard !plan.isEmpty else { return }
+        let files = plan.flatMap(\.items).flatMap { FolderBrowser.markdownFiles(at: $0) }
+        if !files.isEmpty { try await Task.detached { try snapshot(root, files) }.value }
+        let firstOrder = (categories.compactMap(\.marker.order).max() ?? -1) + 1
+        for (index, step) in plan.enumerated() {
+            let folder = root.appendingPathComponent(step.folderName, isDirectory: true)
+            if !FileManager.default.fileExists(atPath: folder.path) {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+            }
+            try CategoryFolder.write(CategoryMarker(color: step.category.color, order: firstOrder + index), in: folder)
+            if step.category.collapsed { foldedSections.insert(FolderBrowser.foldKey(step.folderName)) }
+            if !step.items.isEmpty { try move(step.items, into: folder) }
+            legacyCategories.delete(step.category.id)
+            FolderCategoriesStore.save(legacyCategories, for: root)
+        }
+        UserDefaults.standard.set(foldedSections.sorted(), forKey: FolderBrowser.foldedSectionsKey)
+        reload()
+    }
+    /// Forgets the old categories without moving anything.
+    func forgetLegacyCategories() {
+        guard let root else { return }
+        legacyCategories = FolderCategories()
+        FolderCategoriesStore.save(legacyCategories, for: root)
+    }
+    /// The Markdown and text files at `url`, or beneath it when it's a folder.
+    nonisolated static func markdownFiles(at url: URL) -> [URL] {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return [] }
+        guard isDirectory.boolValue else { return MarkdownFileTypes.isMarkdownOrText(url) ? [url] : [] }
+        guard let walker = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return [] }
+        return walker.compactMap { $0 as? URL }.filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true && MarkdownFileTypes.isMarkdownOrText($0) }
     }
 
     // MARK: Folding the desk's headings
@@ -1139,6 +1349,7 @@ final class FolderBrowser: ObservableObject {
         return CardParsing.isCandidate(entry.url, projectRoot: projectURL) ? CardParsing.kindByLocation(entry.url, projectRoot: projectURL) : nil
     }
     func refresh() {
+        refreshCategories()
         guard let current else { return }
         requestID = UUID()
         let request = requestID
@@ -1157,6 +1368,7 @@ final class FolderBrowser: ObservableObject {
                 entries = items
                 refreshManuscript()
                 for folder in expanded { loadChildren(folder) }
+                loadCategoryContents()
             case let .failure(failure): error = failure.localizedDescription
             }
         }
@@ -1165,7 +1377,7 @@ final class FolderBrowser: ObservableObject {
 
 private enum SectionKind {
     case projects, folders, files, other
-    case category(FolderCategory)
+    case category(DeskCategory)
 }
 private struct SectionHeader: Identifiable {
     let kind: SectionKind
@@ -1213,12 +1425,15 @@ struct FolderBrowserSection: View {
     @State private var projectStarter = true
     @State private var convertTarget: URL?
     @State private var showCategoryAlert = false
-    @State private var categoryEditing: FolderCategory?
+    @State private var categoryEditing: DeskCategory?
     @State private var categoryName = ""
     @State private var targetedHeader: String?
     @State private var hoveredHeader: String?
     /// The category a new file named in the alert goes into, when it was made from a category's heading.
-    @State private var newCategory: FolderCategory?
+    @State private var newCategory: DeskCategory?
+    @State private var confirmLegacyConversion = false
+    @State private var converting = false
+    @State private var legacyNoticeDismissed = false
     @State private var adoptTarget: URL?
     @State private var newFolder: URL?
     @State private var newName = ""
@@ -1245,6 +1460,7 @@ struct FolderBrowserSection: View {
                 if let project = browser.project, let projectURL = browser.projectURL { projectHeader(project, projectURL) }
                 breadcrumbBar(current)
                 if !browser.marks.isEmpty { filterBar }
+                if browser.hasLegacyCategories && !legacyNoticeDismissed { legacyCategoryNotice }
                 let items = flat ? rows.map { TreeItem.row($0) } : treeItems()
                 let shown = items.compactMap(\.row)
                 let _ = browser.recordDisplayed(shown.map(\.entry))
@@ -1258,7 +1474,8 @@ struct FolderBrowserSection: View {
                                            parallelURL: parallelURL, switchFile: switchFile, showParallel: showParallel,
                                            promptNew: { promptNew($0, in: $1) }, dropOnRow: dropOnRow, rename: rename, trash: requestTrash,
                                            showCard: showCard, convertProject: { convertTarget = $0 }, adoptFolder: { adoptTarget = $0 },
-                                           newCategory: { promptCategory(nil) }, addToFolder: addToFolder)
+                                           newCategory: { promptCategory(nil) }, addToFolder: addToFolder,
+                                           fileUnder: { url, id in attempt { try browser.assign(url, to: id) } })
                                 .id(row.entry.url)
                         }
                     }
@@ -1327,12 +1544,12 @@ struct FolderBrowserSection: View {
             TextField(newProjectItem?.prompt ?? (newKind == .file ? "Untitled.md" : "Folder name"), text: $newName)
             Button("Create") { createItem() }
             Button("Cancel", role: .cancel) {}
-        } message: { Text(newCategory.map { "In “\(newFolder?.lastPathComponent ?? "")”, under \($0.name)" } ?? "In “\(newFolder?.lastPathComponent ?? "")”") }
+        } message: { Text("In “\(newFolder?.lastPathComponent ?? "")”") }
         .alert(categoryEditing == nil ? "New Category" : "Rename Category", isPresented: $showCategoryAlert) {
             TextField("School, Work, Hobbies…", text: $categoryName)
             Button(categoryEditing == nil ? "Create" : "Rename") { saveCategory() }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("Categories group your folders and files. Drag one onto a category to file it there.") }
+        } message: { Text("A category is a folder at the top of your writing folder. Drag files and folders onto its heading to move them inside.") }
         .sheet(isPresented: $showNewProject) {
             NewProjectSheet(name: $projectName, starter: $projectStarter, location: browser.current?.lastPathComponent ?? "your writing folder",
                             create: createProject, cancel: { showNewProject = false })
@@ -1381,8 +1598,7 @@ struct FolderBrowserSection: View {
             if row.depth == 0 || blocks.isEmpty { blocks.append(Block(rows: [row])) } else { blocks[blocks.count - 1].rows.append(row) }
         }
         let hasProjects = blocks.contains { $0.entry.isProject }
-        let categorized = blocks.contains { browser.categoryID(of: $0.entry) != nil }
-        let useCategories = browser.projectURL == nil && (browser.canManageCategories ? !browser.categories.isEmpty : categorized)
+        let useCategories = !browser.categories.isEmpty
         guard hasProjects || useCategories else { return all.map { .row($0) } }
 
         var items: [TreeItem] = []
@@ -1393,12 +1609,11 @@ struct FolderBrowserSection: View {
             if !browser.isSectionFolded("projects") { add(projects) }
         }
         if useCategories {
-            for category in browser.categories.list {
+            for category in browser.categories {
                 let members = blocks.filter { !$0.entry.isProject && browser.categoryID(of: $0.entry) == category.id }
                 // Empty categories stay visible in the writing folder so there's somewhere to drop folders.
-                if members.isEmpty && !browser.canManageCategories { continue }
                 items.append(.header(SectionHeader(kind: .category(category), title: category.name, count: members.count)))
-                if !category.collapsed { add(members) }
+                if !browser.isCategoryFolded(category.id) { add(members) }
             }
         }
         let rest = blocks.filter { !$0.entry.isProject && (!useCategories || browser.categoryID(of: $0.entry) == nil) }
@@ -1458,12 +1673,13 @@ struct FolderBrowserSection: View {
         .accessibilityAddTraits(.isHeader)
     }
 
-    private func categoryHeader(_ category: FolderCategory, count: Int, first: Bool) -> some View {
+    private func categoryHeader(_ category: DeskCategory, count: Int, first: Bool) -> some View {
         let id = "category:\(category.id)"
+        let folded = browser.isCategoryFolded(category.id)
         return HStack(spacing: 4) {
             Button { withAnimation(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : .smooth(duration: 0.2)) { browser.toggleCategory(category.id) } } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: category.collapsed ? "chevron.right" : "chevron.down").font(.system(size: 8, weight: .bold)).frame(width: 10)
+                    Image(systemName: folded ? "chevron.right" : "chevron.down").font(.system(size: 8, weight: .bold)).frame(width: 10)
                     if let color = category.color { Circle().fill(color.color).frame(width: 7, height: 7) }
                     Text(category.name.uppercased()).lineLimit(1)
                     Text("\(count)").foregroundStyle(.secondary)
@@ -1474,14 +1690,14 @@ struct FolderBrowserSection: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Category \(category.name)")
-            .accessibilityValue("\(count) \(count == 1 ? "item" : "items"), \(category.collapsed ? "collapsed" : "expanded")")
-            .accessibilityHint(category.collapsed ? "Expands the category" : "Collapses the category")
+            .accessibilityValue("\(count) \(count == 1 ? "item" : "items"), \(folded ? "collapsed" : "expanded")")
+            .accessibilityHint(folded ? "Expands the category" : "Collapses the category")
             .accessibilityAddTraits(.isHeader)
             .accessibilityAction(named: "New Markdown file in category") { promptNew(.file, category: category) }
             .accessibilityAction(named: "New folder in category") { promptNew(.folder, category: category) }
             .accessibilityAction(named: "Rename") { promptCategory(category) }
-            .accessibilityAction(named: "Move up") { browser.moveCategory(category.id, by: -1) }
-            .accessibilityAction(named: "Move down") { browser.moveCategory(category.id, by: 1) }
+            .accessibilityAction(named: "Move up") { attempt { try browser.moveCategory(category.id, by: -1) } }
+            .accessibilityAction(named: "Move down") { attempt { try browser.moveCategory(category.id, by: 1) } }
             // The same quiet "+" a folder shows on hover, for making something that starts out in this category.
             if hoveredHeader == id && browser.canManageCategories {
                 Menu {
@@ -1508,17 +1724,19 @@ struct FolderBrowserSection: View {
             Button("Rename…") { promptCategory(category) }
             Menu("Color") {
                 ForEach(MarkColor.allCases, id: \.self) { color in
-                    Button { browser.setCategoryColor(category.id, color) } label: {
+                    Button { attempt { try browser.setCategoryColor(category.id, color) } } label: {
                         Label { Text(browser.label(for: color) + (category.color == color ? " ✓" : "")) } icon: { Image(nsImage: color.swatch) }
                     }
                 }
-                if category.color != nil { Divider(); Button("No Color") { browser.setCategoryColor(category.id, nil) } }
+                if category.color != nil { Divider(); Button("No Color") { attempt { try browser.setCategoryColor(category.id, nil) } } }
             }
             Divider()
-            Button("Move Up") { browser.moveCategory(category.id, by: -1) }.disabled(browser.categories.list.first?.id == category.id)
-            Button("Move Down") { browser.moveCategory(category.id, by: 1) }.disabled(browser.categories.list.last?.id == category.id)
+            Button("Move Up") { attempt { try browser.moveCategory(category.id, by: -1) } }.disabled(browser.categories.first?.id == category.id)
+            Button("Move Down") { attempt { try browser.moveCategory(category.id, by: 1) } }.disabled(browser.categories.last?.id == category.id)
+            Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([category.url]) }
             Divider()
-            Button("Delete Category", role: .destructive) { browser.deleteCategory(category.id) }
+            Button("Turn into Regular Folder") { attempt { try browser.removeCategory(category.id) } }
+                .help("\(category.name) stays a folder with everything still inside; it just stops being a category")
         }
     }
 
@@ -1526,29 +1744,38 @@ struct FolderBrowserSection: View {
         if on { targetedHeader = id } else if targetedHeader == id { targetedHeader = nil }
     }
 
-    /// Only folders and files shown in this very list can be filed; anything else is refused with a hint.
+    /// Dropping on a category's heading moves items into its folder; on Folders or Files, back to the top of the
+    /// writing folder. Projects and other categories stay where they are, and anything from elsewhere gets a hint.
     private func dropOnHeader(_ urls: [URL], category: String?) -> Bool {
-        guard let current = browser.current else { return false }
-        var filed = false
-        for url in urls {
-            guard url.deletingLastPathComponent().standardizedFileURL.path == current.standardizedFileURL.path,
-                  FileManager.default.fileExists(atPath: url.path), !FictionProject.isProject(url) else { continue }
-            browser.assign(url, to: category)
-            filed = true
+        guard let root = browser.root else { return false }
+        let movable = browser.dragSet(for: urls).filter { url in
+            FolderMove.isInside(url, of: root) && url.standardizedFileURL != root.standardizedFileURL
+                && FileManager.default.fileExists(atPath: url.path) && !FictionProject.isProject(url) && !CategoryFolder.isCategory(url)
         }
-        if !filed { problem = "Drag folders and files from this list onto a category to file them there." }
-        return filed
+        guard !movable.isEmpty else {
+            problem = "Drag folders and files from this list onto a category to move them into it."
+            return false
+        }
+        attempt { try browser.assign(movable, to: category) }
+        return true
     }
 
-    private func promptCategory(_ editing: FolderCategory?) {
+    /// Runs a desk action that touches the disk, showing what went wrong if it fails.
+    private func attempt(_ action: () throws -> Void) {
+        do { try action() } catch { problem = error.localizedDescription }
+    }
+
+    private func promptCategory(_ editing: DeskCategory?) {
         categoryEditing = editing
         categoryName = editing?.name ?? ""
         showCategoryAlert = true
     }
 
     private func saveCategory() {
-        let ok = categoryEditing.map { browser.renameCategory($0.id, to: categoryName) } ?? browser.addCategory(named: categoryName)
-        if !ok { problem = "A category needs a name that isn’t already in use." }
+        attempt {
+            if let editing = categoryEditing { try browser.renameCategory(editing.id, to: categoryName) }
+            else { try browser.addCategory(named: categoryName) }
+        }
     }
 
     private func projectHeader(_ project: FictionProject, _ url: URL) -> some View {
@@ -1661,6 +1888,43 @@ struct FolderBrowserSection: View {
         }
     }
 
+    /// Shown once to anyone with categories from a beta: they lived only in Sable's settings, and now become folders,
+    /// but only when the writer says so.
+    private var legacyCategoryNotice: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Categories are folders now, so Finder, iCloud, and your other Macs see them too. Sable can turn yours into folders and move what you filed under them inside.")
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                Button(converting ? "Making Folders…" : "Make Folders…") { confirmLegacyConversion = true }
+                    .buttonStyle(.plain).foregroundStyle(Color.accentColor).disabled(converting)
+                Button("Not Now") { legacyNoticeDismissed = true }.buttonStyle(.plain).foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+        }
+        .font(.system(size: 11)).padding(8)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .confirmationDialog("Turn your categories into folders?", isPresented: $confirmLegacyConversion, titleVisibility: .visible) {
+            Button("Make Folders") { convertLegacyCategories() }
+            Button("Forget the Categories") { browser.forgetLegacyCategories() }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text(legacyConversionSummary) }
+    }
+
+    private var legacyConversionSummary: String {
+        let plan = browser.legacyConversionPlan()
+        let parts = plan.map { step in "\(step.folderName) (\(step.items.count) \(step.items.count == 1 ? "item" : "items"))" }
+        return "Sable makes a folder for each category at the top of your writing folder: \(ListFormatter.localizedString(byJoining: parts)). Then it moves what you filed under each one inside. A snapshot of every file that moves is saved first, and anything you have open follows its file. Forget the Categories leaves every file where it is."
+    }
+
+    private func convertLegacyCategories() {
+        converting = true
+        Task {
+            do { try await browser.convertLegacyCategories() } catch { problem = error.localizedDescription }
+            converting = false
+        }
+    }
+
     private func trashNotice(_ batch: TrashBatch) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "trash").foregroundStyle(.secondary).accessibilityHidden(true)
@@ -1751,9 +2015,8 @@ struct FolderBrowserSection: View {
         showNewItem = true
     }
 
-    /// New from a category's heading: made at the top of the writing folder and filed under the category straight away.
-    private func promptNew(_ kind: NewItemKind, category: FolderCategory) {
-        guard let folder = browser.current else { return }
+    /// New from a category's heading: made inside the category's folder.
+    private func promptNew(_ kind: NewItemKind, category: DeskCategory) {
         if kind == .folder, !flat {
             do { try browser.createFolderToName(inCategory: category.id) } catch { problem = error.localizedDescription }
             return
@@ -1761,7 +2024,7 @@ struct FolderBrowserSection: View {
         newProjectItem = nil
         newCategory = category
         newKind = kind
-        newFolder = folder
+        newFolder = category.url
         newName = ""
         showNewItem = true
     }
@@ -1970,6 +2233,8 @@ private struct BrowserRowView: View {
     let adoptFolder: (URL) -> Void
     let newCategory: () -> Void
     let addToFolder: (URL, NewProjectItem) -> Void
+    /// Files the item under a category (moving it into the category's folder), or back out with nil.
+    let fileUnder: (URL, String?) -> Void
     @AppStorage("sidebarCompact") private var compact = false
     @AppStorage("sidebarShowIcons") private var showIcons = true
     @AppStorage("sidebarShowExtensions") private var showExtensions = false
@@ -2177,14 +2442,14 @@ private struct BrowserRowView: View {
             Button("New Markdown File in This Folder…") { promptNew(.file, entry.url) }
             Button("New Folder in This Folder") { promptNew(.folder, entry.url) }
             if !inProject { Button("Make Fiction Project…") { adoptFolder(entry.url) } }
-            if !inProject { categoryMenu }
+            if browser.canManageCategories { categoryMenu }
         } else {
             Button("Switch to This File") { switchFile(entry.url) }
             Button("Open Beside Current Document") { showParallel(entry.url) }.disabled(isCurrent)
             if inProject && isMarkdown {
                 Button("Show as Card") { showCard(entry.url) }
             }
-            if !inProject { categoryMenu }
+            if browser.canManageCategories { categoryMenu }
         }
         if browser.isChapter(entry.url) { chapterMenu }
         Divider()
@@ -2224,11 +2489,11 @@ private struct BrowserRowView: View {
     private var categoryMenu: some View {
         let assigned = browser.categoryID(of: entry)
         return Menu("Category") {
-            ForEach(browser.categories.list) { category in
-                Button(category.name + (assigned == category.id ? " ✓" : "")) { browser.assign(entry.url, to: category.id) }
+            ForEach(browser.categories) { category in
+                Button(category.name + (assigned == category.id ? " ✓" : "")) { fileUnder(entry.url, category.id) }.disabled(assigned == category.id)
             }
-            if !browser.categories.list.isEmpty { Divider() }
-            if assigned != nil { Button("Remove from Category") { browser.assign(entry.url, to: nil) } }
+            if !browser.categories.isEmpty { Divider() }
+            if assigned != nil { Button("Remove from Category") { fileUnder(entry.url, nil) } }
             Button("New Category…", action: newCategory)
         }
     }
