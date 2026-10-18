@@ -404,7 +404,7 @@ HEADER = """<body>
 """
 
 FOOTER = """
-<footer class="site"><div class="bar"><span><a href="https://github.com/ExxtraV/Sable-Markdown-Suite/blob/main/TRADEMARK.md">Sable Markdown Writer™</a> — free and open source (MIT).</span><nav aria-label="Footer"><a href="/guide">Guide</a><a href="/blog">Blog</a><a href="/privacy">Privacy</a><a href="https://github.com/ExxtraV/Sable-Markdown-Suite">GitHub</a><a href="https://buymeacoffee.com/sablewriter">Support Sable</a><a href="https://github.com/ExxtraV/Sable-Markdown-Suite/releases">Releases</a><a href="https://github.com/ExxtraV/Sable-Markdown-Suite/issues">Report a bug</a></nav></div></footer>
+<footer class="site"><div class="bar"><span><a href="https://github.com/ExxtraV/Sable-Markdown-Suite/blob/main/TRADEMARK.md">Sable Markdown Writer™</a> — free and open source (MIT).</span><nav aria-label="Footer"><a href="/guide">Guide</a><a href="/blog">Blog</a><a href="/privacy">Privacy</a><a href="https://github.com/ExxtraV/Sable-Markdown-Suite">GitHub</a><a href="https://github.com/ExxtraV/Sable-Markdown-Suite/releases">Releases</a><a href="https://github.com/ExxtraV/Sable-Markdown-Suite/issues">Report a bug</a></nav></div></footer>
 </body>
 </html>
 """
