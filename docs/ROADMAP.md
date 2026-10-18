@@ -28,6 +28,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 
 ## Phase 2: Story tools
 
+- A quieter sidebar while you type: after a few seconds of steady typing, the writing desk fades to a faint ghost in place, so the page never shifts. It comes back the moment you move the mouse or point at it, and stays clickable throughout. On by default, with a switch to turn it off.
 - Card links between manuscript text and character/location/world-note cards.
 - Scene status.
 - Chapter synopses in the Manuscript tab.
