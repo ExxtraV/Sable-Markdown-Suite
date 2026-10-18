@@ -2,6 +2,10 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
+## Unreleased
+
+- **New writing theme: Cosmic.** Made for the run-up to 1.0: deep indigo space seen out of focus. Paper `0C1131`, ink `ECEEFA`, bottom bar `080B24`, edge shade `03051A`. Two new effects sit behind the words. **Nebula haze** (`NebulaHaze`): six large, soft clouds of blue, magenta, and violet (`3048A8`, `9A3390`, `5533A8`), each a radial gradient peaking at 30% opacity, that wander a little over two to four minutes and redraw at 12 frames a second; they hold still under Reduce Motion. **Bokeh lights**: `ParticleField` gained a `bokeh` mode that draws 34 large soft lights (3 to 16 points across, fading at their rims) in teal, amber, pink, pale blue, and lavender, rising at 0.2 of Arcane's pace. `ThemeSpec` gained `haze`, `hazeOpacity`, `particleCount`, `particleColors`, and `particleBokeh`; `ParticleField` now takes a list of colors. Both effects follow one switch, `themeParticles-cosmic`, labeled "Nebula and drifting lights" in Writing Style, and both are off under Increase Contrast and Reduce Transparency. The theme swatch shows the haze, still. `ThemePalette.pageColors` now counts the paper under one cloud and under two overlapping, so `check-contrast.swift` measures text against the haze at its brightest; Cosmic passes, with dimmed Markdown symbols at about 3.4:1 (limit 3:1) and muted words at about 4.9:1 (limit 4.5:1) at the strongest Edge darkness. The check also confirms the haze and particle colors parse.
+
 ## 1.0.0-beta.4
 
 The fourth beta of 1.0, for people who turn on **Get beta updates**. Numbered lists that count themselves, undo that keeps working, notes to yourself no longer counted as words, and Scrivener footnotes and comments carried over.

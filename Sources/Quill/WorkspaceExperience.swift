@@ -16,9 +16,19 @@ struct WritingTheme: Identifiable {
     var chrome: String? { spec.chrome }
     /// Darker shade the page fades toward at its edges. Themes that set it feel "narrowed in" on the writing.
     var edge: String? { spec.edge }
+    /// Clouds of nebula haze drawn behind the page, and how opaque each is at its center.
+    var haze: [Color]? { spec.haze.map { $0.compactMap { NSColor(quillHex: $0) }.map(Color.init(nsColor:)) } }
+    var hazeOpacity: Double { spec.hazeOpacity }
+    var particleBokeh: Bool { spec.particleBokeh }
     /// A theme that drifts faint motes of light behind the text, for a quiet fantasy feel.
     var particles: Bool { spec.particles }
     var particleDrift: Double { spec.particleDrift }
+    var particleCount: Int { spec.particleCount }
+    /// The motes' colors; the ink color alone when the theme names none.
+    var particleColors: [Color] {
+        let colors = (spec.particleColors ?? []).compactMap { NSColor(quillHex: $0) }.map(Color.init(nsColor:))
+        return colors.isEmpty ? [Color(nsColor: foreground)] : colors
+    }
     /// The setting that turns this theme's particles on or off.
     var particlesSetting: String { spec.particlesSetting }
     var background: NSColor { NSColor(quillHex: paper)! }
@@ -66,24 +76,29 @@ private struct SeededGenerator: RandomNumberGenerator {
 }
 
 /// Faint motes of light drifting slowly behind the text, for themes with a quiet fantasy touch: rising for Arcane,
-/// falling for Starfall. Off entirely under Reduce Motion, and never intercepts clicks.
+/// falling for Starfall, and for Cosmic a few large, soft, out-of-focus lights. Off entirely under Reduce Motion, and never
+/// intercepts clicks.
 struct ParticleField: View {
-    let color: Color
+    let colors: [Color]
     var count: Int = 44
     /// 1 is Arcane's upward pace; a negative number falls instead.
     var drift: Double = 1
-    private struct Mote { let x, y, size, speed, phase: Double }
+    /// Large soft lights that fade at their rims, like out-of-focus points, instead of small sharp motes.
+    var bokeh = false
+    private struct Mote { let x, y, size, speed, phase: Double; let color: Int }
     private let motes: [Mote]
 
-    init(color: Color, count: Int = 44, drift: Double = 1) {
-        self.color = color
+    init(colors: [Color], count: Int = 44, drift: Double = 1, bokeh: Bool = false) {
+        self.colors = colors.isEmpty ? [.white] : colors
         self.count = count
         self.drift = drift
+        self.bokeh = bokeh
         var generator = SeededGenerator(seed: 7)
-        motes = (0..<count).map { _ in
+        let palette = self.colors.count
+        motes = (0..<count).map { index in
             Mote(x: Double.random(in: 0...1, using: &generator), y: Double.random(in: 0...1, using: &generator),
-                 size: Double.random(in: 1.2...2.8, using: &generator), speed: Double.random(in: 0.012...0.05, using: &generator),
-                 phase: Double.random(in: 0...1, using: &generator))
+                 size: Double.random(in: bokeh ? 3...16 : 1.2...2.8, using: &generator), speed: Double.random(in: 0.012...0.05, using: &generator),
+                 phase: Double.random(in: 0...1, using: &generator), color: index % palette)
         }
     }
 
@@ -100,12 +115,74 @@ struct ParticleField: View {
                         let twinkle = 0.35 + 0.5 * (0.5 + 0.5 * sin(t * 0.6 + mote.phase * .pi * 2))
                         let point = CGPoint(x: mote.x * size.width, y: y * size.height)
                         let rect = CGRect(x: point.x - mote.size / 2, y: point.y - mote.size / 2, width: mote.size, height: mote.size)
-                        context.opacity = twinkle * 0.55
-                        context.fill(Path(ellipseIn: rect), with: .color(color))
+                        let color = colors[mote.color]
+                        if bokeh {
+                            context.opacity = twinkle * 0.35
+                            context.fill(Path(ellipseIn: rect), with: .radialGradient(
+                                Gradient(stops: [.init(color: color, location: 0), .init(color: color.opacity(0.55), location: 0.55), .init(color: color.opacity(0), location: 1)]),
+                                center: point, startRadius: 0, endRadius: mote.size / 2))
+                        } else {
+                            context.opacity = twinkle * 0.55
+                            context.fill(Path(ellipseIn: rect), with: .color(color))
+                        }
                     }
                 }
             }
             .allowsHitTesting(false).accessibilityHidden(true)
+        }
+    }
+}
+
+/// Soft clouds of color behind the page, for Cosmic: a nebula seen out of focus. Each cloud is a radial gradient that peaks at
+/// `opacity` and fades to nothing; `scripts/check-contrast.swift` measures text against one cloud and two overlapping. The
+/// clouds wander a little over a few minutes, and hold still under Reduce Motion. Never intercepts clicks.
+struct NebulaHaze: View {
+    let colors: [Color]
+    let opacity: Double
+    var animated = true
+    private struct Cloud { let x, y, radius, wander, period, phase: Double; let color: Int }
+    private let clouds: [Cloud]
+
+    init(colors: [Color], opacity: Double, animated: Bool = true) {
+        self.colors = colors.isEmpty ? [.clear] : colors
+        self.opacity = opacity
+        self.animated = animated
+        var generator = SeededGenerator(seed: 11)
+        let palette = self.colors.count
+        clouds = (0..<6).map { index in
+            Cloud(x: Double.random(in: 0...1, using: &generator), y: Double.random(in: 0...1, using: &generator),
+                  radius: Double.random(in: 0.3...0.55, using: &generator), wander: Double.random(in: 0.04...0.09, using: &generator),
+                  period: Double.random(in: 120...240, using: &generator), phase: Double.random(in: 0...1, using: &generator),
+                  color: index % palette)
+        }
+    }
+
+    var body: some View {
+        Group {
+            if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                // The clouds move a fraction of a point per frame, so a few frames a second is plenty.
+                TimelineView(.animation(minimumInterval: 1.0 / 12)) { timeline in canvas(at: timeline.date.timeIntervalSinceReferenceDate) }
+            } else {
+                canvas(at: 0)
+            }
+        }
+        .allowsHitTesting(false).accessibilityHidden(true)
+    }
+
+    private func canvas(at time: Double) -> some View {
+        Canvas { context, size in
+            let span = max(size.width, size.height)
+            for cloud in clouds {
+                let angle = (time / cloud.period + cloud.phase) * 2 * .pi
+                let center = CGPoint(x: (cloud.x + cloud.wander * cos(angle)) * size.width, y: (cloud.y + cloud.wander * sin(angle)) * size.height)
+                let radius = cloud.radius * span
+                let color = colors[cloud.color]
+                context.fill(Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)),
+                             with: .radialGradient(Gradient(stops: [.init(color: color.opacity(opacity), location: 0),
+                                                                    .init(color: color.opacity(opacity * 0.45), location: 0.45),
+                                                                    .init(color: color.opacity(0), location: 1)]),
+                                                   center: center, startRadius: 0, endRadius: radius))
+            }
         }
     }
 }
