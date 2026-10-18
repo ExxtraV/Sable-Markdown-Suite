@@ -16,7 +16,7 @@ First priority: a dependable Markdown editor that keeps writers focused on one p
 - ~~Scrivener import follow-ups: Scrivener footnotes and comments carried over, and hidden notes left out of word counts.~~ Done in 1.0.0-beta.4.
 - ~~Numbered lists that renumber themselves when an item is added or removed.~~ Done in 1.0.0-beta.4.
 - ~~Fix: switching between Reading Mode and editing keeps your place.~~ Done in 1.0.0-beta.3.
-- Writing desk: add a folder or file inside a category, and fold the Folders and Files sections.
+- ~~Writing desk: add a folder or file inside a category, and fold the Folders and Files sections.~~ Done, coming in the next beta. Categories now hold files as well as folders, and the Fiction Projects heading folds too.
 - ~~A sample project new users can open immediately.~~ Done in 1.0.0-beta.2.
 - ~~Accessibility pass (VoiceOver, keyboard navigation, contrast).~~ Done in 1.0.0-beta.2.
 - ~~Report a Bug, built into the app.~~ Done in 1.0.0-beta.2.
