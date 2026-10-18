@@ -70,6 +70,17 @@ Optional sentence coloring highlights nouns, verbs, adjectives, adverbs, and pro
 
 Sable is built to work with VoiceOver, with the keyboard alone, and with the system's display settings. Every control has a name, toolbar tools you switch on and off report On or Off, and the desk, cards, Story Timeline, and writing record have spoken summaries. Anything that appears only when the pointer hovers is also a VoiceOver action, and the drag-to-reorder lists (Customize Tools, the Manuscript tab) have keyboard and VoiceOver equivalents. Every sheet and popover closes with Escape. With VoiceOver or Keyboard navigation on, the toolbar stays in view instead of auto-hiding. Increase Contrast brightens dimmed text and gives a flat page, Reduce Transparency makes panels solid, and Reduce Motion turns off animation, particles, and the name shimmer. Every theme's text, dimmed Markdown symbols, paragraph-focus dimming, and name and sentence colors are measured against WCAG contrast limits by `scripts/check-contrast.swift`. [CONTRIBUTING.md](CONTRIBUTING.md) lists the conventions and has a short manual VoiceOver test for anyone changing the interface.
 
+## Install
+
+Download **Sable-Markdown-Writer.dmg** from the [latest release](https://github.com/ExxtraV/Sable-Markdown-Suite/releases/latest), open it, and drag Sable Markdown Writer onto the Applications shortcut.
+
+Sable isn't notarized by Apple, which takes a paid developer membership, so macOS blocks the first launch. You approve it once:
+
+1. Open Sable from Applications. macOS says it can't verify the app; click **Done** (or **OK**).
+2. Open **System Settings → Privacy & Security** and scroll down to Security. It says Sable Markdown Writer was blocked. Click **Open Anyway**, then confirm with your password or Touch ID.
+
+After that, Sable opens normally, and updates installed from inside Sable don't need the approval again. Every update download is checked against Sable's own signing key. On macOS 14 you can instead Control-click the app in Applications, choose **Open**, then **Open** again. A Mac managed by an employer or school may not allow the exception. Never turn Gatekeeper off to run Sable.
+
 ## Build
 
 Requires Apple Swift 6 tools (Xcode or Command Line Tools) and a macOS SDK. Sparkle is the only third-party dependency; SwiftPM downloads its pinned binary framework. Local editing needs no service keys. Community updates require a Sparkle signing key and public release feed; Apple signing is optional.
