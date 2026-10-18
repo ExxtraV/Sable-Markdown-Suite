@@ -981,6 +981,7 @@ final class FolderBrowser: ObservableObject {
                 current = url
                 marks = FolderMarksStore.load(for: url)
                 legacyCategories = FolderCategoriesStore.load(for: url)
+                refreshCategories()
                 if stale, let fresh = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) {
                     UserDefaults.standard.set(fresh, forKey: "writingFolder")
                 }
