@@ -152,7 +152,7 @@ import Foundation
         precondition(browser.cardKind(of: example) == nil, "Outside a project nothing is a card")
         precondition(!browser.isManuscript(manuscript) && browser.color(of: manuscript) == nil && !browser.isPinned(manuscript), "Manuscript defaults apply only inside its project")
 
-        // Categories: you make them in the writing folder, file folders under them, and they persist
+        // Categories: you make them in the writing folder, file folders and files under them, and they persist
         precondition(browser.canManageCategories)
         precondition(browser.addCategory(named: "School") && !browser.addCategory(named: "school") && !browser.addCategory(named: "  "))
         let categoryID = browser.categories.list[0].id
@@ -160,7 +160,10 @@ import Foundation
         browser.assign(notes, to: categoryID)
         precondition(browser.categoryID(of: BrowserEntry(url: notes, isDirectory: true)) == categoryID)
         precondition(browser.categoryID(of: BrowserEntry(url: project, isDirectory: true, isProject: true)) == nil, "Projects aren't filed under categories")
-        precondition(browser.categoryID(of: BrowserEntry(url: notes, isDirectory: false)) == nil, "Only folders are")
+        let ideas = root.appendingPathComponent("Ideas.md")
+        try Data().write(to: ideas)
+        browser.assign(ideas, to: categoryID)
+        precondition(browser.categoryID(of: BrowserEntry(url: ideas, isDirectory: false)) == categoryID, "Files can be filed too")
         let relaunched = FolderBrowser()
         precondition(relaunched.categories == browser.categories, "Categories survive a relaunch")
         let archive = root.appendingPathComponent("Archive")
@@ -170,6 +173,45 @@ import Foundation
         precondition(browser.categoryID(of: BrowserEntry(url: movedNotes, isDirectory: true)) == categoryID, "A moved folder keeps its category")
         let renamedNotes = try browser.rename(BrowserEntry(url: movedNotes, isDirectory: true), to: "Term Papers")
         precondition(browser.categoryID(of: BrowserEntry(url: renamedNotes, isDirectory: true)) == categoryID, "…and a renamed one")
+
+        // New from a category's heading: made at the top of the writing folder and filed under it, and a folded category opens
+        browser.toggleCategory(categoryID)
+        precondition(browser.categories.category(withID: categoryID)?.collapsed == true)
+        let essay = try browser.create(.file, named: "Essay", inCategory: categoryID)
+        precondition(same(essay.deletingLastPathComponent(), root) && essay.lastPathComponent == "Essay.md" && fm.fileExists(atPath: essay.path))
+        precondition(browser.categoryID(of: BrowserEntry(url: essay, isDirectory: false)) == categoryID, "A new file lands in the category")
+        precondition(browser.categories.category(withID: categoryID)?.collapsed == false, "…which opens to show it")
+        let untitled = try browser.createFolderToName(inCategory: categoryID)
+        precondition(fm.fileExists(atPath: untitled.path) && browser.renaming == untitled && browser.selection == untitled, "A new folder waits for its name")
+        precondition(browser.categoryID(of: BrowserEntry(url: untitled, isDirectory: true)) == categoryID, "…already in the category")
+        let labReports = try browser.rename(BrowserEntry(url: untitled, isDirectory: true), to: "Lab Reports")
+        browser.renaming = nil
+        precondition(browser.categoryID(of: BrowserEntry(url: labReports, isDirectory: true)) == categoryID, "Naming it keeps it there")
+        do { _ = try browser.create(.file, named: "Essay", inCategory: categoryID); preconditionFailure() } catch FolderCreationError.exists {}
+        do { _ = try browser.create(.file, named: "Stray", inCategory: "no-such-category"); preconditionFailure() } catch FolderCreationError.noCategory {}
+        precondition(!fm.fileExists(atPath: root.appendingPathComponent("Stray.md").path), "Nothing is made for a category that isn't there")
+
+        // The Fiction Projects, Folders, and Files headings fold, and stay folded after a relaunch
+        for id in browser.foldedSections { browser.toggleSection(id) }
+        defer { UserDefaults.standard.removeObject(forKey: FolderBrowser.foldedSectionsKey) }
+        browser.toggleSection("files")
+        browser.toggleSection("projects")
+        precondition(browser.isSectionFolded("files") && browser.isSectionFolded("projects") && !browser.isSectionFolded("folders"))
+        precondition(FolderBrowser().foldedSections == ["files", "projects"], "Folded headings survive a relaunch")
+        browser.toggleSection("projects")
+        precondition(!browser.isSectionFolded("projects") && browser.isSectionFolded("files"), "Unfolding one leaves the others")
+        _ = try browser.create(.file, named: "Loose Page", in: root)
+        precondition(!browser.isSectionFolded("files"), "A new file opens the folded Files heading so it shows")
+        browser.toggleSection("folders")
+        _ = try browser.create(.file, named: "Another Page", in: root)
+        precondition(browser.isSectionFolded("folders"), "…and leaves Folders alone")
+        _ = try browser.createFolderToName(in: root)
+        browser.renaming = nil
+        precondition(!browser.isSectionFolded("folders"), "A new folder opens Folders")
+        browser.toggleSection("files")
+        _ = try browser.create(.file, named: "Filed Page", inCategory: categoryID)
+        precondition(browser.isSectionFolded("files"), "A file made in a category doesn't unfold Files")
+        browser.toggleSection("files")
         browser.deleteCategory(categoryID)
         precondition(browser.categoryID(of: BrowserEntry(url: renamedNotes, isDirectory: true)) == nil && fm.fileExists(atPath: renamedNotes.path), "Deleting a category leaves the folders alone")
 
@@ -240,6 +282,6 @@ import Foundation
         precondition(same(browser.writingFolder, root) && browser.visiting == nil && same(browser.root, root) && !browser.declinedWritingFolder, "Choosing a folder again turns it all back on")
         precondition(UserDefaults.standard.data(forKey: "writingFolder") != nil)
 
-        print("Passed: desk project mode (scoping, entering, leaving, follow-the-file, converting, adopting), and files from elsewhere (offered not forced, never saved, no writing folder).")
+        print("Passed: desk project mode (scoping, entering, leaving, follow-the-file, converting, adopting), categories (files and folders, new items made in one), folding the desk's headings, and files from elsewhere (offered not forced, never saved, no writing folder).")
     }
 }

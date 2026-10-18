@@ -101,11 +101,12 @@ enum NewItemKind: Sendable {
 }
 
 enum FolderCreationError: LocalizedError {
-    case invalidName, exists(String)
+    case invalidName, exists(String), noCategory
     var errorDescription: String? {
         switch self {
         case .invalidName: return "Names can’t be empty, start with a period, or contain “/” or “:”."
         case let .exists(name): return "“\(name)” already exists in this folder."
+        case .noCategory: return "Categories live at the top of your writing folder. Go back there to add something to one."
         }
     }
 }
@@ -346,8 +347,8 @@ struct FolderMarks: Codable, Equatable, Sendable {
     }
 }
 
-/// Named groups (School, Work, Hobbies…) that folders can be dragged into. Assignments are stored by
-/// folder path, so a folder keeps its category when it is renamed or moved inside Sable.
+/// Named groups (School, Work, Hobbies…) that folders and files can be dragged into. Assignments are stored by
+/// path, so an item keeps its category when it is renamed or moved inside Sable.
 struct FolderCategory: Codable, Equatable, Identifiable, Sendable {
     var id: String
     var name: String
@@ -369,7 +370,7 @@ struct FolderCategories: Codable, Equatable, Sendable {
         list.contains { $0.id != id && $0.name.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }
     }
     func category(withID id: String?) -> FolderCategory? { id.flatMap { id in list.first { $0.id == id } } }
-    /// The category a folder belongs to, ignoring assignments to categories that no longer exist.
+    /// The category an item belongs to, ignoring assignments to categories that no longer exist.
     func categoryID(forKey key: String) -> String? { assignments[key].flatMap { id in list.contains { $0.id == id } ? id : nil } }
     func members(of id: String) -> [String] { assignments.filter { $0.value == id }.map(\.key).sorted() }
 
@@ -386,7 +387,7 @@ struct FolderCategories: Codable, Equatable, Sendable {
         list[index].name = name
         return true
     }
-    /// Removing a category never touches the folders; they simply go back to the ordinary list.
+    /// Removing a category never touches its folders and files; they simply go back to the ordinary list.
     mutating func delete(_ id: String) {
         list.removeAll { $0.id == id }
         assignments = assignments.filter { $0.value != id }
@@ -497,6 +498,9 @@ final class FolderBrowser: ObservableObject {
     @Published var foldersFirst = UserDefaults.standard.object(forKey: "foldersFirst") as? Bool ?? true {
         didSet { UserDefaults.standard.set(foldersFirst, forKey: "foldersFirst") }
     }
+    /// The desk's headings folded away (Fiction Projects, Folders, Files), by section id. Kept across launches.
+    @Published private(set) var foldedSections = Set(UserDefaults.standard.stringArray(forKey: FolderBrowser.foldedSectionsKey) ?? [])
+    static let foldedSectionsKey = "deskFoldedSections"
     private var searchTask: Task<Void, Never>?
     private var countingWords: Set<URL> = []
     private var trashNoticeTask: Task<Void, Never>?
@@ -843,6 +847,7 @@ final class FolderBrowser: ObservableObject {
     func create(_ kind: NewItemKind, named name: String, in folder: URL) throws -> URL {
         let url = try FolderCreation.create(kind, named: name, in: folder)
         if folder.standardizedFileURL != current?.standardizedFileURL { expanded.insert(folder); loadChildren(folder) }
+        else { unfoldSections(kind == .folder ? ["folders", "other"] : ["files", "other"]) }
         reload()
         return url
     }
@@ -1007,7 +1012,7 @@ final class FolderBrowser: ObservableObject {
         return current.standardizedFileURL.path == root.standardizedFileURL.path
     }
     func categoryID(of entry: BrowserEntry) -> String? {
-        guard entry.isDirectory, !entry.isProject, let root, let key = FolderMarks.key(for: entry.url, in: root) else { return nil }
+        guard !entry.isProject, let root, let key = FolderMarks.key(for: entry.url, in: root) else { return nil }
         return categories.categoryID(forKey: key)
     }
     private func commitCategories() {
@@ -1034,11 +1039,44 @@ final class FolderBrowser: ObservableObject {
         categories.setCollapsed(id, !category.collapsed)
         commitCategories()
     }
-    /// Files a folder under a category (or back to the ordinary list with nil).
+    /// Files a folder or file under a category (or back to the ordinary list with nil).
     func assign(_ url: URL, to id: String?) {
         guard let root, let key = FolderMarks.key(for: url, in: root) else { return }
         categories.assign(key: key, to: id)
         commitCategories()
+    }
+    /// Makes a file or folder at the top of the writing folder and files it under the category, which opens
+    /// if it was folded so the new item shows.
+    @discardableResult
+    func create(_ kind: NewItemKind, named name: String, inCategory id: String) throws -> URL {
+        guard canManageCategories, let current, categories.category(withID: id) != nil else { throw FolderCreationError.noCategory }
+        let url = try FolderCreation.create(kind, named: name, in: current)
+        categories.setCollapsed(id, false)
+        assign(url, to: id)
+        reload()
+        return url
+    }
+    /// An untitled folder filed under the category, waiting for its name, as `createFolderToName(in:)` does.
+    @discardableResult
+    func createFolderToName(inCategory id: String) throws -> URL {
+        guard let current else { throw FolderCreationError.noCategory }
+        let url = try create(.folder, named: FolderCreation.untitledFolderName(in: current), inCategory: id)
+        selection = url
+        renaming = url
+        return url
+    }
+
+    // MARK: Folding the desk's headings
+    func isSectionFolded(_ id: String) -> Bool { foldedSections.contains(id) }
+    func toggleSection(_ id: String) {
+        if foldedSections.contains(id) { foldedSections.remove(id) } else { foldedSections.insert(id) }
+        UserDefaults.standard.set(foldedSections.sorted(), forKey: FolderBrowser.foldedSectionsKey)
+    }
+    /// Something new was made in a folded heading: open it, so the new item isn't hidden from the writer who made it.
+    private func unfoldSections(_ ids: [String]) {
+        guard ids.contains(where: { foldedSections.contains($0) }) else { return }
+        foldedSections.subtract(ids)
+        UserDefaults.standard.set(foldedSections.sorted(), forKey: FolderBrowser.foldedSectionsKey)
     }
 
     // MARK: Fiction Projects
@@ -1178,6 +1216,9 @@ struct FolderBrowserSection: View {
     @State private var categoryEditing: FolderCategory?
     @State private var categoryName = ""
     @State private var targetedHeader: String?
+    @State private var hoveredHeader: String?
+    /// The category a new file named in the alert goes into, when it was made from a category's heading.
+    @State private var newCategory: FolderCategory?
     @State private var adoptTarget: URL?
     @State private var newFolder: URL?
     @State private var newName = ""
@@ -1286,12 +1327,12 @@ struct FolderBrowserSection: View {
             TextField(newProjectItem?.prompt ?? (newKind == .file ? "Untitled.md" : "Folder name"), text: $newName)
             Button("Create") { createItem() }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("In “\(newFolder?.lastPathComponent ?? "")”") }
+        } message: { Text(newCategory.map { "In “\(newFolder?.lastPathComponent ?? "")”, under \($0.name)" } ?? "In “\(newFolder?.lastPathComponent ?? "")”") }
         .alert(categoryEditing == nil ? "New Category" : "Rename Category", isPresented: $showCategoryAlert) {
             TextField("School, Work, Hobbies…", text: $categoryName)
             Button(categoryEditing == nil ? "Create" : "Rename") { saveCategory() }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("Categories group your folders. Drag a folder onto a category to file it there.") }
+        } message: { Text("Categories group your folders and files. Drag one onto a category to file it there.") }
         .sheet(isPresented: $showNewProject) {
             NewProjectSheet(name: $projectName, starter: $projectStarter, location: browser.current?.lastPathComponent ?? "your writing folder",
                             create: createProject, cancel: { showNewProject = false })
@@ -1349,7 +1390,7 @@ struct FolderBrowserSection: View {
         let projects = blocks.filter { $0.entry.isProject }
         if !projects.isEmpty {
             items.append(.header(SectionHeader(kind: .projects, title: "Fiction Projects", count: projects.count)))
-            add(projects)
+            if !browser.isSectionFolded("projects") { add(projects) }
         }
         if useCategories {
             for category in browser.categories.list {
@@ -1362,18 +1403,21 @@ struct FolderBrowserSection: View {
         }
         let rest = blocks.filter { !$0.entry.isProject && (!useCategories || browser.categoryID(of: $0.entry) == nil) }
         var previous: RowGroup?
+        var folded = false
         for block in rest {
             let current = group(of: block.entry)
             if current != previous {
                 let count = rest.filter { group(of: $0.entry) == current }.count
-                switch current {
-                case .folder: items.append(.header(SectionHeader(kind: .folders, title: "Folders", count: count)))
-                case .file: items.append(.header(SectionHeader(kind: .files, title: "Files", count: count)))
-                case .other: items.append(.header(SectionHeader(kind: .other, title: "Folders & Files", count: count)))
+                let header = switch current {
+                case .folder: SectionHeader(kind: .folders, title: "Folders", count: count)
+                case .file: SectionHeader(kind: .files, title: "Files", count: count)
+                case .other: SectionHeader(kind: .other, title: "Folders & Files", count: count)
                 }
+                items.append(.header(header))
+                folded = browser.isSectionFolded(header.id)
                 previous = current
             }
-            items += block.rows.map { .row($0) }
+            if !folded { items += block.rows.map { .row($0) } }
         }
         return items
     }
@@ -1382,49 +1426,85 @@ struct FolderBrowserSection: View {
     private func headerView(_ header: SectionHeader, first: Bool) -> some View {
         switch header.kind {
         case let .category(category): categoryHeader(category, count: header.count, first: first)
-        case .folders, .other:
+        case .folders, .files, .other:
             plainHeader(header, first: first)
-                // Dropping a folder here takes it out of its category.
+                // Dropping a folder or file here takes it out of its category.
                 .dropDestination(for: URL.self) { urls, _ in dropOnHeader(urls, category: nil) } isTargeted: { setTargeted(header.id, $0) }
                 .background(targetedHeader == header.id ? Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 6))
-        case .projects, .files: plainHeader(header, first: first)
+        case .projects: plainHeader(header, first: first)
         }
     }
 
+    /// Fiction Projects, Folders, and Files fold like a category: click the heading to tuck its rows away.
+    /// Folded, it shows how many it holds, so nothing seems to have gone missing.
     private func plainHeader(_ header: SectionHeader, first: Bool) -> some View {
-        Text(header.title.uppercased()).font(.system(size: 9.5, weight: .semibold)).tracking(1.1).foregroundStyle(.secondary)
-            .padding(.horizontal, 8).padding(.top, first ? 2 : 12).padding(.bottom, 3)
-            .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-            .accessibilityLabel(header.title)
-            .accessibilityValue("\(header.count) \(header.count == 1 ? "item" : "items")")
-            .accessibilityAddTraits(.isHeader)
-    }
-
-    private func categoryHeader(_ category: FolderCategory, count: Int, first: Bool) -> some View {
-        Button { withAnimation(.smooth(duration: 0.2)) { browser.toggleCategory(category.id) } } label: {
+        let folded = browser.isSectionFolded(header.id)
+        return Button { withAnimation(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : .smooth(duration: 0.2)) { browser.toggleSection(header.id) } } label: {
             HStack(spacing: 6) {
-                Image(systemName: category.collapsed ? "chevron.right" : "chevron.down").font(.system(size: 8, weight: .bold)).frame(width: 10)
-                if let color = category.color { Circle().fill(color.color).frame(width: 7, height: 7) }
-                Text(category.name.uppercased()).lineLimit(1)
-                Text("\(count)").foregroundStyle(.secondary)
+                Image(systemName: folded ? "chevron.right" : "chevron.down").font(.system(size: 8, weight: .bold)).frame(width: 10)
+                Text(header.title.uppercased()).lineLimit(1)
+                if folded { Text("\(header.count)") }
                 Spacer(minLength: 0)
             }
             .font(.system(size: 9.5, weight: .semibold)).tracking(1.1).foregroundStyle(.secondary)
-            .padding(.horizontal, 8).padding(.vertical, 5).contentShape(Rectangle())
+            .padding(.horizontal, 8).padding(.top, first ? 2 : 12).padding(.bottom, 3)
+            .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Category \(category.name)")
-        .accessibilityValue("\(count) \(count == 1 ? "folder" : "folders"), \(category.collapsed ? "collapsed" : "expanded")")
-        .accessibilityHint(category.collapsed ? "Expands the category" : "Collapses the category")
+        .help(folded ? "Show \(header.title.lowercased())" : "Fold \(header.title.lowercased()) away")
+        .accessibilityLabel(header.title)
+        .accessibilityValue("\(header.count) \(header.count == 1 ? "item" : "items"), \(folded ? "collapsed" : "expanded")")
+        .accessibilityHint(folded ? "Expands the section" : "Collapses the section")
         .accessibilityAddTraits(.isHeader)
-        .accessibilityAction(named: "Rename") { promptCategory(category) }
-        .accessibilityAction(named: "Move up") { browser.moveCategory(category.id, by: -1) }
-        .accessibilityAction(named: "Move down") { browser.moveCategory(category.id, by: 1) }
+    }
+
+    private func categoryHeader(_ category: FolderCategory, count: Int, first: Bool) -> some View {
+        let id = "category:\(category.id)"
+        return HStack(spacing: 4) {
+            Button { withAnimation(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : .smooth(duration: 0.2)) { browser.toggleCategory(category.id) } } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: category.collapsed ? "chevron.right" : "chevron.down").font(.system(size: 8, weight: .bold)).frame(width: 10)
+                    if let color = category.color { Circle().fill(color.color).frame(width: 7, height: 7) }
+                    Text(category.name.uppercased()).lineLimit(1)
+                    Text("\(count)").foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                }
+                .font(.system(size: 9.5, weight: .semibold)).tracking(1.1).foregroundStyle(.secondary)
+                .padding(.horizontal, 8).padding(.vertical, 5).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Category \(category.name)")
+            .accessibilityValue("\(count) \(count == 1 ? "item" : "items"), \(category.collapsed ? "collapsed" : "expanded")")
+            .accessibilityHint(category.collapsed ? "Expands the category" : "Collapses the category")
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityAction(named: "New Markdown file in category") { promptNew(.file, category: category) }
+            .accessibilityAction(named: "New folder in category") { promptNew(.folder, category: category) }
+            .accessibilityAction(named: "Rename") { promptCategory(category) }
+            .accessibilityAction(named: "Move up") { browser.moveCategory(category.id, by: -1) }
+            .accessibilityAction(named: "Move down") { browser.moveCategory(category.id, by: 1) }
+            // The same quiet "+" a folder shows on hover, for making something that starts out in this category.
+            if hoveredHeader == id && browser.canManageCategories {
+                Menu {
+                    Button("New Markdown File…") { promptNew(.file, category: category) }
+                    Button("New Folder") { promptNew(.folder, category: category) }
+                } label: {
+                    Image(systemName: "plus.circle").font(.system(size: 12)).foregroundStyle(Color.secondary).frame(width: 22, height: 20)
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .help("Add to \(category.name)").accessibilityLabel("Add to \(category.name)")
+            }
+        }
+        .onHover { hovering in if hovering { hoveredHeader = id } else if hoveredHeader == id { hoveredHeader = nil } }
         .padding(.top, first ? 2 : 10)
-        .background(targetedHeader == "category:\(category.id)" ? Color.accentColor.opacity(0.2) : .clear, in: RoundedRectangle(cornerRadius: 6))
-        .dropDestination(for: URL.self) { urls, _ in dropOnHeader(urls, category: category.id) } isTargeted: { setTargeted("category:\(category.id)", $0) }
-        .help("Drag folders here to file them under \(category.name)")
+        .background(targetedHeader == id ? Color.accentColor.opacity(0.2) : .clear, in: RoundedRectangle(cornerRadius: 6))
+        .dropDestination(for: URL.self) { urls, _ in dropOnHeader(urls, category: category.id) } isTargeted: { setTargeted(id, $0) }
+        .help("Drag folders and files here to file them under \(category.name)")
         .contextMenu {
+            if browser.canManageCategories {
+                Button("New Markdown File in \(category.name)…") { promptNew(.file, category: category) }
+                Button("New Folder in \(category.name)") { promptNew(.folder, category: category) }
+                Divider()
+            }
             Button("Rename…") { promptCategory(category) }
             Menu("Color") {
                 ForEach(MarkColor.allCases, id: \.self) { color in
@@ -1446,19 +1526,17 @@ struct FolderBrowserSection: View {
         if on { targetedHeader = id } else if targetedHeader == id { targetedHeader = nil }
     }
 
-    /// Only folders shown in this very list can be filed; anything else is refused with a hint.
+    /// Only folders and files shown in this very list can be filed; anything else is refused with a hint.
     private func dropOnHeader(_ urls: [URL], category: String?) -> Bool {
         guard let current = browser.current else { return false }
         var filed = false
         for url in urls {
-            var isDirectory: ObjCBool = false
             guard url.deletingLastPathComponent().standardizedFileURL.path == current.standardizedFileURL.path,
-                  FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue,
-                  !FictionProject.isProject(url) else { continue }
+                  FileManager.default.fileExists(atPath: url.path), !FictionProject.isProject(url) else { continue }
             browser.assign(url, to: category)
             filed = true
         }
-        if !filed { problem = "Drag folders from this list onto a category to file them there." }
+        if !filed { problem = "Drag folders and files from this list onto a category to file them there." }
         return filed
     }
 
@@ -1603,6 +1681,7 @@ struct FolderBrowserSection: View {
     private func promptItem(_ item: NewProjectItem, in folder: URL? = nil) {
         guard let projectURL = browser.projectURL else { return }
         newProjectItem = item
+        newCategory = nil
         newFolder = folder ?? FictionProject.folder(for: item, in: projectURL)
         newName = item == .chapter ? FictionProject.nextChapterName(in: projectURL) : ""
         showNewItem = true
@@ -1665,6 +1744,22 @@ struct FolderBrowserSection: View {
             return
         }
         newProjectItem = nil
+        newCategory = nil
+        newKind = kind
+        newFolder = folder
+        newName = ""
+        showNewItem = true
+    }
+
+    /// New from a category's heading: made at the top of the writing folder and filed under the category straight away.
+    private func promptNew(_ kind: NewItemKind, category: FolderCategory) {
+        guard let folder = browser.current else { return }
+        if kind == .folder, !flat {
+            do { try browser.createFolderToName(inCategory: category.id) } catch { problem = error.localizedDescription }
+            return
+        }
+        newProjectItem = nil
+        newCategory = category
         newKind = kind
         newFolder = folder
         newName = ""
@@ -1677,6 +1772,9 @@ struct FolderBrowserSection: View {
             if let item = newProjectItem {
                 let url = try browser.createProjectItem(item, named: newName, in: newFolder)
                 switchFile(url)
+            } else if let category = newCategory {
+                let url = try browser.create(newKind, named: newName, inCategory: category.id)
+                if newKind == .file { switchFile(url) }
             } else {
                 let url = try browser.create(newKind, named: newName, in: folder)
                 if newKind == .file { switchFile(url) }
@@ -2086,6 +2184,7 @@ private struct BrowserRowView: View {
             if inProject && isMarkdown {
                 Button("Show as Card") { showCard(entry.url) }
             }
+            if !inProject { categoryMenu }
         }
         if browser.isChapter(entry.url) { chapterMenu }
         Divider()
