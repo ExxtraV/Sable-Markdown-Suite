@@ -150,7 +150,7 @@ The app now includes Sparkle, a Check for Updates menu item, and automatic-check
 
 ## Support Sable
 
-Sable is free and open source, and downloading it from GitHub or [sablewriter.app](https://sablewriter.app) always will be. If Sable comes to the Mac App Store, it may cost a small amount there, for the convenience of App Store installs and updates and to help cover Apple's $99 yearly developer fee. Every version has exactly the same features: nothing is held back or sold separately, and there are no subscriptions or in-app purchases. If you'd like to chip in anyway, you can [buy Sable a book](https://buymeacoffee.com/sablewriter). There's no need to.
+Sable is free and open source, and free to download from GitHub or [sablewriter.app](https://sablewriter.app). If Sable comes to the Mac App Store, it may cost a small amount there, for the convenience of App Store installs and updates and to help cover Apple's $99 yearly developer fee. Every version has exactly the same features: nothing is held back or sold separately, and there are no subscriptions or in-app purchases. If you'd like to chip in anyway, you can [buy Sable a book](https://buymeacoffee.com/sablewriter). There's no need to.
 
 ## License
 
@@ -163,6 +163,7 @@ The Sable Writer Suite and Sable Markdown Writer names and the Sable logo aren't
 - First launch opens a blank document and asks you to choose or create a writing folder, to just open a file, or to explore a sample project. **Not Now** closes the sheet and Sable asks again next time. Cloud folders are recommended; normal files elsewhere remain supported, and no folder is required.
 - Setup can include an editable **Sable Guide.md**. Open it again from Help; existing guide edits are never overwritten.
 - **Help → Report a Bug…** opens a small window for what happened and the steps, with an optional line of Sable, macOS, and Mac model details shown exactly as they would be included. **Open in GitHub** opens a bug report in your browser with those words filled in; nothing is sent from Sable, and the end of a very long report is cut with a note to fit the link. If Sable crashed in the last seven days, **Show Latest Crash Report** displays it for you to review and copy, and it is read only when you click. **Help → Send Feedback or Ideas** opens GitHub Discussions' Ideas category.
+- In the writing desk, categories (School, Work, Hobbies…) group the folders and files at the top of your writing folder without moving anything on disk. Make one from the **+** above the list, then drag folders or files onto its heading, or hover the heading and use its **+** (or Control-click it) for **New Markdown File** or **New Folder**, which start out in that category. Category headings and the **Fiction Projects**, **Folders**, and **Files** headings fold with a click and stay folded until you open them again.
 - Writing Style includes Graphite, Midnight, Chalk, Forest, Obsidian, Arcane, Starfall, Cosmic, Parchment, Paper, and Mist themes.
 - Zoom with Command-Plus/Minus, reset with Command-0, pinch the trackpad, or hold Command and turn a mouse wheel (5% per notch, 65%–200%). Pinch zoom can be disabled in Writing Style.
 - Move the pointer to the top edge to reveal the toolbar. Reading mode, focus, sidebar, styling, and sentence colors remain available from the View menu.
