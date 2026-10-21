@@ -271,7 +271,7 @@ private struct ManuscriptTab: View {
     @State private var targetedID: URL?
     @State private var problem: String?
     @FocusState private var focusedChapter: URL?
-    private let poll = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
+    private let poll = Timer.publish(every: 3, tolerance: 0.6, on: .main, in: .common).autoconnect()
 
     private func words(_ chapter: ChapterStat) -> Int {
         // The chapter you're typing in counts live; the rest come from disk.
@@ -309,7 +309,7 @@ private struct ManuscriptTab: View {
             if let problem { Text(problem).font(.caption).foregroundStyle(.orange) }
         }
         .onAppear(perform: reload)
-        .onReceive(poll) { _ in reload() }
+        .whileInUse(poll) { reload() }
         .onChange(of: browser.project?.chapterOrder) { _, _ in reload() }
         .onChange(of: browser.manuscriptURL) { _, _ in reload() }
         .onChange(of: currentURL) { _, _ in reload() }

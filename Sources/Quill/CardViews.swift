@@ -193,7 +193,7 @@ struct CardView: View {
     @State private var dropTargeted = false
     @AppStorage("fontFamily") private var family = "Charter"
     @Environment(\.colorSchemeContrast) private var contrast
-    private let poll = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
+    private let poll = Timer.publish(every: 1.5, tolerance: 0.3, on: .main, in: .common).autoconnect()
 
     init(card: Binding<OpenCard>, writingRoot: URL?, liveText: LiveText?, onClose: @escaping () -> Void, onEditBeside: @escaping () -> Void,
          onOpenInEditor: @escaping () -> Void, onSetField: @escaping (String, String, URL) -> Void, onProblem: @escaping (String) -> Void,
@@ -218,7 +218,7 @@ struct CardView: View {
             .onHover(perform: hover)
             .onAppear { model.refresh(liveText: liveText?.text) }
             .onChange(of: liveText) { _, text in model.refresh(liveText: text?.text) }
-            .onReceive(poll) { _ in if liveText == nil { model.refresh(liveText: nil) } }
+            .whileInUse(poll) { if liveText == nil { model.refresh(liveText: nil) } }
             .dropDestination(for: URL.self) { urls, _ in
                 guard let picture = urls.first(where: CardParsing.isImage) else { return false }
                 tagImage(picture)
@@ -738,7 +738,7 @@ struct SceneTagsLayer: View {
     @State private var quietTask: Task<Void, Never>?
     @State private var editing = false
     @State private var pointerOver = false
-    private let poll = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    private let poll = Timer.publish(every: 5, tolerance: 1, on: .main, in: .common).autoconnect()
 
     /// Chapters always offer the strip; other project files only when they already carry tags.
     private var tags: SceneTags? {
@@ -772,7 +772,7 @@ struct SceneTagsLayer: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { index.reload(project: browser.projectURL) }
         .onChange(of: browser.projectURL) { _, project in index.reload(project: project) }
-        .onReceive(poll) { _ in if browser.projectURL != nil { index.reload(project: browser.projectURL) } }
+        .whileInUse(poll) { if browser.projectURL != nil { index.reload(project: browser.projectURL) } }
         .onReceive(typing) { _ in noteTyping() }
         .onChange(of: editSignal) { _, _ in if tags != nil { editing = true } }
     }

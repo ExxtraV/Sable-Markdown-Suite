@@ -148,7 +148,7 @@ struct WritingView: View {
     @State private var needsSetup = false
     @State private var edited = false
     @State private var hasSavedFile = false
-    private let savePoll = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
+    private let savePoll = Timer.publish(every: 0.5, tolerance: 0.1, on: .main, in: .common).autoconnect()
     @State private var reading = false
     @State private var place = PagePlace()
     @Environment(\.openWindow) private var openWindow
@@ -240,7 +240,7 @@ struct WritingView: View {
                 if !edited { edited = true }
                 if !saveFeedback.message.isEmpty { saveFeedback.message = "" }
             }
-            .onReceive(savePoll) { _ in updateSaveState(); followMovedFiles() }
+            .whileInUse(savePoll) { updateSaveState(); followMovedFiles() }
             .onChange(of: browser.movesMade) { _, _ in followMovedFiles() }
             .onChange(of: parallelURL) { _, url in
                 if parallelTrail?.url != url { parallelTrail = url.map(FileTrail.init) }
