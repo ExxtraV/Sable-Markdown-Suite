@@ -77,7 +77,7 @@ private struct SeededGenerator: RandomNumberGenerator {
 
 /// Faint motes of light drifting slowly behind the text, for themes with a quiet fantasy touch: rising for Arcane,
 /// falling for Starfall, and for Cosmic a few large, soft, out-of-focus lights. Off entirely under Reduce Motion, and never
-/// intercepts clicks.
+/// intercepts clicks. Holds still while Sable isn't in use (see `Presence`).
 struct ParticleField: View {
     let colors: [Color]
     var count: Int = 44
@@ -87,6 +87,7 @@ struct ParticleField: View {
     var bokeh = false
     private struct Mote { let x, y, size, speed, phase: Double; let color: Int }
     private let motes: [Mote]
+    @ObservedObject private var presence = Presence.shared
 
     init(colors: [Color], count: Int = 44, drift: Double = 1, bokeh: Bool = false) {
         self.colors = colors.isEmpty ? [.white] : colors
@@ -106,9 +107,10 @@ struct ParticleField: View {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             EmptyView()
         } else {
-            TimelineView(.animation) { timeline in
+            // The motes are slow enough that thirty frames a second keeps them smooth, for a fraction of the full display rate's work.
+            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !presence.inUse)) { timeline in
+                let t = presence.motionTime(at: timeline.date)
                 Canvas { context, size in
-                    let t = timeline.date.timeIntervalSinceReferenceDate
                     for mote in motes {
                         let travelled = (mote.y - t * mote.speed * drift).truncatingRemainder(dividingBy: 1)
                         let y = travelled < 0 ? travelled + 1 : travelled
@@ -135,13 +137,15 @@ struct ParticleField: View {
 
 /// Soft clouds of color behind the page, for Cosmic: a nebula seen out of focus. Each cloud is a radial gradient that peaks at
 /// `opacity` and fades to nothing; `scripts/check-contrast.swift` measures text against one cloud and two overlapping. The
-/// clouds wander a little over a few minutes, and hold still under Reduce Motion. Never intercepts clicks.
+/// clouds wander a little over a few minutes, and hold still under Reduce Motion or while Sable isn't in use. Never
+/// intercepts clicks.
 struct NebulaHaze: View {
     let colors: [Color]
     let opacity: Double
     var animated = true
     private struct Cloud { let x, y, radius, wander, period, phase: Double; let color: Int }
     private let clouds: [Cloud]
+    @ObservedObject private var presence = Presence.shared
 
     init(colors: [Color], opacity: Double, animated: Bool = true) {
         self.colors = colors.isEmpty ? [.clear] : colors
@@ -161,7 +165,7 @@ struct NebulaHaze: View {
         Group {
             if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
                 // The clouds move a fraction of a point per frame, so a few frames a second is plenty.
-                TimelineView(.animation(minimumInterval: 1.0 / 12)) { timeline in canvas(at: timeline.date.timeIntervalSinceReferenceDate) }
+                TimelineView(.animation(minimumInterval: 1.0 / 12, paused: !presence.inUse)) { timeline in canvas(at: presence.motionTime(at: timeline.date)) }
             } else {
                 canvas(at: 0)
             }

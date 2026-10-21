@@ -375,6 +375,8 @@ final class WritingTextView: NSTextView, PageHolding {
     }
     private var shimmerTimer: Timer?
     private var shimmerStart = Date()
+    /// Starts and stops the shimmer as Sable comes into use and goes out of it, or this window is covered or minimized.
+    private var presenceWatch: AnyCancellable?
     /// The paragraph being written while paragraph focus is on; names elsewhere are dimmed and stay still.
     private var focusActive: NSRange?
     private var didSetInitialFocus = false
@@ -383,6 +385,7 @@ final class WritingTextView: NSTextView, PageHolding {
         super.viewDidMoveToWindow()
         settleOpening()
         observeScrollingForFocus()
+        watchPresence()
         updateShimmer()
         window?.titlebarAppearsTransparent = true
         window?.titlebarSeparatorStyle = .none
@@ -670,10 +673,11 @@ final class WritingTextView: NSTextView, PageHolding {
     // MARK: Name shimmer
 
     /// A soft light drifting through the letters of each name, then fading back to its color. It runs only while names are
-    /// on screen, never in Reduce Motion, and its strength and speed are set in Writing Style.
+    /// on screen and Sable is in use, never in Reduce Motion, and its strength and speed are set in Writing Style.
     func updateShimmer() {
         let strength = UserDefaults.standard.object(forKey: "nameShimmerStrength") as? Double ?? 0.6
-        let wanted = nameShimmer && strength > 0.01 && !nameRanges.isEmpty && window != nil && isEditable
+        let seen = Presence.shared.inUse && window?.occlusionState.contains(.visible) == true
+        let wanted = nameShimmer && strength > 0.01 && !nameRanges.isEmpty && seen && isEditable
             && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if wanted {
             guard shimmerTimer == nil else { return }
@@ -686,6 +690,14 @@ final class WritingTextView: NSTextView, PageHolding {
             shimmerTimer = nil
             restoreNameColors()
         }
+    }
+
+    private func watchPresence() {
+        guard let window else { return }
+        presenceWatch = Presence.shared.$inUse.map { _ in () }
+            .merge(with: NotificationCenter.default.publisher(for: NSWindow.didChangeOcclusionStateNotification, object: window).map { _ in () })
+            .receive(on: DispatchQueue.main)   // `inUse` is about to change, not changed, when it publishes
+            .sink { [weak self] in MainActor.assumeIsolated { self?.updateShimmer() } }
     }
 
     private func restoreNameColors() {
@@ -767,6 +779,7 @@ final class WritingTextView: NSTextView, PageHolding {
             (delegate as? NativeEditor.Coordinator)?.flush()
             shimmerTimer?.invalidate()
             shimmerTimer = nil
+            presenceWatch = nil
         }
         if newWindow == nil, let scrollObserver {
             NotificationCenter.default.removeObserver(scrollObserver)

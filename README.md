@@ -113,6 +113,7 @@ For an iPad edition, reuse `QuillCore` and the document model, add a UIKit text 
 - `Sources/QuillCore/FocusParagraph.swift`: Markdown paragraph boundaries for focus mode.
 - `Sources/Quill/ZoomSteps.swift`: zoom limits and how the mouse wheel steps through them.
 - `Sources/Quill/DeskQuieting.swift`, `Sources/Quill/QuietDesk.swift`: when the writing desk fades during steady typing and what brings it back. `scripts/check-desk-quieting.swift` checks it.
+- `Sources/Quill/Presence.swift`: whether Sable is the app in use; the drifting backgrounds, the name shimmer, and the background file checks rest when it isn't. `scripts/check-presence.swift` checks it.
 - `Sources/Quill/FolderBrowser.swift`: folder access, file filtering, navigation, file menu, and the session-only view of a file's folder.
 - `Sources/Quill/MarkdownFileTypes.swift`: which file extensions count as Markdown or text, shared by the desk, search, import, and the Open panel.
 - `Sources/Quill/RecentFiles.swift`: the optional Recent tab's list (newest first, capped, only recorded while the tab is on).

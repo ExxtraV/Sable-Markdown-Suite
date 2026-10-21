@@ -121,7 +121,7 @@ struct ParallelMarkdownPane: View {
 
 private struct ParallelDocumentContent: View {
     @ObservedObject var document: ParallelDocument
-    private let whereaboutsPoll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private let whereaboutsPoll = Timer.publish(every: 1, tolerance: 0.2, on: .main, in: .common).autoconnect()
     let editing: Bool
     var zoom = 1.0
     var place: PagePlace? = nil
@@ -186,6 +186,6 @@ private struct ParallelDocumentContent: View {
                 Text("The other version is in the Trash as “\(kept.lastPathComponent)”.").font(.caption).foregroundStyle(.secondary).padding(12)
             }
         }
-        .onReceive(whereaboutsPoll) { _ in document.checkWhereabouts() }
+        .whileInUse(whereaboutsPoll) { document.checkWhereabouts() }
     }
 }
