@@ -2,7 +2,9 @@
 
 All notable changes to Sable Markdown Writer are documented here. The app was originally called New Quill; it was rebranded to Sable Markdown Writer in 0.7.0. Entries are written by Claude Code.
 
-## Unreleased
+## 1.0.1
+
+A fix for Sable using CPU while it sat in the background.
 
 - **Fixed: Sable used a lot of CPU while it sat in the background.** The Arcane, Starfall, and Cosmic backgrounds, the name shimmer, and Sable's background file checks kept running when Sable was minimized, hidden, covered, or behind another app, and the drifting lights redrew at the display's full rate (up to 120 frames a second). New `Presence` (`Sources/Quill/Presence.swift`) tracks whether Sable is the frontmost app with a window on screen. While it isn't, `ParticleField` and `NebulaHaze` pause their `TimelineView`s, the name shimmer's timer stops (it also stops for a single window that is minimized or covered), and the polls behind the save state, moved files, the reference pane, cards, scene tags, and the Manuscript tab skip their work; each runs once straight away on coming back, so anything changed meanwhile shows up at once. The motion runs on a `MotionClock` that stands still while Sable rests, so the lights carry on from where they were instead of jumping. `ParticleField` is now capped at 30 frames a second, and the poll timers have a tolerance so macOS can group their wake-ups. Measured on a Mac with Cosmic and a chapter open: in the background or minimized, CPU went from about 25 to 28% to about 0%; in front, from about 30% to about 22%. New `check-presence.swift` covers the rule and the clock; the editor checks now compile `Presence.swift`.
 
