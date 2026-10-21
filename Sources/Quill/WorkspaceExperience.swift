@@ -107,7 +107,7 @@ struct ParticleField: View {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             EmptyView()
         } else {
-            AmbientLayers(scene: .motes(motes, colors: colors.map { NSColor($0).cgColor }, drift: drift, bokeh: bokeh), running: presence.inUse)
+            AmbientLayers(scene: .motes(motes, colors: colors.map { NSColor($0) }, drift: drift, bokeh: bokeh), running: presence.inUse)
                 .allowsHitTesting(false).accessibilityHidden(true)
         }
     }
@@ -141,7 +141,7 @@ struct NebulaHaze: View {
     var body: some View {
         Group {
             if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-                AmbientLayers(scene: .haze(clouds, colors: colors.map { NSColor($0).cgColor }, opacity: opacity), running: presence.inUse)
+                AmbientLayers(scene: .haze(clouds, colors: colors.map { NSColor($0) }, opacity: opacity), running: presence.inUse)
             } else {
                 still
             }
