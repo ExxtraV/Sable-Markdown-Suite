@@ -9,8 +9,6 @@ import SwiftUI
 @MainActor final class Presence: ObservableObject {
     static let shared = Presence()
     @Published private(set) var inUse: Bool
-    /// Moving backgrounds run on this clock, which stops while Sable rests, so the motes carry on from where they were.
-    private var clock = MotionClock()
     private var watching: [AnyCancellable] = []
 
     private init() {
@@ -24,15 +22,9 @@ import SwiftUI
         }
     }
 
-    /// Seconds of motion so far, for a `TimelineView` date.
-    func motionTime(at date: Date) -> TimeInterval { clock.time(at: date.timeIntervalSinceReferenceDate) }
-
     private func refresh() {
         let now = Self.measure()
-        guard now != inUse else { return }
-        let time = Date().timeIntervalSinceReferenceDate
-        if now { clock.resume(at: time) } else { clock.rest(at: time) }
-        inUse = now
+        if now != inUse { inUse = now }
     }
 
     private static func measure() -> Bool {
@@ -44,24 +36,6 @@ import SwiftUI
 enum PresenceRule {
     /// In front, and at least part of one window can be seen.
     static func inUse(active: Bool, hidden: Bool, onScreen: Bool) -> Bool { active && !hidden && onScreen }
-}
-
-/// A clock that stands still while it rests and carries on from the same moment afterward, so motion driven by it never jumps.
-struct MotionClock {
-    private var restingSince: TimeInterval?
-    private var rested: TimeInterval = 0
-
-    mutating func rest(at time: TimeInterval) {
-        if restingSince == nil { restingSince = time }
-    }
-
-    mutating func resume(at time: TimeInterval) {
-        guard let since = restingSince else { return }
-        rested += max(0, time - since)
-        restingSince = nil
-    }
-
-    func time(at time: TimeInterval) -> TimeInterval { (restingSince ?? time) - rested }
 }
 
 /// Runs a background check on each tick while Sable is in use, and once straight away on coming back to it, so a file
