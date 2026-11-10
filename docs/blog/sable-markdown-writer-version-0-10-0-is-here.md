@@ -73,9 +73,6 @@ All the files are local and are *your* files. Sable does not use or send your da
 
 That being said, future development of Sable has a cost. Apple charges $99 a year for its developer program, which would allow Sable to get notarized and potentially lead to a release on the App Store or even an iPad or iPhone version. And continued development costs both time and money.
 
-If you’d like to support Sable, feel free to donate, but don’t feel the need to.
-https://buymeacoffee.com/SableWriter
-
 ## Roadmap Toward the Future
 
 I plan to continue to update Sable. I have some features down the roadmap for updating the timeline visualizations, manuscript insights, relationship graphs, and more exporting features.
