@@ -88,8 +88,6 @@
 <p>Sable was "vibe-coded" but with a process. Sable was built using a product roadmap with various checks in the process to make sure Sable is both secure and efficient. Sable has gone through multiple reviews and revision by Claude Code, which I’ve reviewed along the way.</p>
 <p>All the files are local and are <em>your</em> files. Sable does not use or send your data anywhere. The only time it connects to the internet is to check for new updates.</p>
 <p>That being said, future development of Sable has a cost. Apple charges $99 a year for its developer program, which would allow Sable to get notarized and potentially lead to a release on the App Store or even an iPad or iPhone version. And continued development costs both time and money.</p>
-<p>If you’d like to support Sable, feel free to donate, but don’t feel the need to.
-<a href="https://buymeacoffee.com/SableWriter">https://buymeacoffee.com/SableWriter</a></p>
 <h2>Roadmap Toward the Future</h2>
 <p>I plan to continue to update Sable. I have some features down the roadmap for updating the timeline visualizations, manuscript insights, relationship graphs, and more exporting features.</p>
 <p>I'm excited to be able to release version 0.10.0 for your use. Let me know what you think!</p>
