@@ -5,7 +5,7 @@
     <link>https://sablewriter.app/blog</link>
     <description>News and notes from the Sable Markdown Writer project.</description>
     <language>en</language>
-    <lastBuildDate>Thu, 24 Sep 2026 12:00:00 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 10 Nov 2026 12:00:00 GMT</lastBuildDate>
     <atom:link href="https://sablewriter.app/blog/feed.xml" rel="self" type="application/rss+xml"/>
     <item>
       <title>Sable Markdown Writer - Version 0.10.0 is Here!</title>
@@ -87,8 +87,6 @@
 <p>Sable was made primarily with Claude Code, with a little bit of Codex usage. I am not a software developer. I only have a semester of computer science and decided that career was not the path for me. I'm just a writer who really wanted a Markdown writer that fit my needs and did it well.</p>
 <p>Sable was "vibe-coded" but with a process. Sable was built using a product roadmap with various checks in the process to make sure Sable is both secure and efficient. Sable has gone through multiple reviews and revision by Claude Code, which I’ve reviewed along the way.</p>
 <p>All the files are local and are <em>your</em> files. Sable does not use or send your data anywhere. The only time it connects to the internet is to check for new updates.</p>
-<h2>Free &amp; Open Source</h2>
-<p>Because of the nature of the development, I decided that the best course of action was to keep Sable <em>free</em> and <em>open source</em>. I'm not developing this to try to make money. I'm just trying to make a Markdown editor that I would personally use day to day.</p>
 <p>That being said, future development of Sable has a cost. Apple charges $99 a year for its developer program, which would allow Sable to get notarized and potentially lead to a release on the App Store or even an iPad or iPhone version. And continued development costs both time and money.</p>
 <p>If you’d like to support Sable, feel free to donate, but don’t feel the need to.
 <a href="https://buymeacoffee.com/SableWriter">https://buymeacoffee.com/SableWriter</a></p>

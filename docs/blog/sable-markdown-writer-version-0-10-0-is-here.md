@@ -71,10 +71,6 @@ Sable was "vibe-coded" but with a process. Sable was built using a product roadm
 
 All the files are local and are *your* files. Sable does not use or send your data anywhere. The only time it connects to the internet is to check for new updates.
 
-## Free & Open Source
-
-Because of the nature of the development, I decided that the best course of action was to keep Sable *free* and *open source*. I'm not developing this to try to make money. I'm just trying to make a Markdown editor that I would personally use day to day. 
-
 That being said, future development of Sable has a cost. Apple charges $99 a year for its developer program, which would allow Sable to get notarized and potentially lead to a release on the App Store or even an iPad or iPhone version. And continued development costs both time and money.
 
 If you’d like to support Sable, feel free to donate, but don’t feel the need to.
