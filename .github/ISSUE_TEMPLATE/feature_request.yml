@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before filing, it's worth a quick check of [the roadmap](../../docs/ROADMAP.md) — your idea may already be planned, or may be a deliberate "not planned" choice (Sable stays free, local-first, and without generative AI, accounts, real-time collaboration, or streaks).
+        Before filing, it's worth a quick check of [the roadmap](../../docs/ROADMAP.md) — your idea may already be planned, or may be a deliberate "not planned" choice (Sable stays local-first and without generative AI, accounts, real-time collaboration, or streaks).
   - type: textarea
     id: problem
     attributes:
